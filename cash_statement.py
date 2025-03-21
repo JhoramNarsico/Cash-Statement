@@ -6,7 +6,7 @@ import os
 from decimal import Decimal
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet
 
 class CashFlowStatementApp:
@@ -60,13 +60,32 @@ class CashFlowStatementApp:
         self.ending_cash_hand = tk.StringVar()
         
         self.create_widgets()
-    
+        self.setup_keyboard_shortcuts()
+
+    def setup_keyboard_shortcuts(self):
+        self.root.bind('<Control-s>', lambda e: self.save_to_csv())
+        self.root.bind('<Control-p>', lambda e: self.print_statement())
+        self.root.bind('<Control-e>', lambda e: self.export_to_pdf())
+        self.root.bind('<Control-c>', lambda e: self.calculate_totals())
+        self.root.bind('<Control-l>', lambda e: self.load_from_csv())
+
+    def format_entry(self, var, entry_widget):
+        def on_change(*args):
+            value = var.get()
+            if value:
+                try:
+                    formatted = f"{Decimal(value.replace(',', '')):,.2f}"
+                    var.set(formatted)
+                except:
+                    pass
+        
+        var.trace('w', on_change)
+        entry_widget.config(justify='right')
+
     def create_widgets(self):
-        # Create a main frame with scrolling
         main_frame = ttk.Frame(self.root)
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        # Create a canvas with scrollbar
         canvas = tk.Canvas(main_frame)
         scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
         scrollable_frame = ttk.Frame(canvas)
@@ -86,23 +105,23 @@ class CashFlowStatementApp:
         title_frame = ttk.Frame(scrollable_frame)
         title_frame.pack(fill="x", pady=5)
         
-        title_label = ttk.Label(title_frame, text="Title:")
-        title_label.pack(side="left", padx=5)
-        title_entry = ttk.Entry(title_frame, textvariable=self.title_var, width=40)
-        title_entry.pack(side="left", padx=5)
-        
-        date_label = ttk.Label(title_frame, text=f"Date: {self.today_date}")
-        date_label.pack(side="left", padx=20)
+        ttk.Label(title_frame, text="Title:").pack(side="left", padx=5)
+        ttk.Entry(title_frame, textvariable=self.title_var, width=40).pack(side="left", padx=5)
+        ttk.Label(title_frame, text=f"Date: {self.today_date}").pack(side="left", padx=20)
         
         # Beginning Cash Balances
         beg_frame = ttk.LabelFrame(scrollable_frame, text="Beginning Cash Balances")
         beg_frame.pack(fill="x", pady=5)
         
         ttk.Label(beg_frame, text="Cash in Bank (beginning):").grid(row=0, column=0, sticky="w", padx=5, pady=2)
-        ttk.Entry(beg_frame, textvariable=self.cash_bank_beg, width=15).grid(row=0, column=1, padx=5, pady=2)
+        bank_beg_entry = ttk.Entry(beg_frame, textvariable=self.cash_bank_beg, width=15)
+        bank_beg_entry.grid(row=0, column=1, padx=5, pady=2)
+        self.format_entry(self.cash_bank_beg, bank_beg_entry)
         
         ttk.Label(beg_frame, text="Cash on Hand (beginning):").grid(row=1, column=0, sticky="w", padx=5, pady=2)
-        ttk.Entry(beg_frame, textvariable=self.cash_hand_beg, width=15).grid(row=1, column=1, padx=5, pady=2)
+        hand_beg_entry = ttk.Entry(beg_frame, textvariable=self.cash_hand_beg, width=15)
+        hand_beg_entry.grid(row=1, column=1, padx=5, pady=2)
+        self.format_entry(self.cash_hand_beg, hand_beg_entry)
         
         # Cash Inflows
         inflow_frame = ttk.LabelFrame(scrollable_frame, text="Cash Inflows")
@@ -122,7 +141,9 @@ class CashFlowStatementApp:
         
         for i, (label, var) in enumerate(inflow_items):
             ttk.Label(inflow_frame, text=label).grid(row=i, column=0, sticky="w", padx=5, pady=2)
-            ttk.Entry(inflow_frame, textvariable=var, width=15).grid(row=i, column=1, padx=5, pady=2)
+            entry = ttk.Entry(inflow_frame, textvariable=var, width=15)
+            entry.grid(row=i, column=1, padx=5, pady=2)
+            self.format_entry(var, entry)
         
         ttk.Label(inflow_frame, text="Total Cash receipt:").grid(row=len(inflow_items), column=0, sticky="w", padx=5, pady=2)
         ttk.Entry(inflow_frame, textvariable=self.total_receipts, width=15, state="readonly").grid(row=len(inflow_items), column=1, padx=5, pady=2)
@@ -156,7 +177,9 @@ class CashFlowStatementApp:
         
         for i, (label, var) in enumerate(outflow_items):
             ttk.Label(outflow_frame, text=label).grid(row=i+1, column=0, sticky="w", padx=5, pady=2)
-            ttk.Entry(outflow_frame, textvariable=var, width=15).grid(row=i+1, column=1, padx=5, pady=2)
+            entry = ttk.Entry(outflow_frame, textvariable=var, width=15)
+            entry.grid(row=i+1, column=1, padx=5, pady=2)
+            self.format_entry(var, entry)
         
         # Ending Cash Balances
         end_frame = ttk.LabelFrame(scrollable_frame, text="Ending Cash Balances")
@@ -166,98 +189,89 @@ class CashFlowStatementApp:
         ttk.Entry(end_frame, textvariable=self.ending_cash, width=15, state="readonly").grid(row=0, column=1, padx=5, pady=2)
         
         ttk.Label(end_frame, text="Cash in Bank:").grid(row=1, column=0, sticky="w", padx=5, pady=2)
-        ttk.Entry(end_frame, textvariable=self.ending_cash_bank, width=15).grid(row=1, column=1, padx=5, pady=2)
+        bank_end_entry = ttk.Entry(end_frame, textvariable=self.ending_cash_bank, width=15)
+        bank_end_entry.grid(row=1, column=1, padx=5, pady=2)
+        self.format_entry(self.ending_cash_bank, bank_end_entry)
         
         ttk.Label(end_frame, text="Cash on Hand:").grid(row=2, column=0, sticky="w", padx=5, pady=2)
-        ttk.Entry(end_frame, textvariable=self.ending_cash_hand, width=15).grid(row=2, column=1, padx=5, pady=2)
+        hand_end_entry = ttk.Entry(end_frame, textvariable=self.ending_cash_hand, width=15)
+        hand_end_entry.grid(row=2, column=1, padx=5, pady=2)
+        self.format_entry(self.ending_cash_hand, hand_end_entry)
         
         # Buttons Frame
         button_frame = ttk.Frame(scrollable_frame)
         button_frame.pack(fill="x", pady=10)
         
-        calc_button = ttk.Button(button_frame, text="Calculate Totals", command=self.calculate_totals)
-        calc_button.pack(side="left", padx=5)
-        
-        save_button = ttk.Button(button_frame, text="Save to CSV", command=self.save_to_csv)
-        save_button.pack(side="left", padx=5)
-        
-        clear_button = ttk.Button(button_frame, text="Clear All Fields", command=self.clear_fields)
-        clear_button.pack(side="left", padx=5)
-        
-        print_button = ttk.Button(button_frame, text="Print Statement", command=self.print_statement)
-        print_button.pack(side="left", padx=5)
-        
-        # New PDF export button
-        pdf_button = ttk.Button(button_frame, text="Export to PDF", command=self.export_to_pdf)
-        pdf_button.pack(side="left", padx=5)
-    
+        ttk.Button(button_frame, text="Calculate Totals (Ctrl+C)", command=self.calculate_totals).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Save to CSV (Ctrl+S)", command=self.save_to_csv).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Load from CSV (Ctrl+L)", command=self.load_from_csv).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Clear All Fields", command=self.clear_fields).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Print Statement (Ctrl+P)", command=self.print_statement).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Export to PDF (Ctrl+E)", command=self.export_to_pdf).pack(side="left", padx=5)
+
+    def safe_decimal(self, var):
+        val = var.get().strip()
+        if not val:
+            return Decimal("0")
+        try:
+            val = val.replace(",", "")
+            return Decimal(val)
+        except:
+            raise ValueError(f"Invalid number: {val}")
+
     def calculate_totals(self):
         try:
-            # Convert entries to decimal, treating empty as 0
-            def safe_decimal(var):
-                val = var.get()
-                if val == "":
-                    return Decimal("0")
-                return Decimal(val)
-            
-            # Calculate total cash receipts
             inflow_total = sum([
-                safe_decimal(self.monthly_dues),
-                safe_decimal(self.certifications),
-                safe_decimal(self.membership_fee),
-                safe_decimal(self.vehicle_stickers),
-                safe_decimal(self.rentals),
-                safe_decimal(self.solicitations),
-                safe_decimal(self.interest_income),
-                safe_decimal(self.livelihood_fee),
-                safe_decimal(self.inflows_others)
+                self.safe_decimal(self.monthly_dues),
+                self.safe_decimal(self.certifications),
+                self.safe_decimal(self.membership_fee),
+                self.safe_decimal(self.vehicle_stickers),
+                self.safe_decimal(self.rentals),
+                self.safe_decimal(self.solicitations),
+                self.safe_decimal(self.interest_income),
+                self.safe_decimal(self.livelihood_fee),
+                self.safe_decimal(self.inflows_others)
             ])
             
-            # Calculate total cash outflows
             outflow_total = sum([
-                safe_decimal(self.snacks_meals),
-                safe_decimal(self.transportation),
-                safe_decimal(self.office_supplies),
-                safe_decimal(self.printing),
-                safe_decimal(self.labor),
-                safe_decimal(self.billboard),
-                safe_decimal(self.cleaning),
-                safe_decimal(self.misc_expenses),
-                safe_decimal(self.federation_fee),
-                safe_decimal(self.uniforms),
-                safe_decimal(self.bod_mtg),
-                safe_decimal(self.general_assembly),
-                safe_decimal(self.cash_deposit),
-                safe_decimal(self.withholding_tax),
-                safe_decimal(self.refund_sericulture),
-                safe_decimal(self.outflows_others),
-                safe_decimal(self.outflows_others_2)
+                self.safe_decimal(self.snacks_meals),
+                self.safe_decimal(self.transportation),
+                self.safe_decimal(self.office_supplies),
+                self.safe_decimal(self.printing),
+                self.safe_decimal(self.labor),
+                self.safe_decimal(self.billboard),
+                self.safe_decimal(self.cleaning),
+                self.safe_decimal(self.misc_expenses),
+                self.safe_decimal(self.federation_fee),
+                self.safe_decimal(self.uniforms),
+                self.safe_decimal(self.bod_mtg),
+                self.safe_decimal(self.general_assembly),
+                self.safe_decimal(self.cash_deposit),
+                self.safe_decimal(self.withholding_tax),
+                self.safe_decimal(self.refund_sericulture),
+                self.safe_decimal(self.outflows_others),
+                self.safe_decimal(self.outflows_others_2)
             ])
             
-            # Calculate ending cash balance
-            beginning_total = safe_decimal(self.cash_bank_beg) + safe_decimal(self.cash_hand_beg)
+            beginning_total = self.safe_decimal(self.cash_bank_beg) + self.safe_decimal(self.cash_hand_beg)
             ending_balance = beginning_total + inflow_total - outflow_total
             
-            # Update the calculated fields
-            self.total_receipts.set(str(inflow_total))
-            self.cash_outflows.set(str(outflow_total))
-            self.ending_cash.set(str(ending_balance))
+            self.total_receipts.set(f"{inflow_total:,.2f}")
+            self.cash_outflows.set(f"{outflow_total:,.2f}")
+            self.ending_cash.set(f"{ending_balance:,.2f}")
             
-            # Auto-fill the ending cash breakdown if not manually entered
             if not self.ending_cash_bank.get() and not self.ending_cash_hand.get():
-                # Just for a default split, put most in bank
-                self.ending_cash_bank.set(str(ending_balance * Decimal("0.8")))
-                self.ending_cash_hand.set(str(ending_balance * Decimal("0.2")))
+                self.ending_cash_bank.set(f"{ending_balance * Decimal('0.8'):,.2f}")
+                self.ending_cash_hand.set(f"{ending_balance * Decimal('0.2'):,.2f}")
             
             messagebox.showinfo("Success", "Calculations complete!")
             
         except Exception as e:
             messagebox.showerror("Error", f"Calculation error: {str(e)}\nPlease ensure all values are valid numbers.")
-    
+
     def save_to_csv(self):
         try:
             filename = f"cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-            
             with open(filename, 'w', newline='') as csvfile:
                 writer = csv.writer(csvfile)
                 writer.writerow([self.title_var.get()])
@@ -308,9 +322,58 @@ class CashFlowStatementApp:
             
         except Exception as e:
             messagebox.showerror("Error", f"Error saving to CSV: {str(e)}")
-    
+
+    def load_from_csv(self):
+        try:
+            from tkinter import filedialog
+            filename = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
+            if not filename:
+                return
+                
+            with open(filename, 'r') as csvfile:
+                reader = csv.reader(csvfile)
+                data = list(reader)
+                self.title_var.set(data[0][0])
+                self.cash_bank_beg.set(data[3][1])
+                self.cash_hand_beg.set(data[4][1])
+                self.monthly_dues.set(data[7][1])
+                self.certifications.set(data[8][1])
+                self.membership_fee.set(data[9][1])
+                self.vehicle_stickers.set(data[10][1])
+                self.rentals.set(data[11][1])
+                self.solicitations.set(data[12][1])
+                self.interest_income.set(data[13][1])
+                self.livelihood_fee.set(data[14][1])
+                self.inflows_others.set(data[15][1])
+                self.total_receipts.set(data[16][1])
+                self.cash_outflows.set(data[19][1])
+                self.snacks_meals.set(data[20][1])
+                self.transportation.set(data[21][1])
+                self.office_supplies.set(data[22][1])
+                self.printing.set(data[23][1])
+                self.labor.set(data[24][1])
+                self.billboard.set(data[25][1])
+                self.cleaning.set(data[26][1])
+                self.misc_expenses.set(data[27][1])
+                self.federation_fee.set(data[28][1])
+                self.uniforms.set(data[29][1])
+                self.bod_mtg.set(data[30][1])
+                self.general_assembly.set(data[31][1])
+                self.cash_deposit.set(data[32][1])
+                self.withholding_tax.set(data[33][1])
+                self.refund_sericulture.set(data[34][1])
+                self.outflows_others.set(data[35][1])
+                self.outflows_others_2.set(data[36][1])
+                self.ending_cash.set(data[38][1])
+                self.ending_cash_bank.set(data[41][1])
+                self.ending_cash_hand.set(data[42][1])
+            
+            messagebox.showinfo("Success", f"Loaded data from {filename}")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error loading CSV: {str(e)}")
+
     def clear_fields(self):
-        # Clear all entry fields
         for var in [
             self.cash_bank_beg, self.cash_hand_beg,
             self.monthly_dues, self.certifications, self.membership_fee,
@@ -325,25 +388,20 @@ class CashFlowStatementApp:
         ]:
             var.set("")
         
-        # Clear calculated fields
         self.total_receipts.set("")
         self.cash_outflows.set("")
         self.ending_cash.set("")
         
         messagebox.showinfo("Success", "All fields have been cleared")
-    
+
     def print_statement(self):
         try:
-            # Create a simple text representation that could be printed
             filename = f"cash_flow_statement_print_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-            
             with open(filename, 'w') as f:
                 f.write(f"{self.title_var.get()}\n")
                 f.write(f"For the year month {self.today_date}\n\n")
-                
                 f.write(f"Cash in Bank-beg ({self.today_date}): {self.cash_bank_beg.get()}\n")
                 f.write(f"Cash on Hand-beg: {self.cash_hand_beg.get()}\n\n")
-                
                 f.write("Cash inflows:\n")
                 f.write(f"Monthly dues collected: {self.monthly_dues.get()}\n")
                 f.write(f"Certifications issued: {self.certifications.get()}\n")
@@ -355,7 +413,6 @@ class CashFlowStatementApp:
                 f.write(f"Livelihood Management Fee: {self.livelihood_fee.get()}\n")
                 f.write(f"Others: {self.inflows_others.get()}\n")
                 f.write(f"Total Cash receipt: {self.total_receipts.get()}\n\n")
-                
                 f.write("Less:\n")
                 f.write(f"Cash Out Flows/Disbursements: {self.cash_outflows.get()}\n")
                 f.write(f"Snacks/Meals for visitors: {self.snacks_meals.get()}\n")
@@ -374,14 +431,11 @@ class CashFlowStatementApp:
                 f.write(f"Withholding tax on bank deposit: {self.withholding_tax.get()}\n")
                 f.write(f"Refund for seri-culture: {self.refund_sericulture.get()}\n")
                 f.write(f"Others: {self.outflows_others.get()} {self.outflows_others_2.get()}\n\n")
-                
                 f.write(f"Ending cash balance: {self.ending_cash.get()}\n\n")
-                
                 f.write("Breakdown of cash:\n")
                 f.write(f"Cash in Bank: {self.ending_cash_bank.get()}\n")
                 f.write(f"Cash on Hand: {self.ending_cash_hand.get()}\n")
             
-            # Confirm file was created and give instructions
             if os.path.exists(filename):
                 messagebox.showinfo("Success", f"Print file created: {filename}\nYou can open this file and print it from your text editor.")
             else:
@@ -389,35 +443,32 @@ class CashFlowStatementApp:
                 
         except Exception as e:
             messagebox.showerror("Error", f"Error creating print file: {str(e)}")
-    
+
     def export_to_pdf(self):
         try:
-            # Format amounts for display
             def format_amount(value):
                 if value:
                     try:
-                        # Try to convert to Decimal for proper formatting
-                        amount = Decimal(value)
+                        amount = Decimal(value.replace(',', ''))
                         return f"{amount:,.2f}"
                     except:
                         return value
                 return ""
 
-            # Create filename with timestamp
             filename = f"cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-            
-            # Create the PDF document
             doc = SimpleDocTemplate(filename, pagesize=letter)
             styles = getSampleStyleSheet()
             elements = []
             
-            # Title
-            title_style = styles['Title']
-            elements.append(Paragraph(self.title_var.get(), title_style))
+            # Add company logo if available
+            if os.path.exists("logo.png"):
+                elements.append(Image("logo.png", width=100, height=100))
+                elements.append(Spacer(1, 12))
+            
+            elements.append(Paragraph(self.title_var.get(), styles['Title']))
             elements.append(Paragraph(f"For the year month {self.today_date}", styles['Normal']))
             elements.append(Spacer(1, 12))
             
-            # Beginning balances
             beg_data = [
                 ["Cash in Bank-beg", format_amount(self.cash_bank_beg.get())],
                 ["Cash on Hand-beg", format_amount(self.cash_hand_beg.get())]
@@ -432,10 +483,8 @@ class CashFlowStatementApp:
             elements.append(beg_table)
             elements.append(Spacer(1, 12))
             
-            # Cash inflows
             elements.append(Paragraph("<b>Cash inflows:</b>", styles['Normal']))
             elements.append(Spacer(1, 6))
-            
             inflows_data = [
                 ["Monthly dues collected", format_amount(self.monthly_dues.get())],
                 ["Certifications issued", format_amount(self.certifications.get())],
@@ -448,7 +497,6 @@ class CashFlowStatementApp:
                 ["Others", format_amount(self.inflows_others.get())],
                 ["Total Cash receipt", format_amount(self.total_receipts.get())]
             ]
-            
             inflows_table = Table(inflows_data, colWidths=[300, 150])
             inflows_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
@@ -459,10 +507,8 @@ class CashFlowStatementApp:
             elements.append(inflows_table)
             elements.append(Spacer(1, 12))
             
-            # Cash outflows
             elements.append(Paragraph("<b>Less:</b>", styles['Normal']))
             elements.append(Spacer(1, 6))
-            
             outflows_data = [
                 ["Cash Out Flows/Disbursements", format_amount(self.cash_outflows.get())],
                 ["Snacks/Meals for visitors", format_amount(self.snacks_meals.get())],
@@ -483,7 +529,6 @@ class CashFlowStatementApp:
                 ["Others", format_amount(self.outflows_others.get())],
                 ["", format_amount(self.outflows_others_2.get())]
             ]
-            
             outflows_table = Table(outflows_data, colWidths=[300, 150])
             outflows_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
@@ -494,7 +539,6 @@ class CashFlowStatementApp:
             elements.append(outflows_table)
             elements.append(Spacer(1, 12))
             
-            # Ending balances
             ending_data = [
                 ["Ending cash balance", format_amount(self.ending_cash.get())]
             ]
@@ -508,10 +552,8 @@ class CashFlowStatementApp:
             elements.append(ending_table)
             elements.append(Spacer(1, 12))
             
-            # Breakdown of cash
             elements.append(Paragraph("<b>Breakdown of cash:</b>", styles['Normal']))
             elements.append(Spacer(1, 6))
-            
             breakdown_data = [
                 ["Cash in Bank", format_amount(self.ending_cash_bank.get())],
                 ["Cash on Hand", format_amount(self.ending_cash_hand.get())]
@@ -523,16 +565,17 @@ class CashFlowStatementApp:
             ]))
             elements.append(breakdown_table)
             
-            # Build the PDF
-            doc.build(elements)
+            def add_page_numbers(canvas, doc):
+                page_num = canvas.getPageNumber()
+                text = f"Page {page_num}"
+                canvas.drawRightString(200, 20, text)
             
+            doc.build(elements, onFirstPage=add_page_numbers, onLaterPages=add_page_numbers)
             messagebox.showinfo("Success", f"PDF successfully exported to {filename}")
             
         except Exception as e:
             messagebox.showerror("Error", f"Error exporting to PDF: {str(e)}\n\nMake sure you have ReportLab installed by running:\npip install reportlab")
 
-
-# Main application
 if __name__ == "__main__":
     root = tk.Tk()
     app = CashFlowStatementApp(root)
