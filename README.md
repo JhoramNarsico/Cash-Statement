@@ -7,3 +7,6 @@ para mu run sa vs code, i install sani:
 *pip install tkcalendar
 
 *pip install reportlab
+
+export to exe. app:
+python -m PyInstaller --onefile --windowed cash_statement.py
