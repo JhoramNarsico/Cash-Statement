@@ -1,5 +1,5 @@
 para mu run sa vs code, i install sani: 
 
-pip install tkcalendar
+*pip install tkcalendar
 
-pip install reportlab
+*pip install reportlab
