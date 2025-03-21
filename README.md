@@ -1,3 +1,7 @@
+install first ang tkinter (python GUI)
+link: https://www.youtube.com/watch?v=chrXKX4FV-c
+
+
 para mu run sa vs code, i install sani: 
 
 *pip install tkcalendar
