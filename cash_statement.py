@@ -64,7 +64,6 @@ class CashFlowStatementApp:
 
     def setup_keyboard_shortcuts(self):
         self.root.bind('<Control-s>', lambda e: self.save_to_csv())
-        self.root.bind('<Control-p>', lambda e: self.print_statement())
         self.root.bind('<Control-e>', lambda e: self.export_to_pdf())
         self.root.bind('<Control-c>', lambda e: self.calculate_totals())
         self.root.bind('<Control-l>', lambda e: self.load_from_csv())
@@ -206,7 +205,6 @@ class CashFlowStatementApp:
         ttk.Button(button_frame, text="Save to CSV (Ctrl+S)", command=self.save_to_csv).pack(side="left", padx=5)
         ttk.Button(button_frame, text="Load from CSV (Ctrl+L)", command=self.load_from_csv).pack(side="left", padx=5)
         ttk.Button(button_frame, text="Clear All Fields", command=self.clear_fields).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Print Statement (Ctrl+P)", command=self.print_statement).pack(side="left", padx=5)
         ttk.Button(button_frame, text="Export to PDF (Ctrl+E)", command=self.export_to_pdf).pack(side="left", padx=5)
 
     def safe_decimal(self, var):
@@ -394,56 +392,6 @@ class CashFlowStatementApp:
         
         messagebox.showinfo("Success", "All fields have been cleared")
 
-    def print_statement(self):
-        try:
-            filename = f"cash_flow_statement_print_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-            with open(filename, 'w') as f:
-                f.write(f"{self.title_var.get()}\n")
-                f.write(f"For the year month {self.today_date}\n\n")
-                f.write(f"Cash in Bank-beg ({self.today_date}): {self.cash_bank_beg.get()}\n")
-                f.write(f"Cash on Hand-beg: {self.cash_hand_beg.get()}\n\n")
-                f.write("Cash inflows:\n")
-                f.write(f"Monthly dues collected: {self.monthly_dues.get()}\n")
-                f.write(f"Certifications issued: {self.certifications.get()}\n")
-                f.write(f"Membership fee: {self.membership_fee.get()}\n")
-                f.write(f"Vehicle stickers: {self.vehicle_stickers.get()}\n")
-                f.write(f"Rentals (covered courts): {self.rentals.get()}\n")
-                f.write(f"Solicitations/Donations: {self.solicitations.get()}\n")
-                f.write(f"Interest Income on bank deposits: {self.interest_income.get()}\n")
-                f.write(f"Livelihood Management Fee: {self.livelihood_fee.get()}\n")
-                f.write(f"Others: {self.inflows_others.get()}\n")
-                f.write(f"Total Cash receipt: {self.total_receipts.get()}\n\n")
-                f.write("Less:\n")
-                f.write(f"Cash Out Flows/Disbursements: {self.cash_outflows.get()}\n")
-                f.write(f"Snacks/Meals for visitors: {self.snacks_meals.get()}\n")
-                f.write(f"Transportation expenses: {self.transportation.get()}\n")
-                f.write(f"Office supplies expense: {self.office_supplies.get()}\n")
-                f.write(f"Printing and photocopy: {self.printing.get()}\n")
-                f.write(f"Labor: {self.labor.get()}\n")
-                f.write(f"Billboard expense: {self.billboard.get()}\n")
-                f.write(f"Clearing/cleaning charges: {self.cleaning.get()}\n")
-                f.write(f"Miscellaneous expenses: {self.misc_expenses.get()}\n")
-                f.write(f"Federation fee: {self.federation_fee.get()}\n")
-                f.write(f"HOA-BOD Uniforms: {self.uniforms.get()}\n")
-                f.write(f"BOD Mtg: {self.bod_mtg.get()}\n")
-                f.write(f"General Assembly: {self.general_assembly.get()}\n")
-                f.write(f"Cash Deposit to bank: {self.cash_deposit.get()}\n")
-                f.write(f"Withholding tax on bank deposit: {self.withholding_tax.get()}\n")
-                f.write(f"Refund for seri-culture: {self.refund_sericulture.get()}\n")
-                f.write(f"Others: {self.outflows_others.get()} {self.outflows_others_2.get()}\n\n")
-                f.write(f"Ending cash balance: {self.ending_cash.get()}\n\n")
-                f.write("Breakdown of cash:\n")
-                f.write(f"Cash in Bank: {self.ending_cash_bank.get()}\n")
-                f.write(f"Cash on Hand: {self.ending_cash_hand.get()}\n")
-            
-            if os.path.exists(filename):
-                messagebox.showinfo("Success", f"Print file created: {filename}\nYou can open this file and print it from your text editor.")
-            else:
-                raise Exception("File was not created successfully.")
-                
-        except Exception as e:
-            messagebox.showerror("Error", f"Error creating print file: {str(e)}")
-
     def export_to_pdf(self):
         try:
             def format_amount(value):
@@ -460,7 +408,6 @@ class CashFlowStatementApp:
             styles = getSampleStyleSheet()
             elements = []
             
-            # Add company logo if available
             if os.path.exists("logo.png"):
                 elements.append(Image("logo.png", width=100, height=100))
                 elements.append(Spacer(1, 12))
