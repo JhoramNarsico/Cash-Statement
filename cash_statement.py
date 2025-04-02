@@ -1,6 +1,7 @@
 import os
 import datetime
 import smtplib
+import sys
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
@@ -434,11 +435,24 @@ class IntegratedCashFlowApp:
             doc = SimpleDocTemplate(filename, pagesize=letter)
             styles = getSampleStyleSheet()
             elements = []
-            
-            if os.path.exists("logo.png"):
-                elements.append(Image("logo.png", width=100, height=100))
+
+            # Determine the base path (for PyInstaller compatibility)
+            if getattr(sys, 'frozen', False):
+                # Running as executable; use the temp directory
+                base_path = sys._MEIPASS
+            else:
+                # Running as script; use the script's directory
+                base_path = os.path.dirname(__file__)
+
+            # Construct the full path to logo.png
+            logo_path = os.path.join(base_path, "logo.png")
+
+            if os.path.exists(logo_path):
+                elements.append(Image(logo_path, width=100, height=100))
                 elements.append(Spacer(1, 12))
-            
+            else:
+                print(f"Logo not found at: {logo_path}")  # Debug message for console mode
+
             elements.append(Paragraph(self.title_var.get(), styles['Title']))
             elements.append(Paragraph(f"For the year month {self.today_date}", styles['Normal']))
             elements.append(Spacer(1, 12))
@@ -569,6 +583,26 @@ class IntegratedCashFlowApp:
             filename = f"cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
             doc = Document()
 
+            # Determine the base path (for PyInstaller compatibility)
+            if getattr(sys, 'frozen', False):
+                # Running as executable; use the temp directory
+                base_path = sys._MEIPASS
+            else:
+                # Running as script; use the script's directory
+                base_path = os.path.dirname(__file__)
+
+            # Construct the full path to logo.png
+            logo_path = os.path.join(base_path, "logo.png")
+
+            # Add logo if it exists
+            if os.path.exists(logo_path):
+                paragraph = doc.add_paragraph()
+                run = paragraph.add_run()
+                run.add_picture(logo_path, width=Inches(1.5))  # Adjust width as needed
+                paragraph.alignment = 1  # Center the logo
+            else:
+                print(f"Logo not found at: {logo_path}")  # Debug message for console mode
+
             # Title and Date
             doc.add_heading(self.title_var.get(), level=1)
             doc.add_paragraph(f"For the year month {self.today_date}")
@@ -659,7 +693,7 @@ class IntegratedCashFlowApp:
             # Save the document
             doc.save(filename)
             messagebox.showinfo("Success", f"Word document saved to {filename}")
-            return filename  # Return filename for email attachment
+            return filename
             
         except Exception as e:
             messagebox.showerror("Error", f"Error saving to Word: {str(e)}\n\nMake sure you have python-docx installed by running:\npip install python-docx")
