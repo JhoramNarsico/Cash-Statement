@@ -8,6 +8,8 @@ para mu run sa vs code, i install sani:
 
 *pip install reportlab
 
+*pip install reportlab python-docx pyinstaller
+
 export to exe. app:
 
 python -m PyInstaller --onefile --windowed --add-data "logo.png:." cash_statement.py
