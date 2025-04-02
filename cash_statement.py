@@ -3,6 +3,16 @@ from tkinter import ttk, messagebox
 import datetime
 import csv
 import os
+import pypandoc
+import subprocess
+from Google import Create_Service
+import base64
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
+from pathlib import Path
+from docxtpl import DocxTemplate
 from decimal import Decimal
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -19,45 +29,45 @@ class CashFlowStatementApp:
         self.title_var = tk.StringVar(value="Statement Of Cash Flows")
         self.today_date = datetime.datetime.now().strftime("%B %d, %Y")
         
-        self.cash_bank_beg = tk.StringVar()
-        self.cash_hand_beg = tk.StringVar()
+        self.cash_bank_beg = tk.DoubleVar()
+        self.cash_hand_beg = tk.DoubleVar()
         
         # Cash inflows variables
-        self.monthly_dues = tk.StringVar()
-        self.certifications = tk.StringVar()
-        self.membership_fee = tk.StringVar()
-        self.vehicle_stickers = tk.StringVar()
-        self.rentals = tk.StringVar()
-        self.solicitations = tk.StringVar()
-        self.interest_income = tk.StringVar()
-        self.livelihood_fee = tk.StringVar()
-        self.inflows_others = tk.StringVar()
-        self.total_receipts = tk.StringVar()
+        self.monthly_dues = tk.DoubleVar()
+        self.certifications = tk.DoubleVar()
+        self.membership_fee = tk.DoubleVar()
+        self.vehicle_stickers = tk.DoubleVar()
+        self.rentals = tk.DoubleVar()
+        self.solicitations = tk.DoubleVar()
+        self.interest_income = tk.DoubleVar()
+        self.livelihood_fee = tk.DoubleVar()
+        self.inflows_others = tk.DoubleVar()
+        self.total_receipts = tk.DoubleVar()
         
         # Cash outflows variables
-        self.cash_outflows = tk.StringVar()
-        self.snacks_meals = tk.StringVar()
-        self.transportation = tk.StringVar()
-        self.office_supplies = tk.StringVar()
-        self.printing = tk.StringVar()
-        self.labor = tk.StringVar()
-        self.billboard = tk.StringVar()
-        self.cleaning = tk.StringVar()
-        self.misc_expenses = tk.StringVar()
-        self.federation_fee = tk.StringVar()
-        self.uniforms = tk.StringVar()
-        self.bod_mtg = tk.StringVar()
-        self.general_assembly = tk.StringVar()
-        self.cash_deposit = tk.StringVar()
-        self.withholding_tax = tk.StringVar()
-        self.refund_sericulture = tk.StringVar()
-        self.outflows_others = tk.StringVar()
-        self.outflows_others_2 = tk.StringVar()
+        self.cash_outflows = tk.DoubleVar()
+        self.snacks_meals = tk.DoubleVar()
+        self.transportation = tk.DoubleVar()
+        self.office_supplies = tk.DoubleVar()
+        self.printing = tk.DoubleVar()
+        self.labor = tk.DoubleVar()
+        self.billboard = tk.DoubleVar()
+        self.cleaning = tk.DoubleVar()
+        self.misc_expenses = tk.DoubleVar()
+        self.federation_fee = tk.DoubleVar()
+        self.uniforms = tk.DoubleVar()
+        self.bod_mtg = tk.DoubleVar()
+        self.general_assembly = tk.DoubleVar()
+        self.cash_deposit = tk.DoubleVar()
+        self.withholding_tax = tk.DoubleVar()
+        self.refund_sericulture = tk.DoubleVar()
+        self.outflows_others = tk.DoubleVar()
+        self.outflows_others_2 = tk.DoubleVar()
         
         # Ending balances
-        self.ending_cash = tk.StringVar()
-        self.ending_cash_bank = tk.StringVar()
-        self.ending_cash_hand = tk.StringVar()
+        self.ending_cash = tk.DoubleVar()
+        self.ending_cash_bank = tk.DoubleVar()
+        self.ending_cash_hand = tk.DoubleVar()
         
         self.create_widgets()
         self.setup_keyboard_shortcuts()
@@ -392,17 +402,111 @@ class CashFlowStatementApp:
         
         messagebox.showinfo("Success", "All fields have been cleared")
 
-    def export_to_pdf(self):
+<<<<<<< HEAD
+=======
+    def convertToPdf(self, filename):
+        file_path = (Path(__file__).parent / filename).resolve()
+        subprocess.run(["C:\Program Files\LibreOffice\program\soffice.exe", "--headless", "--convert-to", "pdf", str(file_path)]) # libre office location should be speicific
+        messagebox.showinfo("Success", "PDF successfully exported and generated")
+    
+    def print_statement(self):
         try:
-            def format_amount(value):
-                if value:
-                    try:
-                        amount = Decimal(value.replace(',', ''))
-                        return f"{amount:,.2f}"
-                    except:
-                        return value
-                return ""
+            document_path = Path(__file__).parent.parent / "sampledocumentslp.docx"
+            doc = DocxTemplate(document_path)
 
+            amount1 = self.cash_bank_beg.get()
+            amount2 = self.cash_hand_beg.get()
+            amount3 = self.monthly_dues.get()
+            amount4 = self.certifications.get()
+            amount5 = self.membership_fee.get()
+            amount6 = self.vehicle_stickers.get()
+            amount7 = self.rentals.get()
+            amount8 = self.solicitations.get()
+            amount9 = self.interest_income.get()
+            amount10 = self.livelihood_fee.get()
+            amount11 = self.inflows_others.get()
+            amount12 = amount3+ amount4 + amount5 + amount6 + amount7 + amount8 + amount9 + amount10 + amount11
+            amount13 = self.cash_outflows.get()
+            amount14 = self.snacks_meals.get()
+            amount15 = self.transportation.get()
+            amount16 = self.office_supplies.get()
+            amount17 = self.printing.get()
+            amount18 = self.labor.get()
+            amount19 = self.billboard.get()
+            amount20 = self.cleaning.get()
+            amount21 = self.misc_expenses.get()
+            amount22 = self.federation_fee.get()
+            amount23 = self.uniforms.get()
+            amount24 = self.bod_mtg.get()
+            amount25 = self.general_assembly.get()
+            amount26 = self.cash_deposit.get()
+            amount27 = self.withholding_tax.get()
+            amount28 = self.refund_sericulture.get()
+            amount29 = self.outflows_others_2.get()
+            amount30 = amount13 + amount14 + amount15 + amount16 + amount17 + amount18 + amount19 + amount20 + amount21 + amount22 + amount23 + amount24 + amount25 + amount26 + amount27 + amount28 + amount29
+            amount31 = amount12 - amount30
+            amount32 = amount1
+            amount33 = amount31 - amount1
+
+            context = {
+                "amount1": amount1, "amount2": amount2, "amount3": amount3, "amount4": amount4, "amount5": amount5,
+                "amount6": amount6, "amount7": amount7, "amount8": amount8, "amount9": amount9, "amount10": amount10,
+                "amount11": amount11, "amount12": amount12, "amount13": amount13, "amount14": amount14, "amount15": amount15,
+                "amount16": amount16, "amount17": amount17, "amount18": amount18, "amount19": amount19, "amount20": amount20,
+                "amount21": amount21, "amount22": amount22, "amount23": amount23, "amount24": amount24, "amount25": amount25,
+                "amount26": amount26, "amount27": amount27, "amount28": amount28, "amount29": amount29, "amount30": amount30,
+                "amount31": amount31, "amount32": amount32, "amount33": amount33
+}
+            doc.render(context)
+            doc.save(Path(__file__).parent / "generated_doc.docx")
+            self.convertToPdf("generated_doc.docx")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error creating print file: {str(e)}")
+ 
+>>>>>>> 5995b6b (initial commit)
+    def export_to_pdf(self):
+        CLIENT_SECRET__FILE = 'client_secret.json'
+        API_NAME = 'gmail'
+        api_version = 'v1'
+        SCOPES = ['https://mail.google.com/']
+
+        service = Create_Service(CLIENT_SECRET__FILE, API_NAME, api_version, SCOPES)
+
+        try:
+    # Path to your PDF file
+            pdf_filename = "generated_doc.pdf"  # Change this to your actual file
+
+    # Create email message
+            emailMsg = "Testing with PDF attachment."
+            mimeMessage = MIMEMultipart()
+            mimeMessage["to"] = "ram05cembrano@gmail.com"
+            mimeMessage["subject"] = "Test with PDF Attachment"
+            mimeMessage.attach(MIMEText(emailMsg, "plain"))
+
+    # Open the PDF file in binary mode and attach it
+            with open(pdf_filename, "rb") as pdf_file:
+                pdf_attachment = MIMEBase("application", "octet-stream")
+                pdf_attachment.set_payload(pdf_file.read())
+
+    # Encode file in base64
+                encoders.encode_base64(pdf_attachment)
+
+    # Set headers for attachment
+                pdf_attachment.add_header("Content-Disposition", f"attachment; filename={os.path.basename(pdf_filename)}")
+
+    # Attach PDF to email
+                mimeMessage.attach(pdf_attachment)
+
+    # Encode the entire email message as base64
+                raw_string = base64.urlsafe_b64encode(mimeMessage.as_bytes()).decode()
+
+    # Send the email using Gmail API
+                message = service.users().messages().send(userId="me", body={"raw": raw_string}).execute()
+
+            print("Email sent successfully:", message)
+            messagebox.showinfo("Success", f"PDF successfully exported and emailed!")
+
+<<<<<<< HEAD
             filename = f"cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
             doc = SimpleDocTemplate(filename, pagesize=letter)
             styles = getSampleStyleSheet()
@@ -520,8 +624,10 @@ class CashFlowStatementApp:
             doc.build(elements, onFirstPage=add_page_numbers, onLaterPages=add_page_numbers)
             messagebox.showinfo("Success", f"PDF successfully exported to {filename}")
             
+=======
+>>>>>>> 5995b6b (initial commit)
         except Exception as e:
-            messagebox.showerror("Error", f"Error exporting to PDF: {str(e)}\n\nMake sure you have ReportLab installed by running:\npip install reportlab")
+            messagebox.showerror("Error",f"Error exporting to PDF: {str(e)}\n\nMake sure you have ReportLab installed by running:\npip install reportlab",)
 
 if __name__ == "__main__":
     root = tk.Tk()
