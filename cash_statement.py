@@ -1,28 +1,40 @@
+import os
+import datetime
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
 import tkinter as tk
 from tkinter import ttk, messagebox
-import datetime
 import csv
-import os
 from decimal import Decimal
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet
+from docx import Document
+from docx.oxml.ns import qn
+from docx.shared import Pt, Inches
 
-class CashFlowStatementApp:
+# Integrated Cash Flow Statement App
+class IntegratedCashFlowApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Cash Flow Statement Generator")
+        self.root.title("Cash Flow Statement Generator with Email")
         self.root.geometry("800x800")
         
-        # Variables to store entry values
+        # Email variables (to be filled by user in GUI)
+        self.sender_email_var = tk.StringVar()
+        self.sender_password_var = tk.StringVar()
+        self.recipient_emails_var = tk.StringVar()
+        
+        # Cash flow variables
         self.title_var = tk.StringVar(value="Statement Of Cash Flows")
         self.today_date = datetime.datetime.now().strftime("%B %d, %Y")
         
         self.cash_bank_beg = tk.StringVar()
         self.cash_hand_beg = tk.StringVar()
         
-        # Cash inflows variables
         self.monthly_dues = tk.StringVar()
         self.certifications = tk.StringVar()
         self.membership_fee = tk.StringVar()
@@ -34,7 +46,6 @@ class CashFlowStatementApp:
         self.inflows_others = tk.StringVar()
         self.total_receipts = tk.StringVar()
         
-        # Cash outflows variables
         self.cash_outflows = tk.StringVar()
         self.snacks_meals = tk.StringVar()
         self.transportation = tk.StringVar()
@@ -54,7 +65,6 @@ class CashFlowStatementApp:
         self.outflows_others = tk.StringVar()
         self.outflows_others_2 = tk.StringVar()
         
-        # Ending balances
         self.ending_cash = tk.StringVar()
         self.ending_cash_bank = tk.StringVar()
         self.ending_cash_hand = tk.StringVar()
@@ -65,8 +75,9 @@ class CashFlowStatementApp:
     def setup_keyboard_shortcuts(self):
         self.root.bind('<Control-s>', lambda e: self.save_to_csv())
         self.root.bind('<Control-e>', lambda e: self.export_to_pdf())
-        self.root.bind('<Control-c>', lambda e: self.calculate_totals())
         self.root.bind('<Control-l>', lambda e: self.load_from_csv())
+        self.root.bind('<Control-g>', lambda e: self.send_email())
+        self.root.bind('<Control-w>', lambda e: self.save_to_docx())
 
     def format_entry(self, var, entry_widget):
         def on_change(*args):
@@ -77,7 +88,6 @@ class CashFlowStatementApp:
                     var.set(formatted)
                 except:
                     pass
-        
         var.trace('w', on_change)
         entry_widget.config(justify='right')
 
@@ -100,13 +110,26 @@ class CashFlowStatementApp:
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
         
-        # Title and Date
+        # Title, Date, and Email Fields
         title_frame = ttk.Frame(scrollable_frame)
         title_frame.pack(fill="x", pady=5)
         
         ttk.Label(title_frame, text="Title:").pack(side="left", padx=5)
         ttk.Entry(title_frame, textvariable=self.title_var, width=40).pack(side="left", padx=5)
         ttk.Label(title_frame, text=f"Date: {self.today_date}").pack(side="left", padx=20)
+        
+        # Email Configuration Frame
+        email_frame = ttk.LabelFrame(scrollable_frame, text="Email Configuration")
+        email_frame.pack(fill="x", pady=5)
+        
+        ttk.Label(email_frame, text="Sender Email:").grid(row=0, column=0, sticky="w", padx=5, pady=2)
+        ttk.Entry(email_frame, textvariable=self.sender_email_var, width=30).grid(row=0, column=1, padx=5, pady=2)
+        
+        ttk.Label(email_frame, text="App Password:").grid(row=1, column=0, sticky="w", padx=5, pady=2)
+        ttk.Entry(email_frame, textvariable=self.sender_password_var, width=30, show="*").grid(row=1, column=1, padx=5, pady=2)
+        
+        ttk.Label(email_frame, text="Recipients (comma-separated):").grid(row=2, column=0, sticky="w", padx=5, pady=2)
+        ttk.Entry(email_frame, textvariable=self.recipient_emails_var, width=30).grid(row=2, column=1, padx=5, pady=2)
         
         # Beginning Cash Balances
         beg_frame = ttk.LabelFrame(scrollable_frame, text="Beginning Cash Balances")
@@ -201,11 +224,12 @@ class CashFlowStatementApp:
         button_frame = ttk.Frame(scrollable_frame)
         button_frame.pack(fill="x", pady=10)
         
-        ttk.Button(button_frame, text="Calculate Totals (Ctrl+C)", command=self.calculate_totals).pack(side="left", padx=5)
         ttk.Button(button_frame, text="Save to CSV (Ctrl+S)", command=self.save_to_csv).pack(side="left", padx=5)
         ttk.Button(button_frame, text="Load from CSV (Ctrl+L)", command=self.load_from_csv).pack(side="left", padx=5)
         ttk.Button(button_frame, text="Clear All Fields", command=self.clear_fields).pack(side="left", padx=5)
         ttk.Button(button_frame, text="Export to PDF (Ctrl+E)", command=self.export_to_pdf).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Save to Word (Ctrl+W)", command=self.save_to_docx).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Send via Email (Ctrl+G)", command=self.send_email).pack(side="left", padx=5)
 
     def safe_decimal(self, var):
         val = var.get().strip()
@@ -262,8 +286,6 @@ class CashFlowStatementApp:
                 self.ending_cash_bank.set(f"{ending_balance * Decimal('0.8'):,.2f}")
                 self.ending_cash_hand.set(f"{ending_balance * Decimal('0.2'):,.2f}")
             
-            messagebox.showinfo("Success", "Calculations complete!")
-            
         except Exception as e:
             messagebox.showerror("Error", f"Calculation error: {str(e)}\nPlease ensure all values are valid numbers.")
 
@@ -317,9 +339,11 @@ class CashFlowStatementApp:
                 writer.writerow(["Cash on Hand", self.ending_cash_hand.get()])
             
             messagebox.showinfo("Success", f"Cash flow statement saved to {filename}")
+            return filename
             
         except Exception as e:
             messagebox.showerror("Error", f"Error saving to CSV: {str(e)}")
+            return None
 
     def load_from_csv(self):
         try:
@@ -394,6 +418,9 @@ class CashFlowStatementApp:
 
     def export_to_pdf(self):
         try:
+            # Automatically calculate totals before exporting
+            self.calculate_totals()
+
             def format_amount(value):
                 if value:
                     try:
@@ -519,11 +546,192 @@ class CashFlowStatementApp:
             
             doc.build(elements, onFirstPage=add_page_numbers, onLaterPages=add_page_numbers)
             messagebox.showinfo("Success", f"PDF successfully exported to {filename}")
+            return filename
             
         except Exception as e:
             messagebox.showerror("Error", f"Error exporting to PDF: {str(e)}\n\nMake sure you have ReportLab installed by running:\npip install reportlab")
+            return None
+
+    def save_to_docx(self):
+        try:
+            # Automatically calculate totals before saving
+            self.calculate_totals()
+
+            def format_amount(value):
+                if value:
+                    try:
+                        amount = Decimal(value.replace(',', ''))
+                        return f"{amount:,.2f}"
+                    except:
+                        return value
+                return ""
+
+            filename = f"cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+            doc = Document()
+
+            # Title and Date
+            doc.add_heading(self.title_var.get(), level=1)
+            doc.add_paragraph(f"For the year month {self.today_date}")
+
+            # Beginning Cash Balances
+            doc.add_heading("Beginning Cash Balances", level=2)
+            table = doc.add_table(rows=2, cols=2)
+            table.style = 'Table Grid'
+            table.cell(0, 0).text = "Cash in Bank-beg"
+            table.cell(0, 1).text = format_amount(self.cash_bank_beg.get())
+            table.cell(1, 0).text = "Cash on Hand-beg"
+            table.cell(1, 1).text = format_amount(self.cash_hand_beg.get())
+            for row in table.rows:
+                row.cells[1].paragraphs[0].alignment = 2  # Right align amounts
+
+            # Cash Inflows
+            doc.add_heading("Cash Inflows", level=2)
+            table = doc.add_table(rows=10, cols=2)
+            table.style = 'Table Grid'
+            inflow_items = [
+                ("Monthly dues collected", self.monthly_dues),
+                ("Certifications issued", self.certifications),
+                ("Membership fee", self.membership_fee),
+                ("Vehicle stickers", self.vehicle_stickers),
+                ("Rentals (covered courts)", self.rentals),
+                ("Solicitations/Donations", self.solicitations),
+                ("Interest Income on bank deposits", self.interest_income),
+                ("Livelihood Management Fee", self.livelihood_fee),
+                ("Others", self.inflows_others),
+                ("Total Cash receipt", self.total_receipts)
+            ]
+            for i, (label, var) in enumerate(inflow_items):
+                table.cell(i, 0).text = label
+                table.cell(i, 1).text = format_amount(var.get())
+                table.cell(i, 1).paragraphs[0].alignment = 2  # Right align amounts
+            table.cell(9, 0).paragraphs[0].runs[0].bold = True  # Bold total
+
+            # Cash Outflows
+            doc.add_heading("Less: Cash Outflows", level=2)
+            table = doc.add_table(rows=18, cols=2)
+            table.style = 'Table Grid'
+            outflow_items = [
+                ("Cash Out Flows/Disbursements", self.cash_outflows),
+                ("Snacks/Meals for visitors", self.snacks_meals),
+                ("Transportation expenses", self.transportation),
+                ("Office supplies expense", self.office_supplies),
+                ("Printing and photocopy", self.printing),
+                ("Labor", self.labor),
+                ("Billboard expense", self.billboard),
+                ("Clearing/cleaning charges", self.cleaning),
+                ("Miscellaneous expenses", self.misc_expenses),
+                ("Federation fee", self.federation_fee),
+                ("HOA-BOD Uniforms", self.uniforms),
+                ("BOD Mtg", self.bod_mtg),
+                ("General Assembly", self.general_assembly),
+                ("Cash Deposit to bank", self.cash_deposit),
+                ("Withholding tax on bank deposit", self.withholding_tax),
+                ("Refund for seri-culture", self.refund_sericulture),
+                ("Others", self.outflows_others),
+                ("", self.outflows_others_2)
+            ]
+            for i, (label, var) in enumerate(outflow_items):
+                table.cell(i, 0).text = label
+                table.cell(i, 1).text = format_amount(var.get())
+                table.cell(i, 1).paragraphs[0].alignment = 2  # Right align amounts
+            table.cell(0, 0).paragraphs[0].runs[0].bold = True  # Bold total
+
+            # Ending Cash Balance
+            doc.add_heading("Ending Cash Balance", level=2)
+            table = doc.add_table(rows=1, cols=2)
+            table.style = 'Table Grid'
+            table.cell(0, 0).text = "Ending cash balance"
+            table.cell(0, 1).text = format_amount(self.ending_cash.get())
+            table.cell(0, 1).paragraphs[0].alignment = 2  # Right align
+            table.cell(0, 0).paragraphs[0].runs[0].bold = True  # Bold
+
+            # Breakdown of Cash
+            doc.add_heading("Breakdown of Cash", level=2)
+            table = doc.add_table(rows=2, cols=2)
+            table.style = 'Table Grid'
+            table.cell(0, 0).text = "Cash in Bank"
+            table.cell(0, 1).text = format_amount(self.ending_cash_bank.get())
+            table.cell(1, 0).text = "Cash on Hand"
+            table.cell(1, 1).text = format_amount(self.ending_cash_hand.get())
+            for row in table.rows:
+                row.cells[1].paragraphs[0].alignment = 2  # Right align amounts
+
+            # Save the document
+            doc.save(filename)
+            messagebox.showinfo("Success", f"Word document saved to {filename}")
+            return filename  # Return filename for email attachment
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error saving to Word: {str(e)}\n\nMake sure you have python-docx installed by running:\npip install python-docx")
+            return None
+
+    def send_email(self):
+        try:
+            # Get email details from GUI
+            sender_email = self.sender_email_var.get().strip()
+            sender_password = self.sender_password_var.get().strip()
+            recipient_emails = [email.strip() for email in self.recipient_emails_var.get().split(',') if email.strip()]
+            
+            if not sender_email or not sender_password or not recipient_emails:
+                messagebox.showerror("Error", "Please fill in all email fields (Sender Email, App Password, Recipients).")
+                return
+
+            # Create PDF and Word files to attach (both auto-calculate totals)
+            pdf_filename = self.export_to_pdf()
+            if not pdf_filename:
+                return
+            docx_filename = self.save_to_docx()
+            if not docx_filename:
+                os.remove(pdf_filename)  # Clean up PDF if Word fails
+                return
+
+            # Set up the email
+            msg = MIMEMultipart()
+            msg['From'] = sender_email
+            msg['To'] = ", ".join(recipient_emails)
+            msg['Subject'] = f"Cash Flow Statement - {self.today_date}"
+
+            body = f"Attached is the cash flow statement for {self.today_date} in both PDF and Word formats.\n\nRegards,\nYour Name"
+            msg.attach(MIMEText(body, 'plain'))
+
+            # Attach PDF
+            with open(pdf_filename, 'rb') as f:
+                part = MIMEApplication(f.read(), Name=os.path.basename(pdf_filename))
+                part['Content-Disposition'] = f'attachment; filename="{os.path.basename(pdf_filename)}"'
+                msg.attach(part)
+
+            # Attach Word
+            with open(docx_filename, 'rb') as f:
+                part = MIMEApplication(f.read(), Name=os.path.basename(docx_filename))
+                part['Content-Disposition'] = f'attachment; filename="{os.path.basename(docx_filename)}"'
+                msg.attach(part)
+
+            # Connect to SMTP server (assuming Gmail)
+            server = smtplib.SMTP('smtp.gmail.com', 587)
+            server.starttls()
+            server.login(sender_email, sender_password)
+            
+            server.send_message(msg)
+            server.quit()
+            
+            messagebox.showinfo("Success", f"Email with PDF and Word files sent to {', '.join(recipient_emails)}!")
+            os.remove(pdf_filename)  # Clean up temporary PDF
+            os.remove(docx_filename)  # Clean up temporary Word file
+            
+        except smtplib.SMTPAuthenticationError as e:
+            messagebox.showerror("Error", f"Authentication failed: {str(e)}\nCheck your email and app password.")
+            if 'pdf_filename' in locals():
+                os.remove(pdf_filename)
+            if 'docx_filename' in locals():
+                os.remove(docx_filename)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to send email: {str(e)}\nEnsure your email credentials are correct and you have an internet connection.")
+            if 'pdf_filename' in locals():
+                os.remove(pdf_filename)
+            if 'docx_filename' in locals():
+                os.remove(docx_filename)
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = CashFlowStatementApp(root)
+    app = IntegratedCashFlowApp(root)
     root.mainloop()
