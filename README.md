@@ -12,4 +12,4 @@ para mu run sa vs code, i install sani:
 
 export to exe. app:
 
-python -m PyInstaller --onefile --windowed --add-data "logo.png:." cash_statement.py
+pyinstaller --add-data "credentials.json;." --add-data "logo.png;." --noconfirm --onefile --windowed apicash_statement.py
