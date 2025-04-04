@@ -5,7 +5,7 @@ a = Analysis(
     ['cash_statement.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('logo.png', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

@@ -1,12 +1,16 @@
 import os
 import datetime
-import smtplib
 import sys
+import pickle
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from google.auth.transport.requests import Request
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
+import base64
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 import csv
 from decimal import Decimal
 from reportlab.lib import colors
@@ -14,19 +18,21 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet
 from docx import Document
-from docx.oxml.ns import qn
-from docx.shared import Pt, Inches
+from docx.shared import Inches
 
-# Integrated Cash Flow Statement App
+# Gmail API setup
+CREDENTIALS_FILE = 'credentials.json'
+TOKEN_FILE = 'token.pickle'
+SCOPES = ['https://www.googleapis.com/auth/gmail.send']
+SENDER_EMAIL = 'chuddcdo@gmail.com'
+
 class IntegratedCashFlowApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Cash Flow Statement Generator with Email")
         self.root.geometry("800x800")
         
-        # Email variables (to be filled by user in GUI)
-        self.sender_email_var = tk.StringVar()
-        self.sender_password_var = tk.StringVar()
+        # Email variable (only recipient emails)
         self.recipient_emails_var = tk.StringVar()
         
         # Cash flow variables
@@ -111,26 +117,20 @@ class IntegratedCashFlowApp:
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
         
-        # Title, Date, and Email Fields
+        # Title and Date
         title_frame = ttk.Frame(scrollable_frame)
         title_frame.pack(fill="x", pady=5)
         
-        ttk.Label(title_frame, text="Title:").pack(side="left", padx=5)
+        ttk.Label(title_frame, text="Title:").pack(side="left", padx=8)  # Fixed padx=08 to padx=8
         ttk.Entry(title_frame, textvariable=self.title_var, width=40).pack(side="left", padx=5)
         ttk.Label(title_frame, text=f"Date: {self.today_date}").pack(side="left", padx=20)
         
-        # Email Configuration Frame
-        email_frame = ttk.LabelFrame(scrollable_frame, text="Email Configuration")
+        # Email Recipients Frame
+        email_frame = ttk.LabelFrame(scrollable_frame, text="Send To")
         email_frame.pack(fill="x", pady=5)
         
-        ttk.Label(email_frame, text="Sender Email:").grid(row=0, column=0, sticky="w", padx=5, pady=2)
-        ttk.Entry(email_frame, textvariable=self.sender_email_var, width=30).grid(row=0, column=1, padx=5, pady=2)
-        
-        ttk.Label(email_frame, text="App Password:").grid(row=1, column=0, sticky="w", padx=5, pady=2)
-        ttk.Entry(email_frame, textvariable=self.sender_password_var, width=30, show="*").grid(row=1, column=1, padx=5, pady=2)
-        
-        ttk.Label(email_frame, text="Recipients (comma-separated):").grid(row=2, column=0, sticky="w", padx=5, pady=2)
-        ttk.Entry(email_frame, textvariable=self.recipient_emails_var, width=30).grid(row=2, column=1, padx=5, pady=2)
+        ttk.Label(email_frame, text="Recipient Emails (comma-separated):").grid(row=0, column=0, sticky="w", padx=5, pady=2)
+        ttk.Entry(email_frame, textvariable=self.recipient_emails_var, width=30).grid(row=0, column=1, padx=5, pady=2)
         
         # Beginning Cash Balances
         beg_frame = ttk.LabelFrame(scrollable_frame, text="Beginning Cash Balances")
@@ -348,7 +348,6 @@ class IntegratedCashFlowApp:
 
     def load_from_csv(self):
         try:
-            from tkinter import filedialog
             filename = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
             if not filename:
                 return
@@ -417,11 +416,21 @@ class IntegratedCashFlowApp:
         
         messagebox.showinfo("Success", "All fields have been cleared")
 
-    def export_to_pdf(self):
-        try:
-            # Automatically calculate totals before exporting
-            self.calculate_totals()
+    def get_save_filename(self, file_type, default_extension):
+        """Prompt the user to save a file and return the chosen filename."""
+        default_filename = f"cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}{default_extension}"
+        filetypes = [(f"{file_type} files", f"*{default_extension}"), ("All files", "*.*")]
+        filename = filedialog.asksaveasfilename(
+            defaultextension=default_extension,
+            initialfile=default_filename,
+            filetypes=filetypes,
+            title=f"Save {file_type} As"
+        )
+        return filename
 
+    def export_to_pdf(self, temp=False):
+        try:
+            self.calculate_totals()
             def format_amount(value):
                 if value:
                     try:
@@ -430,33 +439,31 @@ class IntegratedCashFlowApp:
                     except:
                         return value
                 return ""
+            
+            # If temp is True, create a temporary file; otherwise, prompt user to save
+            if temp:
+                filename = f"temp_cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            else:
+                filename = self.get_save_filename("PDF", ".pdf")
+                if not filename:  # User canceled the save dialog
+                    return None
 
-            filename = f"cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
             doc = SimpleDocTemplate(filename, pagesize=letter)
             styles = getSampleStyleSheet()
             elements = []
-
-            # Determine the base path (for PyInstaller compatibility)
             if getattr(sys, 'frozen', False):
-                # Running as executable; use the temp directory
                 base_path = sys._MEIPASS
             else:
-                # Running as script; use the script's directory
                 base_path = os.path.dirname(__file__)
-
-            # Construct the full path to logo.png
             logo_path = os.path.join(base_path, "logo.png")
-
             if os.path.exists(logo_path):
                 elements.append(Image(logo_path, width=100, height=100))
                 elements.append(Spacer(1, 12))
             else:
-                print(f"Logo not found at: {logo_path}")  # Debug message for console mode
-
+                print(f"Logo not found at: {logo_path}")
             elements.append(Paragraph(self.title_var.get(), styles['Title']))
             elements.append(Paragraph(f"For the year month {self.today_date}", styles['Normal']))
             elements.append(Spacer(1, 12))
-            
             beg_data = [
                 ["Cash in Bank-beg", format_amount(self.cash_bank_beg.get())],
                 ["Cash on Hand-beg", format_amount(self.cash_hand_beg.get())]
@@ -470,7 +477,6 @@ class IntegratedCashFlowApp:
             ]))
             elements.append(beg_table)
             elements.append(Spacer(1, 12))
-            
             elements.append(Paragraph("<b>Cash inflows:</b>", styles['Normal']))
             elements.append(Spacer(1, 6))
             inflows_data = [
@@ -494,7 +500,6 @@ class IntegratedCashFlowApp:
             ]))
             elements.append(inflows_table)
             elements.append(Spacer(1, 12))
-            
             elements.append(Paragraph("<b>Less:</b>", styles['Normal']))
             elements.append(Spacer(1, 6))
             outflows_data = [
@@ -526,7 +531,6 @@ class IntegratedCashFlowApp:
             ]))
             elements.append(outflows_table)
             elements.append(Spacer(1, 12))
-            
             ending_data = [
                 ["Ending cash balance", format_amount(self.ending_cash.get())]
             ]
@@ -539,7 +543,6 @@ class IntegratedCashFlowApp:
             ]))
             elements.append(ending_table)
             elements.append(Spacer(1, 12))
-            
             elements.append(Paragraph("<b>Breakdown of cash:</b>", styles['Normal']))
             elements.append(Spacer(1, 6))
             breakdown_data = [
@@ -552,25 +555,21 @@ class IntegratedCashFlowApp:
                 ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
             ]))
             elements.append(breakdown_table)
-            
             def add_page_numbers(canvas, doc):
                 page_num = canvas.getPageNumber()
                 text = f"Page {page_num}"
                 canvas.drawRightString(200, 20, text)
-            
             doc.build(elements, onFirstPage=add_page_numbers, onLaterPages=add_page_numbers)
-            messagebox.showinfo("Success", f"PDF successfully exported to {filename}")
+            if not temp:  # Show success message only if not a temp file
+                messagebox.showinfo("Success", f"PDF successfully exported to {filename}")
             return filename
-            
         except Exception as e:
             messagebox.showerror("Error", f"Error exporting to PDF: {str(e)}\n\nMake sure you have ReportLab installed by running:\npip install reportlab")
             return None
 
-    def save_to_docx(self):
+    def save_to_docx(self, temp=False):
         try:
-            # Automatically calculate totals before saving
             self.calculate_totals()
-
             def format_amount(value):
                 if value:
                     try:
@@ -579,35 +578,30 @@ class IntegratedCashFlowApp:
                     except:
                         return value
                 return ""
+            
+            # If temp is True, create a temporary file; otherwise, prompt user to save
+            if temp:
+                filename = f"temp_cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+            else:
+                filename = self.get_save_filename("Word", ".docx")
+                if not filename:  # User canceled the save dialog
+                    return None
 
-            filename = f"cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
             doc = Document()
-
-            # Determine the base path (for PyInstaller compatibility)
             if getattr(sys, 'frozen', False):
-                # Running as executable; use the temp directory
                 base_path = sys._MEIPASS
             else:
-                # Running as script; use the script's directory
                 base_path = os.path.dirname(__file__)
-
-            # Construct the full path to logo.png
             logo_path = os.path.join(base_path, "logo.png")
-
-            # Add logo if it exists
             if os.path.exists(logo_path):
                 paragraph = doc.add_paragraph()
                 run = paragraph.add_run()
-                run.add_picture(logo_path, width=Inches(1.5))  # Adjust width as needed
-                paragraph.alignment = 1  # Center the logo
+                run.add_picture(logo_path, width=Inches(1.5))
+                paragraph.alignment = 1
             else:
-                print(f"Logo not found at: {logo_path}")  # Debug message for console mode
-
-            # Title and Date
+                print(f"Logo not found at: {logo_path}")
             doc.add_heading(self.title_var.get(), level=1)
             doc.add_paragraph(f"For the year month {self.today_date}")
-
-            # Beginning Cash Balances
             doc.add_heading("Beginning Cash Balances", level=2)
             table = doc.add_table(rows=2, cols=2)
             table.style = 'Table Grid'
@@ -616,9 +610,7 @@ class IntegratedCashFlowApp:
             table.cell(1, 0).text = "Cash on Hand-beg"
             table.cell(1, 1).text = format_amount(self.cash_hand_beg.get())
             for row in table.rows:
-                row.cells[1].paragraphs[0].alignment = 2  # Right align amounts
-
-            # Cash Inflows
+                row.cells[1].paragraphs[0].alignment = 2
             doc.add_heading("Cash Inflows", level=2)
             table = doc.add_table(rows=10, cols=2)
             table.style = 'Table Grid'
@@ -637,10 +629,8 @@ class IntegratedCashFlowApp:
             for i, (label, var) in enumerate(inflow_items):
                 table.cell(i, 0).text = label
                 table.cell(i, 1).text = format_amount(var.get())
-                table.cell(i, 1).paragraphs[0].alignment = 2  # Right align amounts
-            table.cell(9, 0).paragraphs[0].runs[0].bold = True  # Bold total
-
-            # Cash Outflows
+                table.cell(i, 1).paragraphs[0].alignment = 2
+            table.cell(9, 0).paragraphs[0].runs[0].bold = True
             doc.add_heading("Less: Cash Outflows", level=2)
             table = doc.add_table(rows=18, cols=2)
             table.style = 'Table Grid'
@@ -667,19 +657,15 @@ class IntegratedCashFlowApp:
             for i, (label, var) in enumerate(outflow_items):
                 table.cell(i, 0).text = label
                 table.cell(i, 1).text = format_amount(var.get())
-                table.cell(i, 1).paragraphs[0].alignment = 2  # Right align amounts
-            table.cell(0, 0).paragraphs[0].runs[0].bold = True  # Bold total
-
-            # Ending Cash Balance
+                table.cell(i, 1).paragraphs[0].alignment = 2
+            table.cell(0, 0).paragraphs[0].runs[0].bold = True
             doc.add_heading("Ending Cash Balance", level=2)
             table = doc.add_table(rows=1, cols=2)
             table.style = 'Table Grid'
             table.cell(0, 0).text = "Ending cash balance"
             table.cell(0, 1).text = format_amount(self.ending_cash.get())
-            table.cell(0, 1).paragraphs[0].alignment = 2  # Right align
-            table.cell(0, 0).paragraphs[0].runs[0].bold = True  # Bold
-
-            # Breakdown of Cash
+            table.cell(0, 1).paragraphs[0].alignment = 2
+            table.cell(0, 0).paragraphs[0].runs[0].bold = True
             doc.add_heading("Breakdown of Cash", level=2)
             table = doc.add_table(rows=2, cols=2)
             table.style = 'Table Grid'
@@ -688,81 +674,78 @@ class IntegratedCashFlowApp:
             table.cell(1, 0).text = "Cash on Hand"
             table.cell(1, 1).text = format_amount(self.ending_cash_hand.get())
             for row in table.rows:
-                row.cells[1].paragraphs[0].alignment = 2  # Right align amounts
-
-            # Save the document
+                row.cells[1].paragraphs[0].alignment = 2
             doc.save(filename)
-            messagebox.showinfo("Success", f"Word document saved to {filename}")
+            if not temp:  # Show success message only if not a temp file
+                messagebox.showinfo("Success", f"Word document saved to {filename}")
             return filename
-            
         except Exception as e:
             messagebox.showerror("Error", f"Error saving to Word: {str(e)}\n\nMake sure you have python-docx installed by running:\npip install python-docx")
             return None
 
+    def get_gmail_service(self):
+        creds = None
+        if os.path.exists(TOKEN_FILE):
+            with open(TOKEN_FILE, 'rb') as token:
+                creds = pickle.load(token)
+        
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
+                creds = flow.run_local_server(port=0)
+                with open(TOKEN_FILE, 'wb') as token:
+                    pickle.dump(creds, token)
+        
+        return build('gmail', 'v1', credentials=creds)
+
     def send_email(self):
         try:
-            # Get email details from GUI
-            sender_email = self.sender_email_var.get().strip()
-            sender_password = self.sender_password_var.get().strip()
             recipient_emails = [email.strip() for email in self.recipient_emails_var.get().split(',') if email.strip()]
-            
-            if not sender_email or not sender_password or not recipient_emails:
-                messagebox.showerror("Error", "Please fill in all email fields (Sender Email, App Password, Recipients).")
+            if not recipient_emails:
+                messagebox.showerror("Error", "Please enter at least one recipient email.")
                 return
 
-            # Create PDF and Word files to attach (both auto-calculate totals)
-            pdf_filename = self.export_to_pdf()
+            # Generate temporary files for email attachment
+            pdf_filename = self.export_to_pdf(temp=True)
             if not pdf_filename:
                 return
-            docx_filename = self.save_to_docx()
+            docx_filename = self.save_to_docx(temp=True)
             if not docx_filename:
-                os.remove(pdf_filename)  # Clean up PDF if Word fails
+                os.remove(pdf_filename)
                 return
 
-            # Set up the email
+            # Get Gmail service
+            service = self.get_gmail_service()
+
+            # Create MIME message
             msg = MIMEMultipart()
-            msg['From'] = sender_email
+            msg['From'] = SENDER_EMAIL
             msg['To'] = ", ".join(recipient_emails)
             msg['Subject'] = f"Cash Flow Statement - {self.today_date}"
+            msg.attach(MIMEText(f"Attached is the cash flow statement for {self.today_date}.\n\nRegards,\nCash Flow App", 'plain'))
 
-            body = f"Attached is the cash flow statement for {self.today_date} in both PDF and Word formats.\n\nRegards,\nYour Name"
-            msg.attach(MIMEText(body, 'plain'))
+            # Attach files
+            for filename in [pdf_filename, docx_filename]:
+                with open(filename, 'rb') as f:
+                    part = MIMEApplication(f.read(), Name=os.path.basename(filename))
+                    part['Content-Disposition'] = f'attachment; filename="{os.path.basename(filename)}"'
+                    msg.attach(part)
 
-            # Attach PDF
-            with open(pdf_filename, 'rb') as f:
-                part = MIMEApplication(f.read(), Name=os.path.basename(pdf_filename))
-                part['Content-Disposition'] = f'attachment; filename="{os.path.basename(pdf_filename)}"'
-                msg.attach(part)
+            # Encode and send
+            raw = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8')
+            service.users().messages().send(userId='me', body={'raw': raw}).execute()
 
-            # Attach Word
-            with open(docx_filename, 'rb') as f:
-                part = MIMEApplication(f.read(), Name=os.path.basename(docx_filename))
-                part['Content-Disposition'] = f'attachment; filename="{os.path.basename(docx_filename)}"'
-                msg.attach(part)
+            messagebox.showinfo("Success", f"Email sent to {', '.join(recipient_emails)}!")
 
-            # Connect to SMTP server (assuming Gmail)
-            server = smtplib.SMTP('smtp.gmail.com', 587)
-            server.starttls()
-            server.login(sender_email, sender_password)
-            
-            server.send_message(msg)
-            server.quit()
-            
-            messagebox.showinfo("Success", f"Email with PDF and Word files sent to {', '.join(recipient_emails)}!")
-            os.remove(pdf_filename)  # Clean up temporary PDF
-            os.remove(docx_filename)  # Clean up temporary Word file
-            
-        except smtplib.SMTPAuthenticationError as e:
-            messagebox.showerror("Error", f"Authentication failed: {str(e)}\nCheck your email and app password.")
-            if 'pdf_filename' in locals():
-                os.remove(pdf_filename)
-            if 'docx_filename' in locals():
-                os.remove(docx_filename)
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to send email: {str(e)}\nEnsure your email credentials are correct and you have an internet connection.")
-            if 'pdf_filename' in locals():
+            messagebox.showerror("Error", f"Failed to send email: {str(e)}\nEnsure you have authorized the app and have an internet connection.")
+        finally:
+            # Always delete temporary files
+            if 'pdf_filename' in locals() and os.path.exists(pdf_filename):
                 os.remove(pdf_filename)
-            if 'docx_filename' in locals():
+            if 'docx_filename' in locals() and os.path.exists(docx_filename):
                 os.remove(docx_filename)
 
 if __name__ == "__main__":
