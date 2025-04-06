@@ -1,15 +1,5 @@
-install first ang tkinter (python GUI)
-link: https://www.youtube.com/watch?v=chrXKX4FV-c
+python libraries: pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client reportlab python-docx
 
-
-para mu run sa vs code, i install sani: 
-
-*pip install tkcalendar
-
-*pip install reportlab
-
-*pip install reportlab python-docx pyinstaller
-
-export to exe. app:
+installer:
 
 pyinstaller --add-data "credentials.json;." --add-data "logo.png;." --noconfirm --onefile --windowed apicash_statement.py
