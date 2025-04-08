@@ -6,7 +6,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 import csv
 from decimal import Decimal
 from reportlab.lib import colors
@@ -332,7 +332,7 @@ class IntegratedCashFlowApp:
                 writer.writerow(["Ending cash balance", self.ending_cash.get()])
                 writer.writerow([])
                 writer.writerow(["Breakdown of cash:"])
-                writer.writerow(["Cash in Bank", self.ending_cash_bank植物.get()])
+                writer.writerow(["Cash in Bank", self.ending_cash_bank.get()])
                 writer.writerow(["Cash on Hand", self.ending_cash_hand.get()])
             
             messagebox.showinfo("Success", f"Cash flow statement saved to {filename}")
@@ -344,7 +344,6 @@ class IntegratedCashFlowApp:
 
     def load_from_csv(self):
         try:
-            from tkinter import filedialog
             filename = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
             if not filename:
                 return
@@ -426,7 +425,17 @@ class IntegratedCashFlowApp:
                         return value
                 return ""
 
-            filename = f"cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            # Prompt user for save location
+            default_filename = f"cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".pdf",
+                filetypes=[("PDF files", "*.pdf")],
+                initialfile=default_filename,
+                title="Save PDF As"
+            )
+            if not filename:  # User cancelled the save dialog
+                return None
+
             doc = SimpleDocTemplate(filename, pagesize=letter)
             styles = getSampleStyleSheet()
             elements = []
@@ -494,7 +503,7 @@ class IntegratedCashFlowApp:
                 ["Printing and photocopy", format_amount(self.printing.get())],
                 ["Labor", format_amount(self.labor.get())],
                 ["Billboard expense", format_amount(self.billboard.get())],
-                ["Clearing/cleaning charges", format_amount(self.cleaning.get())],
+                ["Clearing 🙂cleaning charges", format_amount(self.cleaning.get())],
                 ["Miscellaneous expenses", format_amount(self.misc_expenses.get())],
                 ["Federation fee", format_amount(self.federation_fee.get())],
                 ["HOA-BOD Uniforms", format_amount(self.uniforms.get())],
@@ -568,7 +577,17 @@ class IntegratedCashFlowApp:
                         return value
                 return ""
 
-            filename = f"cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+            # Prompt user for save location
+            default_filename = f"cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".docx",
+                filetypes=[("Word documents", "*.docx")],
+                initialfile=default_filename,
+                title="Save Word Document As"
+            )
+            if not filename:  # User cancelled the save dialog
+                return None
+
             doc = Document()
 
             if getattr(sys, 'frozen', False):
