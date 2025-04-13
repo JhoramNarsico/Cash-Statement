@@ -21,7 +21,7 @@ class IntegratedCashFlowApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Cash Flow Statement Generator with Email")
-        self.root.geometry("800x800")
+        self.root.geometry("1200x600")
         
         # Hardcoded email credentials
         self.SENDER_EMAIL = "chuddcdo@gmail.com"
@@ -68,6 +68,10 @@ class IntegratedCashFlowApp:
         self.ending_cash_bank = tk.StringVar()
         self.ending_cash_hand = tk.StringVar()
         
+        # Split ratios for ending cash balances
+        self.bank_split_ratio = Decimal('0.8')  # 80% to bank
+        self.hand_split_ratio = Decimal('0.2')  # 20% to hand
+        
         self.input_vars = [
             self.cash_bank_beg, self.cash_hand_beg, self.monthly_dues, self.certifications,
             self.membership_fee, self.vehicle_stickers, self.rentals, self.solicitations,
@@ -105,7 +109,6 @@ class IntegratedCashFlowApp:
         entry_widget.config(justify='right')
 
     def validate_date(self, date_str):
-        """Validate date in mm/dd/yyyy format."""
         if not date_str:
             return True
         try:
@@ -116,10 +119,9 @@ class IntegratedCashFlowApp:
             return False
 
     def create_tooltip(self, widget, text):
-        """Create a tooltip for a widget."""
         tooltip = tk.Toplevel(widget)
         tooltip.wm_overrideredirect(True)
-        tooltip.wm_geometry("+1000+1000")  # Hide initially
+        tooltip.wm_geometry("+1000+1000")
         label = tk.Label(tooltip, text=text, background="lightyellow", relief="solid", borderwidth=1)
         label.pack()
         
@@ -137,33 +139,35 @@ class IntegratedCashFlowApp:
         tooltip.withdraw()
 
     def create_widgets(self):
-        main_frame = ttk.Frame(self.root)
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        self.main_frame = ttk.Frame(self.root)
+        self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        canvas = tk.Canvas(main_frame)
-        scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas)
+        # Canvas for scrolling
+        self.canvas = tk.Canvas(self.main_frame)
+        self.scrollbar_x = ttk.Scrollbar(self.main_frame, orient="horizontal", command=self.canvas.xview)
+        self.scrollbar_y = ttk.Scrollbar(self.main_frame, orient="vertical", command=self.canvas.yview)
+        self.scrollable_frame = ttk.Frame(self.canvas)
         
-        scrollable_frame.bind(
+        self.scrollable_frame.bind(
             "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         )
         
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas.configure(xscrollcommand=self.scrollbar_x.set, yscrollcommand=self.scrollbar_y.set)
         
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        self.canvas.pack(side="top", fill="both", expand=True)
+        self.scrollbar_x.pack(side="bottom", fill="x")
+        self.scrollbar_y.pack(side="right", fill="y")
         
-        # Title and Date
-        title_frame = ttk.Frame(scrollable_frame)
-        title_frame.pack(fill="x", pady=5)
+        # Title and Date Frame
+        header_frame = ttk.Frame(self.scrollable_frame)
+        header_frame.grid(row=0, column=0, sticky="ew", pady=5)
         
-        ttk.Label(title_frame, text="Title:").pack(side="left", padx=5)
-        ttk.Entry(title_frame, textvariable=self.title_var, width=40).pack(side="left", padx=5)
+        ttk.Label(header_frame, text="Title:").pack(side="left", padx=5)
+        ttk.Entry(header_frame, textvariable=self.title_var, width=40).pack(side="left", padx=5)
         
-        # Date picker
-        date_frame = ttk.Frame(title_frame)
+        date_frame = ttk.Frame(header_frame)
         date_frame.pack(side="left", padx=5)
         ttk.Label(date_frame, text="Date:").pack(side="left", padx=2)
         date_entry = DateEntry(
@@ -179,30 +183,62 @@ class IntegratedCashFlowApp:
         self.create_tooltip(date_entry, "Click to select a date from the calendar")
         
         # Email Configuration Frame
-        email_frame = ttk.LabelFrame(scrollable_frame, text="Email Configuration")
-        email_frame.pack(fill="x", pady=5)
+        email_frame = ttk.LabelFrame(self.scrollable_frame, text="Email Configuration")
+        email_frame.grid(row=1, column=0, sticky="ew", pady=5)
         
-        ttk.Label(email_frame, text="Recipients (comma-separated):").grid(row=0, column=0, sticky="w", padx=5, pady=2)
-        ttk.Entry(email_frame, textvariable=self.recipient_emails_var, width=30).grid(row=0, column=1, padx=5, pady=2)
+        ttk.Label(email_frame, text="Recipients (comma-separated):").pack(side="left", padx=5, pady=2)
+        ttk.Entry(email_frame, textvariable=self.recipient_emails_var, width=30).pack(side="left", padx=5, pady=2)
         
-        # Beginning Cash Balances
-        beg_frame = ttk.LabelFrame(scrollable_frame, text="Beginning Cash Balances")
-        beg_frame.pack(fill="x", pady=5)
+        # Buttons Frame
+        button_frame = ttk.Frame(self.scrollable_frame)
+        button_frame.grid(row=2, column=0, sticky="ew", pady=10)
         
-        ttk.Label(beg_frame, text="Cash in Bank (beginning):").grid(row=0, column=0, sticky="w", padx=5, pady=2)
-        bank_beg_entry = ttk.Entry(beg_frame, textvariable=self.cash_bank_beg, width=15)
-        bank_beg_entry.grid(row=0, column=1, padx=5, pady=2)
-        self.format_entry(self.cash_bank_beg, bank_beg_entry)
+        ttk.Button(button_frame, text="Save to CSV (Ctrl+S)", command=self.save_to_csv).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Load from CSV (Ctrl+L)", command=self.load_from_csv).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Clear All Fields", command=self.clear_fields).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Export to PDF (Ctrl+E)", command=self.export_to_pdf).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Save to Word (Ctrl+W)", command=self.save_to_docx).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Send via Email (Ctrl+G)", command=self.send_email).pack(side="left", padx=5)
         
-        ttk.Label(beg_frame, text="Cash on Hand (beginning):").grid(row=1, column=0, sticky="w", padx=5, pady=2)
-        hand_beg_entry = ttk.Entry(beg_frame, textvariable=self.cash_hand_beg, width=15)
-        hand_beg_entry.grid(row=1, column=1, padx=5, pady=2)
-        self.format_entry(self.cash_hand_beg, hand_beg_entry)
+        # Columns Frame for responsive layout
+        self.columns_frame = ttk.Frame(self.scrollable_frame)
+        self.columns_frame.grid(row=3, column=0, sticky="nsew", pady=10)
+        
+        # Define column frames
+        self.beg_frame = ttk.LabelFrame(self.columns_frame, text="Beginning Cash Balances")
+        self.inflow_frame = ttk.LabelFrame(self.columns_frame, text="Cash Inflows")
+        self.outflow_frame = ttk.LabelFrame(self.columns_frame, text="Cash Outflows")
+        self.end_frame = ttk.LabelFrame(self.columns_frame, text="Ending Cash Balances")
+        self.totals_frame = ttk.LabelFrame(self.columns_frame, text="Totals")
+        
+        # Store frames for layout management
+        self.column_frames = [
+            self.beg_frame,
+            self.inflow_frame,
+            self.outflow_frame,
+            self.end_frame,
+            self.totals_frame
+        ]
+        
+        # Populate column frames
+        self.populate_columns()
+        
+        # Bind resize event
+        self.root.bind("<Configure>", self.update_layout)
+
+    def populate_columns(self):
+        # Beginning Balances
+        beg_items = [
+            ("Cash in Bank (beginning):", self.cash_bank_beg),
+            ("Cash on Hand (beginning):", self.cash_hand_beg)
+        ]
+        for i, (label, var) in enumerate(beg_items):
+            ttk.Label(self.beg_frame, text=label).grid(row=i, column=0, sticky="w", padx=5, pady=2)
+            entry = ttk.Entry(self.beg_frame, textvariable=var, width=15)
+            entry.grid(row=i, column=1, padx=5, pady=2)
+            self.format_entry(var, entry)
         
         # Cash Inflows
-        inflow_frame = ttk.LabelFrame(scrollable_frame, text="Cash Inflows")
-        inflow_frame.pack(fill="x", pady=5)
-        
         inflow_items = [
             ("Monthly dues collected:", self.monthly_dues),
             ("Certifications issued:", self.certifications),
@@ -210,27 +246,17 @@ class IntegratedCashFlowApp:
             ("Vehicle stickers:", self.vehicle_stickers),
             ("Rentals (covered courts):", self.rentals),
             ("Solicitations/Donations:", self.solicitations),
-            ("Interest Income on bank deposits:", self.interest_income),
+            ("Interest Income:", self.interest_income),
             ("Livelihood Management Fee:", self.livelihood_fee),
-            ("Others:", self.inflows_others),
+            ("Others:", self.inflows_others)
         ]
-        
         for i, (label, var) in enumerate(inflow_items):
-            ttk.Label(inflow_frame, text=label).grid(row=i, column=0, sticky="w", padx=5, pady=2)
-            entry = ttk.Entry(inflow_frame, textvariable=var, width=15)
+            ttk.Label(self.inflow_frame, text=label).grid(row=i, column=0, sticky="w", padx=5, pady=2)
+            entry = ttk.Entry(self.inflow_frame, textvariable=var, width=15)
             entry.grid(row=i, column=1, padx=5, pady=2)
             self.format_entry(var, entry)
         
-        ttk.Label(inflow_frame, text="Total Cash receipt:").grid(row=len(inflow_items), column=0, sticky="w", padx=5, pady=2)
-        ttk.Entry(inflow_frame, textvariable=self.total_receipts, width=15, state="readonly").grid(row=len(inflow_items), column=1, padx=5, pady=2)
-        
         # Cash Outflows
-        outflow_frame = ttk.LabelFrame(scrollable_frame, text="Cash Outflows")
-        outflow_frame.pack(fill="x", pady=5)
-        
-        ttk.Label(outflow_frame, text="Cash Out Flows/Disbursements:").grid(row=0, column=0, sticky="w", padx=5, pady=2)
-        ttk.Entry(outflow_frame, textvariable=self.cash_outflows, width=15, state="readonly").grid(row=0, column=1, padx=5, pady=2)
-        
         outflow_items = [
             ("Snacks/Meals for visitors:", self.snacks_meals),
             ("Transportation expenses:", self.transportation),
@@ -245,45 +271,54 @@ class IntegratedCashFlowApp:
             ("BOD Mtg:", self.bod_mtg),
             ("General Assembly:", self.general_assembly),
             ("Cash Deposit to bank:", self.cash_deposit),
-            ("Withholding tax on bank deposit:", self.withholding_tax),
+            ("Withholding tax:", self.withholding_tax),
             ("Refund for seri-culture:", self.refund_sericulture),
             ("Others:", self.outflows_others),
             ("", self.outflows_others_2)
         ]
-        
         for i, (label, var) in enumerate(outflow_items):
-            ttk.Label(outflow_frame, text=label).grid(row=i+1, column=0, sticky="w", padx=5, pady=2)
-            entry = ttk.Entry(outflow_frame, textvariable=var, width=15)
-            entry.grid(row=i+1, column=1, padx=5, pady=2)
+            ttk.Label(self.outflow_frame, text=label).grid(row=i, column=0, sticky="w", padx=5, pady=2)
+            entry = ttk.Entry(self.outflow_frame, textvariable=var, width=15)
+            entry.grid(row=i, column=1, padx=5, pady=2)
             self.format_entry(var, entry)
         
-        # Ending Cash Balances
-        end_frame = ttk.LabelFrame(scrollable_frame, text="Ending Cash Balances")
-        end_frame.pack(fill="x", pady=5)
+        # Ending Balances
+        end_items = [
+            ("Cash in Bank:", self.ending_cash_bank),
+            ("Cash on Hand:", self.ending_cash_hand)
+        ]
+        for i, (label, var) in enumerate(end_items):
+            ttk.Label(self.end_frame, text=label).grid(row=i, column=0, sticky="w", padx=5, pady=2)
+            entry = ttk.Entry(self.end_frame, textvariable=var, width=15, state="readonly")
+            entry.grid(row=i, column=1, padx=5, pady=2)
         
-        ttk.Label(end_frame, text="Ending cash balance:").grid(row=0, column=0, sticky="w", padx=5, pady=2)
-        ttk.Entry(end_frame, textvariable=self.ending_cash, width=15, state="readonly").grid(row=0, column=1, padx=5, pady=2)
+        # Totals
+        total_items = [
+            ("Total Cash Receipts:", self.total_receipts),
+            ("Cash Outflows:", self.cash_outflows),
+            ("Ending Cash Balance:", self.ending_cash)
+        ]
+        for i, (label, var) in enumerate(total_items):
+            ttk.Label(self.totals_frame, text=label).grid(row=i, column=0, sticky="w", padx=5, pady=2)
+            entry = ttk.Entry(self.totals_frame, textvariable=var, width=15, state="readonly")
+            entry.grid(row=i, column=1, padx=5, pady=2)
+
+    def update_layout(self, event=None):
+        window_width = self.main_frame.winfo_width()
+        min_column_width = 250
+        num_columns = max(1, window_width // min_column_width)
+        num_columns = min(num_columns, len(self.column_frames))
         
-        ttk.Label(end_frame, text="Cash in Bank:").grid(row=1, column=0, sticky="w", padx=5, pady=2)
-        bank_end_entry = ttk.Entry(end_frame, textvariable=self.ending_cash_bank, width=15)
-        bank_end_entry.grid(row=1, column=1, padx=5, pady=2)
-        self.format_entry(self.ending_cash_bank, bank_end_entry)
+        for frame in self.column_frames:
+            frame.grid_forget()
         
-        ttk.Label(end_frame, text="Cash on Hand:").grid(row=2, column=0, sticky="w", padx=5, pady=2)
-        hand_end_entry = ttk.Entry(end_frame, textvariable=self.ending_cash_hand, width=15)
-        hand_end_entry.grid(row=2, column=1, padx=5, pady=2)
-        self.format_entry(self.ending_cash_hand, hand_end_entry)
+        for i, frame in enumerate(self.column_frames):
+            row = i // num_columns
+            col = i % num_columns
+            frame.grid(row=row, column=col, padx=10, pady=5, sticky="ns")
         
-        # Buttons Frame
-        button_frame = ttk.Frame(scrollable_frame)
-        button_frame.pack(fill="x", pady=10)
-        
-        ttk.Button(button_frame, text="Save to CSV (Ctrl+S)", command=self.save_to_csv).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Load from CSV (Ctrl+L)", command=self.load_from_csv).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Clear All Fields", command=self.clear_fields).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Export to PDF (Ctrl+E)", command=self.export_to_pdf).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Save to Word (Ctrl+W)", command=self.save_to_docx).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Send via Email (Ctrl+G)", command=self.send_email).pack(side="left", padx=5)
+        self.canvas.update_idletasks()
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def safe_decimal(self, var):
         val = var.get().strip()
@@ -336,14 +371,17 @@ class IntegratedCashFlowApp:
             self.cash_outflows.set(f"{outflow_total:,.2f}")
             self.ending_cash.set(f"{ending_balance:,.2f}")
             
-            if not self.ending_cash_bank.get().strip() and not self.ending_cash_hand.get().strip():
-                self.ending_cash_bank.set(f"{ending_balance * Decimal('0.8'):,.2f}")
-                self.ending_cash_hand.set(f"{ending_balance * Decimal('0.2'):,.2f}")
+            ending_cash_bank = ending_balance * self.bank_split_ratio
+            ending_cash_hand = ending_balance * self.hand_split_ratio
+            self.ending_cash_bank.set(f"{ending_cash_bank:,.2f}")
+            self.ending_cash_hand.set(f"{ending_cash_hand:,.2f}")
             
         except Exception:
             self.total_receipts.set("")
             self.cash_outflows.set("")
             self.ending_cash.set("")
+            self.ending_cash_bank.set("")
+            self.ending_cash_hand.set("")
 
     def format_date_for_display(self, date_str):
         try:
