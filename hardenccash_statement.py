@@ -7,6 +7,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
+from tkcalendar import DateEntry
 import csv
 from decimal import Decimal
 from reportlab.lib import colors
@@ -14,10 +15,8 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet
 from docx import Document
-from docx.oxml.ns import qn
 from docx.shared import Pt, Inches
 
-# Integrated Cash Flow Statement App
 class IntegratedCashFlowApp:
     def __init__(self, root):
         self.root = root
@@ -25,19 +24,18 @@ class IntegratedCashFlowApp:
         self.root.geometry("800x800")
         
         # Hardcoded email credentials
-        self.SENDER_EMAIL = "chuddcdo@gmail.com"  # Replace with your actual email
-        self.SENDER_PASSWORD = "jfyb eoog ukxr hhiq"  # Replace with your app-specific password
+        self.SENDER_EMAIL = "chuddcdo@gmail.com"
+        self.SENDER_PASSWORD = "jfyb eoog ukxr hhiq"
         
-        # Recipient email variable (still configurable via GUI)
+        # Recipient email variable
         self.recipient_emails_var = tk.StringVar()
         
         # Cash flow variables
         self.title_var = tk.StringVar(value="Statement Of Cash Flows")
-        self.today_date = datetime.datetime.now().strftime("%B %d, %Y")
+        self.date_var = tk.StringVar(value=datetime.datetime.now().strftime("%m/%d/%Y"))
         
         self.cash_bank_beg = tk.StringVar()
         self.cash_hand_beg = tk.StringVar()
-        
         self.monthly_dues = tk.StringVar()
         self.certifications = tk.StringVar()
         self.membership_fee = tk.StringVar()
@@ -48,7 +46,6 @@ class IntegratedCashFlowApp:
         self.livelihood_fee = tk.StringVar()
         self.inflows_others = tk.StringVar()
         self.total_receipts = tk.StringVar()
-        
         self.cash_outflows = tk.StringVar()
         self.snacks_meals = tk.StringVar()
         self.transportation = tk.StringVar()
@@ -67,10 +64,22 @@ class IntegratedCashFlowApp:
         self.refund_sericulture = tk.StringVar()
         self.outflows_others = tk.StringVar()
         self.outflows_others_2 = tk.StringVar()
-        
         self.ending_cash = tk.StringVar()
         self.ending_cash_bank = tk.StringVar()
         self.ending_cash_hand = tk.StringVar()
+        
+        self.input_vars = [
+            self.cash_bank_beg, self.cash_hand_beg, self.monthly_dues, self.certifications,
+            self.membership_fee, self.vehicle_stickers, self.rentals, self.solicitations,
+            self.interest_income, self.livelihood_fee, self.inflows_others, self.snacks_meals,
+            self.transportation, self.office_supplies, self.printing, self.labor, self.billboard,
+            self.cleaning, self.misc_expenses, self.federation_fee, self.uniforms, self.bod_mtg,
+            self.general_assembly, self.cash_deposit, self.withholding_tax, self.refund_sericulture,
+            self.outflows_others, self.outflows_others_2
+        ]
+        
+        for var in self.input_vars:
+            var.trace_add('write', lambda *args: self.calculate_totals())
         
         self.create_widgets()
         self.setup_keyboard_shortcuts()
@@ -88,11 +97,44 @@ class IntegratedCashFlowApp:
             if value:
                 try:
                     formatted = f"{Decimal(value.replace(',', '')):,.2f}"
-                    var.set(formatted)
+                    if formatted != value:
+                        var.set(formatted)
                 except:
                     pass
-        var.trace('w', on_change)
+        var.trace_add('write', on_change)
         entry_widget.config(justify='right')
+
+    def validate_date(self, date_str):
+        """Validate date in mm/dd/yyyy format."""
+        if not date_str:
+            return True
+        try:
+            datetime.datetime.strptime(date_str, "%m/%d/%Y")
+            return True
+        except ValueError:
+            messagebox.showwarning("Invalid Date", "Please enter date in mm/dd/yyyy format.")
+            return False
+
+    def create_tooltip(self, widget, text):
+        """Create a tooltip for a widget."""
+        tooltip = tk.Toplevel(widget)
+        tooltip.wm_overrideredirect(True)
+        tooltip.wm_geometry("+1000+1000")  # Hide initially
+        label = tk.Label(tooltip, text=text, background="lightyellow", relief="solid", borderwidth=1)
+        label.pack()
+        
+        def show(event):
+            x = widget.winfo_rootx() + 20
+            y = widget.winfo_rooty() + 20
+            tooltip.wm_geometry(f"+{x}+{y}")
+            tooltip.deiconify()
+        
+        def hide(event):
+            tooltip.withdraw()
+        
+        widget.bind("<Enter>", show)
+        widget.bind("<Leave>", hide)
+        tooltip.withdraw()
 
     def create_widgets(self):
         main_frame = ttk.Frame(self.root)
@@ -119,9 +161,24 @@ class IntegratedCashFlowApp:
         
         ttk.Label(title_frame, text="Title:").pack(side="left", padx=5)
         ttk.Entry(title_frame, textvariable=self.title_var, width=40).pack(side="left", padx=5)
-        ttk.Label(title_frame, text=f"Date: {self.today_date}").pack(side="left", padx=20)
         
-        # Email Configuration Frame (only recipients)
+        # Date picker
+        date_frame = ttk.Frame(title_frame)
+        date_frame.pack(side="left", padx=5)
+        ttk.Label(date_frame, text="Date:").pack(side="left", padx=2)
+        date_entry = DateEntry(
+            date_frame,
+            textvariable=self.date_var,
+            date_pattern='mm/dd/yyyy',
+            width=12,
+            font=("Arial", 10),
+            selectmode='day',
+            borderwidth=2
+        )
+        date_entry.pack(side="left", padx=2)
+        self.create_tooltip(date_entry, "Click to select a date from the calendar")
+        
+        # Email Configuration Frame
         email_frame = ttk.LabelFrame(scrollable_frame, text="Email Configuration")
         email_frame.pack(fill="x", pady=5)
         
@@ -236,7 +293,7 @@ class IntegratedCashFlowApp:
             val = val.replace(",", "")
             return Decimal(val)
         except:
-            raise ValueError(f"Invalid number: {val}")
+            return Decimal("0")
 
     def calculate_totals(self):
         try:
@@ -279,20 +336,37 @@ class IntegratedCashFlowApp:
             self.cash_outflows.set(f"{outflow_total:,.2f}")
             self.ending_cash.set(f"{ending_balance:,.2f}")
             
-            if not self.ending_cash_bank.get() and not self.ending_cash_hand.get():
+            if not self.ending_cash_bank.get().strip() and not self.ending_cash_hand.get().strip():
                 self.ending_cash_bank.set(f"{ending_balance * Decimal('0.8'):,.2f}")
                 self.ending_cash_hand.set(f"{ending_balance * Decimal('0.2'):,.2f}")
             
-        except Exception as e:
-            messagebox.showerror("Error", f"Calculation error: {str(e)}\nPlease ensure all values are valid numbers.")
+        except Exception:
+            self.total_receipts.set("")
+            self.cash_outflows.set("")
+            self.ending_cash.set("")
+
+    def format_date_for_display(self, date_str):
+        try:
+            date_obj = datetime.datetime.strptime(date_str, "%m/%d/%Y")
+            return date_obj.strftime("%B %d, %Y")
+        except ValueError:
+            return date_str
+
+    def format_date_for_entry(self, date_str):
+        try:
+            date_obj = datetime.datetime.strptime(date_str, "%B %d, %Y")
+            return date_obj.strftime("%m/%d/%Y")
+        except ValueError:
+            return date_str
 
     def save_to_csv(self):
         try:
+            self.calculate_totals()
             filename = f"cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
             with open(filename, 'w', newline='') as csvfile:
                 writer = csv.writer(csvfile)
                 writer.writerow([self.title_var.get()])
-                writer.writerow([f"For the year month {self.today_date}"])
+                writer.writerow([f"For the year month {self.format_date_for_display(self.date_var.get())}"])
                 writer.writerow([])
                 writer.writerow(["Cash in Bank-beg", self.cash_bank_beg.get()])
                 writer.writerow(["Cash on Hand-beg", self.cash_hand_beg.get()])
@@ -352,6 +426,8 @@ class IntegratedCashFlowApp:
                 reader = csv.reader(csvfile)
                 data = list(reader)
                 self.title_var.set(data[0][0])
+                date_str = data[1][0].replace("For the year month ", "")
+                self.date_var.set(self.format_date_for_entry(date_str))
                 self.cash_bank_beg.set(data[3][1])
                 self.cash_hand_beg.set(data[4][1])
                 self.monthly_dues.set(data[7][1])
@@ -387,23 +463,13 @@ class IntegratedCashFlowApp:
                 self.ending_cash_hand.set(data[42][1])
             
             messagebox.showinfo("Success", f"Loaded data from {filename}")
+            self.calculate_totals()
             
         except Exception as e:
             messagebox.showerror("Error", f"Error loading CSV: {str(e)}")
 
     def clear_fields(self):
-        for var in [
-            self.cash_bank_beg, self.cash_hand_beg,
-            self.monthly_dues, self.certifications, self.membership_fee,
-            self.vehicle_stickers, self.rentals, self.solicitations,
-            self.interest_income, self.livelihood_fee, self.inflows_others,
-            self.snacks_meals, self.transportation, self.office_supplies,
-            self.printing, self.labor, self.billboard, self.cleaning,
-            self.misc_expenses, self.federation_fee, self.uniforms,
-            self.bod_mtg, self.general_assembly, self.cash_deposit,
-            self.withholding_tax, self.refund_sericulture, self.outflows_others,
-            self.outflows_others_2, self.ending_cash_bank, self.ending_cash_hand
-        ]:
+        for var in self.input_vars + [self.ending_cash_bank, self.ending_cash_hand]:
             var.set("")
         
         self.total_receipts.set("")
@@ -425,7 +491,6 @@ class IntegratedCashFlowApp:
                         return value
                 return ""
 
-            # Prompt user for save location
             default_filename = f"cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
             filename = filedialog.asksaveasfilename(
                 defaultextension=".pdf",
@@ -433,7 +498,7 @@ class IntegratedCashFlowApp:
                 initialfile=default_filename,
                 title="Save PDF As"
             )
-            if not filename:  # User cancelled the save dialog
+            if not filename:
                 return None
 
             doc = SimpleDocTemplate(filename, pagesize=letter)
@@ -452,7 +517,7 @@ class IntegratedCashFlowApp:
                 elements.append(Spacer(1, 12))
 
             elements.append(Paragraph(self.title_var.get(), styles['Title']))
-            elements.append(Paragraph(f"For the year month {self.today_date}", styles['Normal']))
+            elements.append(Paragraph(f"For the year month {self.format_date_for_display(self.date_var.get())}", styles['Normal']))
             elements.append(Spacer(1, 12))
             
             beg_data = [
@@ -503,7 +568,7 @@ class IntegratedCashFlowApp:
                 ["Printing and photocopy", format_amount(self.printing.get())],
                 ["Labor", format_amount(self.labor.get())],
                 ["Billboard expense", format_amount(self.billboard.get())],
-                ["Clearing 🙂cleaning charges", format_amount(self.cleaning.get())],
+                ["Clearing/cleaning charges", format_amount(self.cleaning.get())],
                 ["Miscellaneous expenses", format_amount(self.misc_expenses.get())],
                 ["Federation fee", format_amount(self.federation_fee.get())],
                 ["HOA-BOD Uniforms", format_amount(self.uniforms.get())],
@@ -577,7 +642,6 @@ class IntegratedCashFlowApp:
                         return value
                 return ""
 
-            # Prompt user for save location
             default_filename = f"cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
             filename = filedialog.asksaveasfilename(
                 defaultextension=".docx",
@@ -585,7 +649,7 @@ class IntegratedCashFlowApp:
                 initialfile=default_filename,
                 title="Save Word Document As"
             )
-            if not filename:  # User cancelled the save dialog
+            if not filename:
                 return None
 
             doc = Document()
@@ -604,7 +668,7 @@ class IntegratedCashFlowApp:
                 paragraph.alignment = 1
 
             doc.add_heading(self.title_var.get(), level=1)
-            doc.add_paragraph(f"For the year month {self.today_date}")
+            doc.add_paragraph(f"For the year month {self.format_date_for_display(self.date_var.get())}")
 
             doc.add_heading("Beginning Cash Balances", level=2)
             table = doc.add_table(rows=2, cols=2)
@@ -694,7 +758,6 @@ class IntegratedCashFlowApp:
 
     def send_email(self):
         try:
-            # Use hardcoded email credentials
             sender_email = self.SENDER_EMAIL
             sender_password = self.SENDER_PASSWORD
             recipient_emails = [email.strip() for email in self.recipient_emails_var.get().split(',') if email.strip()]
@@ -703,7 +766,6 @@ class IntegratedCashFlowApp:
                 messagebox.showerror("Error", "Please fill in the recipient email field.")
                 return
 
-            # Create PDF and Word files to attach
             pdf_filename = self.export_to_pdf()
             if not pdf_filename:
                 return
@@ -712,28 +774,24 @@ class IntegratedCashFlowApp:
                 os.remove(pdf_filename)
                 return
 
-            # Set up the email
             msg = MIMEMultipart()
             msg['From'] = sender_email
             msg['To'] = ", ".join(recipient_emails)
-            msg['Subject'] = f"Cash Flow Statement - {self.today_date}"
+            msg['Subject'] = f"Cash Flow Statement - {self.format_date_for_display(self.date_var.get())}"
 
-            body = f"Attached is the cash flow statement for {self.today_date} in both PDF and Word formats.\n\nRegards,\nYour's truly"
+            body = f"Attached is the cash flow statement for {self.format_date_for_display(self.date_var.get())} in both PDF and Word formats.\n\nRegards,\nYour's truly"
             msg.attach(MIMEText(body, 'plain'))
 
-            # Attach PDF
             with open(pdf_filename, 'rb') as f:
                 part = MIMEApplication(f.read(), Name=os.path.basename(pdf_filename))
                 part['Content-Disposition'] = f'attachment; filename="{os.path.basename(pdf_filename)}"'
                 msg.attach(part)
 
-            # Attach Word
             with open(docx_filename, 'rb') as f:
                 part = MIMEApplication(f.read(), Name=os.path.basename(docx_filename))
                 part['Content-Disposition'] = f'attachment; filename="{os.path.basename(docx_filename)}"'
                 msg.attach(part)
 
-            # Connect to SMTP server (assuming Gmail)
             server = smtplib.SMTP('smtp.gmail.com', 587)
             server.starttls()
             server.login(sender_email, sender_password)
