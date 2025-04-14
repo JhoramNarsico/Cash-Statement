@@ -1,14 +1,10 @@
 import os
 import datetime
+import smtplib
 import sys
-import pickle
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
-from google.auth.transport.requests import Request
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
-import base64
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import csv
@@ -18,16 +14,11 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet
 from docx import Document
-from docx.shared import Inches
+from docx.shared import Pt, Inches
 import customtkinter as ctk
 from tkcalendar import Calendar
 
-# Gmail API setup
-CREDENTIALS_FILE = 'credentials.json'
-TOKEN_FILE = 'token.pickle'
-SCOPES = ['https://www.googleapis.com/auth/gmail.send']
-SENDER_EMAIL = 'chuddcdo@gmail.com'
-
+# Add HoverCalendar class from the first code
 class HoverCalendar(Calendar):
     """Custom Calendar class to enable hovering over month and year for navigation."""
     def __init__(self, master=None, **kw):
@@ -61,28 +52,30 @@ class HoverCalendar(Calendar):
 class IntegratedCashFlowApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Cash Flow Statement")
+        self.root.title("Cash Flow Statement Generator with Email")
+        self.root.geometry("800x700")  # Set initial size to 1200x1000
         
-        # Maximize the window
-        self.root.state('zoomed')  # Maximizes the window on Windows
-        
-        # Set CustomTkinter appearance
+        # Set CustomTkinter appearance (from first code)
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
 
-        # Color scheme
+        # Color scheme (from first code)
         self.primary_color = "#1C2526"  # Dark background
         self.secondary_color = "#2A3F4D"  # Section backgrounds
         self.accent_color = "#00A7E1"  # Buttons
         self.text_color = "#E0E0E0"  # Light grey text
         self.success_color = "#4CAF50"  # Success indicators
         
-        # Email variable
+        # Hardcoded email credentials
+        self.SENDER_EMAIL = "chuddcdo@gmail.com"
+        self.SENDER_PASSWORD = "jfyb eoog ukxr hhiq"
+        
+        # Recipient email variable
         self.recipient_emails_var = ctk.StringVar()
         
         # Cash flow variables
         self.title_var = ctk.StringVar(value="Statement Of Cash Flows")
-        self.today_date = ctk.StringVar(value=datetime.datetime.now().strftime("%m/%d/%Y"))
+        self.date_var = ctk.StringVar(value=datetime.datetime.now().strftime("%m/%d/%Y"))
         self.display_date = ctk.StringVar(value=datetime.datetime.now().strftime("%b %d, %Y"))
         
         self.cash_bank_beg = ctk.StringVar()
@@ -114,205 +107,91 @@ class IntegratedCashFlowApp:
         self.withholding_tax = ctk.StringVar()
         self.refund_sericulture = ctk.StringVar()
         self.outflows_others = ctk.StringVar()
-        self.outflows_others_2 = ctk.StringVar()
         self.ending_cash = ctk.StringVar()
         self.ending_cash_bank = ctk.StringVar()
         self.ending_cash_hand = ctk.StringVar()
         
-        # Sync display_date when today_date changes
-        self.today_date.trace('w', self.update_display_date)
+        # Split ratios for ending cash balances
+        self.bank_split_ratio = Decimal('0.8')  # 80% to bank
+        self.hand_split_ratio = Decimal('0.2')  # 20% to hand
+        
+        self.input_vars = [
+            self.cash_bank_beg, self.cash_hand_beg, self.monthly_dues, self.certifications,
+            self.membership_fee, self.vehicle_stickers, self.rentals, self.solicitations,
+            self.interest_income, self.livelihood_fee, self.inflows_others, self.snacks_meals,
+            self.transportation, self.office_supplies, self.printing, self.labor, self.billboard,
+            self.cleaning, self.misc_expenses, self.federation_fee, self.uniforms, self.bod_mtg,
+            self.general_assembly, self.cash_deposit, self.withholding_tax, self.refund_sericulture,
+            self.outflows_others
+        ]
+        
+        for var in self.input_vars:
+            var.trace_add('write', lambda *args: self.calculate_totals())
+        
+        # Sync display_date with date_var
+        self.date_var.trace('w', self.update_display_date)
         
         self.create_widgets()
         self.setup_keyboard_shortcuts()
 
     def update_display_date(self, *args):
-        """Convert mm/dd/yyyy from today_date to MMM dd, yyyy for display_date."""
-        raw_date = self.today_date.get()
+        """Convert mm/dd/yyyy from date_var to MMM dd, yyyy for display_date."""
+        raw_date = self.date_var.get()
         try:
             date_obj = datetime.datetime.strptime(raw_date, "%m/%d/%Y")
             self.display_date.set(date_obj.strftime("%b %d, %Y"))
         except ValueError:
             pass
 
-    def create_widgets(self):
-        # Main container (non-scrollable, using grid layout)
-        main_container = ctk.CTkFrame(self.root, fg_color=self.primary_color)
-        main_container.pack(fill="both", expand=True, padx=10, pady=10)
-        main_container.grid_columnconfigure((0, 1, 2), weight=1)  # Three columns with equal weight
-        main_container.grid_rowconfigure((0, 1, 2, 3, 4), weight=0)  # Rows for sections
+    def setup_keyboard_shortcuts(self):
+        self.root.bind('<Control-s>', lambda e: self.save_to_csv())
+        self.root.bind('<Control-e>', lambda e: self.export_to_pdf())
+        self.root.bind('<Control-l>', lambda e: self.load_from_csv())
+        self.root.bind('<Control-g>', lambda e: self.send_email())
+        self.root.bind('<Control-w>', lambda e: self.save_to_docx())
 
-        # Title and Date Frame (Row 0, spans all columns)
-        title_frame = ctk.CTkFrame(main_container, fg_color=self.secondary_color, corner_radius=10)
-        title_frame.grid(row=0, column=0, columnspan=3, sticky="ew", padx=10, pady=5)
-        
-        ctk.CTkLabel(title_frame, text="Title:", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
-        title_entry = ctk.CTkEntry(title_frame, textvariable=self.title_var, width=250, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
-        title_entry.pack(side="left", padx=5)
-        
-        ctk.CTkLabel(title_frame, text="Date:", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=(10, 5))
-        date_button = ctk.CTkButton(
-            title_frame,
-            textvariable=self.display_date,
-            font=("Arial", 12),
-            fg_color="#3A4F5D",
-            text_color=self.text_color,
-            command=self.show_calendar,
-            width=100,
-            height=28,
-            corner_radius=5,
-            hover_color="#4A5F6D"
-        )
-        date_button.pack(side="left", padx=5)
+    def format_entry(self, var, entry_widget):
+        def on_change(*args):
+            value = var.get()
+            if value:
+                try:
+                    formatted = f"{Decimal(value.replace(',', '')):,.2f}"
+                    if formatted != value:
+                        var.set(formatted)
+                except:
+                    pass
+        var.trace_add('write', on_change)
+        entry_widget.configure(justify="right")
 
-        # Email Recipients Frame (Row 1, spans all columns)
-        email_frame = ctk.CTkFrame(main_container, fg_color=self.secondary_color, corner_radius=10)
-        email_frame.grid(row=1, column=0, columnspan=3, sticky="ew", padx=10, pady=5)
-        
-        ctk.CTkLabel(email_frame, text="Recipient Emails (comma-separated):", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5, pady=5)
-        email_entry = ctk.CTkEntry(email_frame, textvariable=self.recipient_emails_var, width=350, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
-        email_entry.pack(side="left", padx=5, pady=5)
+    def validate_date(self, date_str):
+        if not date_str:
+            return True
+        try:
+            datetime.datetime.strptime(date_str, "%m/%d/%Y")
+            return True
+        except ValueError:
+            messagebox.showwarning("Invalid Date", "Please enter date in mm/dd/yyyy format.")
+            return False
 
-        # Beginning Cash Balances (Column 0, Row 2)
-        beg_frame = ctk.CTkFrame(main_container, fg_color=self.secondary_color, corner_radius=10)
-        beg_frame.grid(row=2, column=0, sticky="nsew", padx=10, pady=5)
+    def create_tooltip(self, widget, text):
+        tooltip = tk.Toplevel(widget)
+        tooltip.wm_overrideredirect(True)
+        tooltip.wm_geometry("+1000+1000")
+        label = tk.Label(tooltip, text=text, background="lightyellow", relief="solid", borderwidth=1, fg="black")
+        label.pack()
         
-        ctk.CTkLabel(beg_frame, text="Beginning Cash Balances", font=("Roboto", 14, "bold"), text_color=self.text_color).pack(anchor="w", padx=5, pady=3)
-        beg_inner = ctk.CTkFrame(beg_frame, fg_color="transparent")
-        beg_inner.pack(padx=5, pady=3, fill="x")
+        def show(event):
+            x = widget.winfo_rootx() + 20
+            y = widget.winfo_rooty() + 20
+            tooltip.wm_geometry(f"+{x}+{y}")
+            tooltip.deiconify()
         
-        beg_items = [
-            ("Cash in Bank (beginning):", self.cash_bank_beg),
-            ("Cash on Hand (beginning):", self.cash_hand_beg),
-        ]
-        for i, (label, var) in enumerate(beg_items):
-            ctk.CTkLabel(beg_inner, text=label, font=("Roboto", 11), text_color=self.text_color, anchor="w").grid(row=i, column=0, sticky="w", padx=5, pady=2)
-            entry = ctk.CTkEntry(beg_inner, textvariable=var, width=150, font=("Roboto", 11), fg_color="#3A4F5D", text_color=self.text_color)
-            entry.grid(row=i, column=1, padx=5, pady=2, sticky="e")
-            self.format_entry(var, entry)
-
-        # Cash Inflows (Column 0, Row 3)
-        inflow_frame = ctk.CTkFrame(main_container, fg_color=self.secondary_color, corner_radius=10)
-        inflow_frame.grid(row=3, column=0, sticky="nsew", padx=10, pady=5)
+        def hide(event):
+            tooltip.withdraw()
         
-        ctk.CTkLabel(inflow_frame, text="Cash Inflows", font=("Roboto", 14, "bold"), text_color=self.text_color).pack(anchor="w", padx=5, pady=3)
-        inflow_inner = ctk.CTkFrame(inflow_frame, fg_color="transparent")
-        inflow_inner.pack(padx=5, pady=3, fill="x")
-        
-        inflow_items = [
-            ("Monthly dues collected:", self.monthly_dues),
-            ("Certifications issued:", self.certifications),
-            ("Membership fee:", self.membership_fee),
-            ("Vehicle stickers:", self.vehicle_stickers),
-            ("Rentals (covered courts):", self.rentals),
-            ("Solicitations/Donations:", self.solicitations),
-            ("Interest Income on bank deposits:", self.interest_income),
-            ("Livelihood Management Fee:", self.livelihood_fee),
-            ("Others:", self.inflows_others),
-        ]
-        for i, (label, var) in enumerate(inflow_items):
-            ctk.CTkLabel(inflow_inner, text=label, font=("Roboto", 11), text_color=self.text_color, anchor="w").grid(row=i, column=0, sticky="w", padx=5, pady=2)
-            entry = ctk.CTkEntry(inflow_inner, textvariable=var, width=150, font=("Roboto", 11), fg_color="#3A4F5D", text_color=self.text_color)
-            entry.grid(row=i, column=1, padx=5, pady=2, sticky="e")
-            self.format_entry(var, entry)
-        
-        ctk.CTkLabel(inflow_inner, text="Total Cash receipt:", font=("Roboto", 11), text_color=self.text_color, anchor="w").grid(row=len(inflow_items), column=0, sticky="w", padx=5, pady=2)
-        ctk.CTkEntry(inflow_inner, textvariable=self.total_receipts, width=150, font=("Roboto", 11), fg_color="#3A4F5D", text_color=self.text_color, state="disabled").grid(row=len(inflow_items), column=1, padx=5, pady=2, sticky="e")
-
-        # Cash Outflows (Columns 1 and 2, Row 2 and 3)
-        # Split into two parts to fit in two columns
-        outflow_frame = ctk.CTkFrame(main_container, fg_color=self.secondary_color, corner_radius=10)
-        outflow_frame.grid(row=2, column=1, rowspan=2, columnspan=2, sticky="nsew", padx=10, pady=5)
-        
-        ctk.CTkLabel(outflow_frame, text="Cash Outflows", font=("Roboto", 14, "bold"), text_color=self.text_color).pack(anchor="w", padx=5, pady=3)
-        outflow_inner = ctk.CTkFrame(outflow_frame, fg_color="transparent")
-        outflow_inner.pack(padx=5, pady=3, fill="both", expand=True)
-        outflow_inner.grid_columnconfigure((0, 2), weight=1)
-
-        # First row for the total outflows
-        ctk.CTkLabel(outflow_inner, text="Cash Out Flows/Disbursements:", font=("Roboto", 11), text_color=self.text_color, anchor="w").grid(row=0, column=0, sticky="w", padx=5, pady=2)
-        ctk.CTkEntry(outflow_inner, textvariable=self.cash_outflows, width=150, font=("Roboto", 11), fg_color="#3A4F5D", text_color=self.text_color, state="disabled").grid(row=0, column=1, padx=5, pady=2, sticky="e")
-
-        # Split outflow items into two columns
-        outflow_items = [
-            ("Snacks/Meals for visitors:", self.snacks_meals),
-            ("Transportation expenses:", self.transportation),
-            ("Office supplies expense:", self.office_supplies),
-            ("Printing and photocopy:", self.printing),
-            ("Labor:", self.labor),
-            ("Billboard expense:", self.billboard),
-            ("Clearing/cleaning charges:", self.cleaning),
-            ("Miscellaneous expenses:", self.misc_expenses),
-            ("Federation fee:", self.federation_fee),
-            ("HOA-BOD Uniforms:", self.uniforms),
-            ("BOD Mtg:", self.bod_mtg),
-            ("General Assembly:", self.general_assembly),
-            ("Cash Deposit to bank:", self.cash_deposit),
-            ("Withholding tax on bank deposit:", self.withholding_tax),
-            ("Refund for seri-culture:", self.refund_sericulture),
-            ("Others:", self.outflows_others),
-            ("", self.outflows_others_2),
-        ]
-
-        # Split into two columns (9 items in first column, 8 in second)
-        mid_point = (len(outflow_items) + 1) // 2  # Roughly half
-        for i, (label, var) in enumerate(outflow_items[:mid_point]):
-            ctk.CTkLabel(outflow_inner, text=label, font=("Roboto", 11), text_color=self.text_color, anchor="w").grid(row=i+1, column=0, sticky="w", padx=5, pady=2)
-            entry = ctk.CTkEntry(outflow_inner, textvariable=var, width=150, font=("Roboto", 11), fg_color="#3A4F5D", text_color=self.text_color)
-            entry.grid(row=i+1, column=1, padx=5, pady=2, sticky="e")
-            self.format_entry(var, entry)
-
-        for i, (label, var) in enumerate(outflow_items[mid_point:]):
-            ctk.CTkLabel(outflow_inner, text=label, font=("Roboto", 11), text_color=self.text_color, anchor="w").grid(row=i+1, column=2, sticky="w", padx=5, pady=2)
-            entry = ctk.CTkEntry(outflow_inner, textvariable=var, width=150, font=("Roboto", 11), fg_color="#3A4F5D", text_color=self.text_color)
-            entry.grid(row=i+1, column=3, padx=5, pady=2, sticky="e")
-            self.format_entry(var, entry)
-
-        # Ending Cash Balances (Row 4, spans all columns)
-        end_frame = ctk.CTkFrame(main_container, fg_color=self.secondary_color, corner_radius=10)
-        end_frame.grid(row=4, column=0, columnspan=3, sticky="ew", padx=10, pady=5)
-        
-        ctk.CTkLabel(end_frame, text="Ending Cash Balances", font=("Roboto", 14, "bold"), text_color=self.text_color).pack(anchor="w", padx=5, pady=3)
-        end_inner = ctk.CTkFrame(end_frame, fg_color="transparent")
-        end_inner.pack(padx=5, pady=3, fill="x")
-        
-        ctk.CTkLabel(end_inner, text="Ending cash balance:", font=("Roboto", 11), text_color=self.text_color, anchor="w").grid(row=0, column=0, sticky="w", padx=5, pady=2)
-        ctk.CTkEntry(end_inner, textvariable=self.ending_cash, width=150, font=("Roboto", 11), fg_color="#3A4F5D", text_color=self.text_color, state="disabled").grid(row=0, column=1, padx=5, pady=2, sticky="e")
-        
-        ctk.CTkLabel(end_inner, text="Cash in Bank:", font=("Roboto", 11), text_color=self.text_color, anchor="w").grid(row=1, column=0, sticky="w", padx=5, pady=2)
-        bank_end_entry = ctk.CTkEntry(end_inner, textvariable=self.ending_cash_bank, width=150, font=("Roboto", 11), fg_color="#3A4F5D", text_color=self.text_color)
-        bank_end_entry.grid(row=1, column=1, padx=5, pady=2, sticky="e")
-        self.format_entry(self.ending_cash_bank, bank_end_entry)
-        
-        ctk.CTkLabel(end_inner, text="Cash on Hand:", font=("Roboto", 11), text_color=self.text_color, anchor="w").grid(row=2, column=0, sticky="w", padx=5, pady=2)
-        hand_end_entry = ctk.CTkEntry(end_inner, textvariable=self.ending_cash_hand, width=150, font=("Roboto", 11), fg_color="#3A4F5D", text_color=self.text_color)
-        hand_end_entry.grid(row=2, column=1, padx=5, pady=2, sticky="e")
-        self.format_entry(self.ending_cash_hand, hand_end_entry)
-
-        # Buttons Frame (Row 5, spans all columns)
-        button_frame = ctk.CTkFrame(main_container, fg_color=self.primary_color)
-        button_frame.grid(row=5, column=0, columnspan=3, sticky="ew", pady=10)
-        
-        buttons = [
-            ("Save to CSV (Ctrl+S)", self.save_to_csv),
-            ("Load from CSV (Ctrl+L)", self.load_from_csv),
-            ("Clear All Fields", self.clear_fields),
-            ("Export to PDF (Ctrl+E)", self.export_to_pdf),
-            ("Save to Word (Ctrl+W)", self.save_to_docx),
-            ("Send via Email (Ctrl+G)", self.send_email),
-        ]
-        for text, command in buttons:
-            ctk.CTkButton(
-                button_frame,
-                text=text,
-                command=command,
-                font=("Roboto", 12),
-                fg_color=self.accent_color,
-                hover_color="#008CC1",
-                text_color=self.text_color,
-                width=180,
-                height=35,
-                corner_radius=8
-            ).pack(side="left", padx=5)
+        widget.bind("<Enter>", show)
+        widget.bind("<Leave>", hide)
+        tooltip.withdraw()
 
     def show_calendar(self):
         """Show a standalone calendar in a popup window, appearing directly in the center."""
@@ -354,7 +233,7 @@ class IntegratedCashFlowApp:
         cal.pack(padx=10, pady=10)
 
         try:
-            current_date = datetime.datetime.strptime(self.today_date.get(), "%m/%d/%Y")
+            current_date = datetime.datetime.strptime(self.date_var.get(), "%m/%d/%Y")
             cal.selection_set(current_date)
         except ValueError:
             pass
@@ -362,7 +241,7 @@ class IntegratedCashFlowApp:
         def on_date_select():
             selected_date = cal.selection_get()
             if selected_date:
-                self.today_date.set(selected_date.strftime("%m/%d/%Y"))
+                self.date_var.set(selected_date.strftime("%m/%d/%Y"))
             popup.destroy()
 
         confirm_button = ctk.CTkButton(
@@ -378,13 +257,297 @@ class IntegratedCashFlowApp:
         popup.deiconify()
         popup.protocol("WM_DELETE_WINDOW", popup.destroy)
 
+    def create_widgets(self):
+        self.main_frame = ctk.CTkFrame(self.root, fg_color=self.primary_color)
+        self.main_frame.pack(fill="both", expand=True, padx=10, pady=10)  # Added margins for breathing space
+        
+        # Removed canvas and scrollbar setup since scrolling is not needed
+        self.scrollable_frame = ctk.CTkFrame(self.main_frame, fg_color=self.primary_color)
+        self.scrollable_frame.pack(fill="both", expand=True, padx=10, pady=5)  # Added internal margins
+        
+        # Title and Date Frame
+        header_frame = ctk.CTkFrame(self.scrollable_frame, fg_color=self.secondary_color, corner_radius=10)
+        header_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=5)  # Added margins
+        
+        ctk.CTkLabel(header_frame, text="Title:", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
+        title_entry = ctk.CTkEntry(header_frame, textvariable=self.title_var, width=200, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
+        title_entry.pack(side="left", padx=5)
+        
+        date_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
+        date_frame.pack(side="left", padx=5)
+        ctk.CTkLabel(date_frame, text="Date:", font=("Roboto", 12), text_color=self.text_color).pack(side="left")
+        date_button = ctk.CTkButton(
+            date_frame,
+            textvariable=self.display_date,
+            font=("Arial", 12),
+            fg_color="#3A4F5D",
+            text_color=self.text_color,
+            command=self.show_calendar,
+            width=100,
+            height=28,
+            corner_radius=5,
+            hover_color="#4A5F6D"
+        )
+        date_button.pack(side="left")
+        self.create_tooltip(date_button, "Click to select a date from the calendar")
+        
+        # Email Configuration Frame
+        email_frame = ctk.CTkFrame(self.scrollable_frame, fg_color=self.secondary_color, corner_radius=10)
+        email_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=5)  # Added margins
+        
+        ctk.CTkLabel(email_frame, text="Recipients (comma-separated):", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
+        email_entry = ctk.CTkEntry(email_frame, textvariable=self.recipient_emails_var, width=300, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
+        email_entry.pack(side="left", padx=5)
+        
+        # Buttons Frame
+        button_frame = ctk.CTkFrame(self.scrollable_frame, fg_color=self.primary_color)
+        button_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=5)  # Added margins
+        
+        buttons = [
+            ("Save to CSV (Ctrl+S)", self.save_to_csv),
+            ("Load from CSV (Ctrl+L)", self.load_from_csv),
+            ("Clear All Fields", self.clear_fields),
+            ("Export to PDF (Ctrl+E)", self.export_to_pdf),
+            ("Save to Word (Ctrl+W)", self.save_to_docx),
+            ("Send via Email (Ctrl+G)", self.send_email),
+        ]
+        for text, command in buttons:
+            ctk.CTkButton(
+                button_frame,
+                text=text,
+                command=command,
+                font=("Roboto", 12),
+                fg_color=self.accent_color,
+                hover_color="#008CC1",
+                text_color=self.text_color,
+                width=150,
+                height=35,
+                corner_radius=8
+            ).pack(side="left", padx=5)
+        
+        # Columns Frame for responsive layout
+        self.columns_frame = ctk.CTkFrame(self.scrollable_frame, fg_color=self.primary_color)
+        self.columns_frame.grid(row=3, column=0, sticky="nsew", padx=10, pady=5)  # Added margins
+        
+        # Define column frames
+        self.beg_frame = ctk.CTkFrame(self.columns_frame, fg_color=self.secondary_color, corner_radius=10)
+        ctk.CTkLabel(self.beg_frame, text="Beginning Cash Balances", font=("Roboto", 14, "bold"), text_color=self.text_color).pack(anchor="w", padx=5, pady=5)
+
+        self.inflow_frame = ctk.CTkFrame(self.columns_frame, fg_color=self.secondary_color, corner_radius=10)
+        ctk.CTkLabel(self.inflow_frame, text="Cash Inflows", font=("Roboto", 14, "bold"), text_color=self.text_color).pack(anchor="w", padx=5, pady=5)
+
+        self.outflow_frame = ctk.CTkFrame(self.columns_frame, fg_color=self.secondary_color, corner_radius=10)
+        ctk.CTkLabel(self.outflow_frame, text="Cash Outflows", font=("Roboto", 14, "bold"), text_color=self.text_color).pack(anchor="w", padx=5, pady=5)
+
+        self.end_frame = ctk.CTkFrame(self.columns_frame, fg_color=self.secondary_color, corner_radius=10)
+        ctk.CTkLabel(self.end_frame, text="Ending Cash Balances", font=("Roboto", 14, "bold"), text_color=self.text_color).pack(anchor="w", padx=5, pady=5)
+
+        self.totals_frame = ctk.CTkFrame(self.columns_frame, fg_color=self.secondary_color, corner_radius=10)
+        ctk.CTkLabel(self.totals_frame, text="Totals", font=("Roboto", 14, "bold"), text_color=self.text_color).pack(anchor="w", padx=5, pady=5)
+        
+        # Store frames for layout management
+        self.column_frames = [
+            self.beg_frame,
+            self.inflow_frame,
+            self.outflow_frame,
+            self.end_frame,
+            self.totals_frame
+        ]
+        
+        # Populate column frames
+        self.populate_columns()
+        
+        # Bind resize event
+        self.root.bind("<Configure>", self.update_layout)
+
+    def populate_columns(self):
+        # Beginning Balances
+        beg_inner = ctk.CTkFrame(self.beg_frame, fg_color="transparent")
+        beg_inner.pack(fill="x", padx=5, pady=5)
+        beg_items = [
+            ("Cash in Bank (beginning):", self.cash_bank_beg),
+            ("Cash on Hand (beginning):", self.cash_hand_beg)
+        ]
+        for i, (label, var) in enumerate(beg_items):
+            ctk.CTkLabel(beg_inner, text=label, font=("Roboto", 11), text_color=self.text_color, anchor="w").grid(row=i, column=0, sticky="w", padx=5, pady=2)
+            entry = ctk.CTkEntry(beg_inner, textvariable=var, width=120, font=("Roboto", 11), fg_color="#3A4F5D", text_color=self.text_color)
+            entry.grid(row=i, column=1, sticky="e", padx=5, pady=2)
+            self.format_entry(var, entry)
+        
+        # Cash Inflows
+        inflow_inner = ctk.CTkFrame(self.inflow_frame, fg_color="transparent")
+        inflow_inner.pack(fill="x", padx=5, pady=5)
+        inflow_items = [
+            ("Monthly dues collected:", self.monthly_dues),
+            ("Certifications issued:", self.certifications),
+            ("Membership fee:", self.membership_fee),
+            ("Vehicle stickers:", self.vehicle_stickers),
+            ("Rentals (covered courts):", self.rentals),
+            ("Solicitations/Donations:", self.solicitations),
+            ("Interest Income:", self.interest_income),
+            ("Livelihood Management Fee:", self.livelihood_fee),
+            ("Others:", self.inflows_others)
+        ]
+        for i, (label, var) in enumerate(inflow_items):
+            ctk.CTkLabel(inflow_inner, text=label, font=("Roboto", 11), text_color=self.text_color, anchor="w").grid(row=i, column=0, sticky="w", padx=5, pady=2)
+            entry = ctk.CTkEntry(inflow_inner, textvariable=var, width=120, font=("Roboto", 11), fg_color="#3A4F5D", text_color=self.text_color)
+            entry.grid(row=i, column=1, sticky="e", padx=5, pady=2)
+            self.format_entry(var, entry)
+        
+        # Cash Outflows
+        outflow_inner = ctk.CTkFrame(self.outflow_frame, fg_color="transparent")
+        outflow_inner.pack(fill="x", padx=5, pady=5)
+        outflow_items = [
+            ("Snacks/Meals for visitors:", self.snacks_meals),
+            ("Transportation expenses:", self.transportation),
+            ("Office supplies expense:", self.office_supplies),
+            ("Printing and photocopy:", self.printing),
+            ("Labor:", self.labor),
+            ("Billboard expense:", self.billboard),
+            ("Clearing/cleaning charges:", self.cleaning),
+            ("Miscellaneous expenses:", self.misc_expenses),
+            ("Federation fee:", self.federation_fee),
+            ("HOA-BOD Uniforms:", self.uniforms),
+            ("BOD Mtg:", self.bod_mtg),
+            ("General Assembly:", self.general_assembly),
+            ("Cash Deposit to bank:", self.cash_deposit),
+            ("Withholding tax:", self.withholding_tax),
+            ("Refund for seri-culture:", self.refund_sericulture),
+            ("Others:", self.outflows_others)
+        ]
+        for i, (label, var) in enumerate(outflow_items):
+            ctk.CTkLabel(outflow_inner, text=label, font=("Roboto", 11), text_color=self.text_color, anchor="w").grid(row=i, column=0, sticky="w", padx=5, pady=2)
+            entry = ctk.CTkEntry(outflow_inner, textvariable=var, width=120, font=("Roboto", 11), fg_color="#3A4F5D", text_color=self.text_color)
+            entry.grid(row=i, column=1, sticky="e", padx=5, pady=2)
+            self.format_entry(var, entry)
+        
+        # Ending Balances
+        end_inner = ctk.CTkFrame(self.end_frame, fg_color="transparent")
+        end_inner.pack(fill="x", padx=5, pady=5)
+        end_items = [
+            ("Cash in Bank:", self.ending_cash_bank),
+            ("Cash on Hand:", self.ending_cash_hand)
+        ]
+        for i, (label, var) in enumerate(end_items):
+            ctk.CTkLabel(end_inner, text=label, font=("Roboto", 11), text_color=self.text_color, anchor="w").grid(row=i, column=0, sticky="w", padx=5, pady=2)
+            entry = ctk.CTkEntry(end_inner, textvariable=var, width=120, font=("Roboto", 11), fg_color="#3A4F5D", text_color=self.text_color, state="disabled")
+            entry.grid(row=i, column=1, sticky="e", padx=5, pady=2)
+        
+        # Totals
+        total_inner = ctk.CTkFrame(self.totals_frame, fg_color="transparent")
+        total_inner.pack(fill="x", padx=5, pady=5)
+        total_items = [
+            ("Total Cash Receipts:", self.total_receipts),
+            ("Cash Outflows:", self.cash_outflows),
+            ("Ending Cash Balance:", self.ending_cash)
+        ]
+        for i, (label, var) in enumerate(total_items):
+            ctk.CTkLabel(total_inner, text=label, font=("Roboto", 11), text_color=self.text_color, anchor="w").grid(row=i, column=0, sticky="w", padx=5, pady=2)
+            entry = ctk.CTkEntry(total_inner, textvariable=var, width=120, font=("Roboto", 11), fg_color="#3A4F5D", text_color=self.text_color, state="disabled")
+            entry.grid(row=i, column=1, sticky="e", padx=5, pady=2)
+
+    def update_layout(self, event=None):
+        window_width = self.main_frame.winfo_width()
+        min_column_width = 250  # Increased to ensure content fits without truncation
+        num_columns = max(1, window_width // min_column_width)
+        num_columns = min(num_columns, len(self.column_frames))
+        
+        for frame in self.column_frames:
+            frame.grid_forget()
+        
+        for i, frame in enumerate(self.column_frames):
+            row = i // num_columns
+            col = i % num_columns
+            frame.grid(row=row, column=col, sticky="nsew", padx=5, pady=5)  # Added margins between columns
+        
+        # Ensure the columns_frame expands to fill available space
+        self.columns_frame.grid_columnconfigure(tuple(range(num_columns)), weight=1)
+        self.columns_frame.grid_rowconfigure(tuple(range((len(self.column_frames) + num_columns - 1) // num_columns)), weight=1)
+
+    def safe_decimal(self, var):
+        val = var.get().strip()
+        if not val:
+            return Decimal("0")
+        try:
+            val = val.replace(",", "")
+            return Decimal(val)
+        except:
+            return Decimal("0")
+
+    def calculate_totals(self):
+        try:
+            inflow_total = sum([
+                self.safe_decimal(self.monthly_dues),
+                self.safe_decimal(self.certifications),
+                self.safe_decimal(self.membership_fee),
+                self.safe_decimal(self.vehicle_stickers),
+                self.safe_decimal(self.rentals),
+                self.safe_decimal(self.solicitations),
+                self.safe_decimal(self.interest_income),
+                self.safe_decimal(self.livelihood_fee),
+                self.safe_decimal(self.inflows_others)
+            ])
+            
+            outflow_total = sum([
+                self.safe_decimal(self.snacks_meals),
+                self.safe_decimal(self.transportation),
+                self.safe_decimal(self.office_supplies),
+                self.safe_decimal(self.printing),
+                self.safe_decimal(self.labor),
+                self.safe_decimal(self.billboard),
+                self.safe_decimal(self.cleaning),
+                self.safe_decimal(self.misc_expenses),
+                self.safe_decimal(self.federation_fee),
+                self.safe_decimal(self.uniforms),
+                self.safe_decimal(self.bod_mtg),
+                self.safe_decimal(self.general_assembly),
+                self.safe_decimal(self.cash_deposit),
+                self.safe_decimal(self.withholding_tax),
+                self.safe_decimal(self.refund_sericulture),
+                self.safe_decimal(self.outflows_others)
+            ])
+            
+            beginning_total = self.safe_decimal(self.cash_bank_beg) + self.safe_decimal(self.cash_hand_beg)
+            ending_balance = beginning_total + inflow_total - outflow_total
+            
+            self.total_receipts.set(f"{inflow_total:,.2f}")
+            self.cash_outflows.set(f"{outflow_total:,.2f}")
+            self.ending_cash.set(f"{ending_balance:,.2f}")
+            
+            ending_cash_bank = ending_balance * self.bank_split_ratio
+            ending_cash_hand = ending_balance * self.hand_split_ratio
+            self.ending_cash_bank.set(f"{ending_cash_bank:,.2f}")
+            self.ending_cash_hand.set(f"{ending_cash_hand:,.2f}")
+            
+        except Exception:
+            self.total_receipts.set("")
+            self.cash_outflows.set("")
+            self.ending_cash.set("")
+            self.ending_cash_bank.set("")
+            self.ending_cash_hand.set("")
+
+    def format_date_for_display(self, date_str):
+        try:
+            date_obj = datetime.datetime.strptime(date_str, "%m/%d/%Y")
+            return date_obj.strftime("%B %d, %Y")
+        except ValueError:
+            return date_str
+
+    def format_date_for_entry(self, date_str):
+        try:
+            date_obj = datetime.datetime.strptime(date_str, "%B %d, %Y")
+            return date_obj.strftime("%m/%d/%Y")
+        except ValueError:
+            return date_str
+
     def save_to_csv(self):
         try:
+            self.calculate_totals()
             filename = f"cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
             with open(filename, 'w', newline='') as csvfile:
                 writer = csv.writer(csvfile)
                 writer.writerow([self.title_var.get()])
-                writer.writerow([f"For the year month {self.display_date.get()}"])
+                writer.writerow([f"For the year month {self.format_date_for_display(self.date_var.get())}"])
                 writer.writerow([])
                 writer.writerow(["Cash in Bank-beg", self.cash_bank_beg.get()])
                 writer.writerow(["Cash on Hand-beg", self.cash_hand_beg.get()])
@@ -419,7 +582,6 @@ class IntegratedCashFlowApp:
                 writer.writerow(["Withholding tax on bank deposit", self.withholding_tax.get()])
                 writer.writerow(["Refund for seri-culture", self.refund_sericulture.get()])
                 writer.writerow(["Others", self.outflows_others.get()])
-                writer.writerow(["", self.outflows_others_2.get()])
                 writer.writerow([])
                 writer.writerow(["Ending cash balance", self.ending_cash.get()])
                 writer.writerow([])
@@ -429,6 +591,7 @@ class IntegratedCashFlowApp:
             
             messagebox.showinfo("Success", f"Cash flow statement saved to {filename}")
             return filename
+            
         except Exception as e:
             messagebox.showerror("Error", f"Error saving to CSV: {str(e)}")
             return None
@@ -443,12 +606,8 @@ class IntegratedCashFlowApp:
                 reader = csv.reader(csvfile)
                 data = list(reader)
                 self.title_var.set(data[0][0])
-                try:
-                    date_str = data[1][0].replace("For the year month ", "")
-                    date_obj = datetime.datetime.strptime(date_str, "%b %d, %Y")
-                    self.today_date.set(date_obj.strftime("%m/%d/%Y"))
-                except ValueError:
-                    self.today_date.set(datetime.datetime.now().strftime("%m/%d/%Y"))
+                date_str = data[1][0].replace("For the year month ", "")
+                self.date_var.set(self.format_date_for_entry(date_str))
                 self.cash_bank_beg.set(data[3][1])
                 self.cash_hand_beg.set(data[4][1])
                 self.monthly_dues.set(data[7][1])
@@ -478,39 +637,30 @@ class IntegratedCashFlowApp:
                 self.withholding_tax.set(data[33][1])
                 self.refund_sericulture.set(data[34][1])
                 self.outflows_others.set(data[35][1])
-                self.outflows_others_2.set(data[36][1])
-                self.ending_cash.set(data[38][1])
-                self.ending_cash_bank.set(data[41][1])
-                self.ending_cash_hand.set(data[42][1])
+                self.ending_cash.set(data[37][1])
+                self.ending_cash_bank.set(data[40][1])
+                self.ending_cash_hand.set(data[41][1])
             
             messagebox.showinfo("Success", f"Loaded data from {filename}")
+            self.calculate_totals()
+            
         except Exception as e:
             messagebox.showerror("Error", f"Error loading CSV: {str(e)}")
 
     def clear_fields(self):
-        for var in [
-            self.cash_bank_beg, self.cash_hand_beg,
-            self.monthly_dues, self.certifications, self.membership_fee,
-            self.vehicle_stickers, self.rentals, self.solicitations,
-            self.interest_income, self.livelihood_fee, self.inflows_others,
-            self.snacks_meals, self.transportation, self.office_supplies,
-            self.printing, self.labor, self.billboard, self.cleaning,
-            self.misc_expenses, self.federation_fee, self.uniforms,
-            self.bod_mtg, self.general_assembly, self.cash_deposit,
-            self.withholding_tax, self.refund_sericulture, self.outflows_others,
-            self.outflows_others_2, self.ending_cash_bank, self.ending_cash_hand
-        ]:
+        for var in self.input_vars + [self.ending_cash_bank, self.ending_cash_hand]:
             var.set("")
         
         self.total_receipts.set("")
         self.cash_outflows.set("")
         self.ending_cash.set("")
-        self.today_date.set(datetime.datetime.now().strftime("%m/%d/%Y"))
+        
         messagebox.showinfo("Success", "All fields have been cleared")
 
-    def export_to_pdf(self, temp=False):
+    def export_to_pdf(self):
         try:
             self.calculate_totals()
+
             def format_amount(value):
                 if value:
                     try:
@@ -519,28 +669,36 @@ class IntegratedCashFlowApp:
                     except:
                         return value
                 return ""
-            
-            if temp:
-                filename = f"temp_cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-            else:
-                filename = self.get_save_filename("PDF", ".pdf")
-                if not filename:
-                    return None
+
+            default_filename = f"cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".pdf",
+                filetypes=[("PDF files", "*.pdf")],
+                initialfile=default_filename,
+                title="Save PDF As"
+            )
+            if not filename:
+                return None
 
             doc = SimpleDocTemplate(filename, pagesize=letter)
             styles = getSampleStyleSheet()
             elements = []
+
             if getattr(sys, 'frozen', False):
                 base_path = sys._MEIPASS
             else:
                 base_path = os.path.dirname(__file__)
+
             logo_path = os.path.join(base_path, "logo.png")
+
             if os.path.exists(logo_path):
                 elements.append(Image(logo_path, width=100, height=100))
                 elements.append(Spacer(1, 12))
+
             elements.append(Paragraph(self.title_var.get(), styles['Title']))
-            elements.append(Paragraph(f"For the year month {self.display_date.get()}", styles['Normal']))
+            elements.append(Paragraph(f"For the year month {self.format_date_for_display(self.date_var.get())}", styles['Normal']))
             elements.append(Spacer(1, 12))
+            
             beg_data = [
                 ["Cash in Bank-beg", format_amount(self.cash_bank_beg.get())],
                 ["Cash on Hand-beg", format_amount(self.cash_hand_beg.get())]
@@ -554,6 +712,7 @@ class IntegratedCashFlowApp:
             ]))
             elements.append(beg_table)
             elements.append(Spacer(1, 12))
+            
             elements.append(Paragraph("<b>Cash inflows:</b>", styles['Normal']))
             elements.append(Spacer(1, 6))
             inflows_data = [
@@ -577,6 +736,7 @@ class IntegratedCashFlowApp:
             ]))
             elements.append(inflows_table)
             elements.append(Spacer(1, 12))
+            
             elements.append(Paragraph("<b>Less:</b>", styles['Normal']))
             elements.append(Spacer(1, 6))
             outflows_data = [
@@ -596,8 +756,7 @@ class IntegratedCashFlowApp:
                 ["Cash Deposit to bank", format_amount(self.cash_deposit.get())],
                 ["Withholding tax on bank deposit", format_amount(self.withholding_tax.get())],
                 ["Refund for seri-culture", format_amount(self.refund_sericulture.get())],
-                ["Others", format_amount(self.outflows_others.get())],
-                ["", format_amount(self.outflows_others_2.get())]
+                ["Others", format_amount(self.outflows_others.get())]
             ]
             outflows_table = Table(outflows_data, colWidths=[300, 150])
             outflows_table.setStyle(TableStyle([
@@ -608,6 +767,7 @@ class IntegratedCashFlowApp:
             ]))
             elements.append(outflows_table)
             elements.append(Spacer(1, 12))
+            
             ending_data = [
                 ["Ending cash balance", format_amount(self.ending_cash.get())]
             ]
@@ -620,6 +780,7 @@ class IntegratedCashFlowApp:
             ]))
             elements.append(ending_table)
             elements.append(Spacer(1, 12))
+            
             elements.append(Paragraph("<b>Breakdown of cash:</b>", styles['Normal']))
             elements.append(Spacer(1, 6))
             breakdown_data = [
@@ -632,21 +793,24 @@ class IntegratedCashFlowApp:
                 ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
             ]))
             elements.append(breakdown_table)
+            
             def add_page_numbers(canvas, doc):
                 page_num = canvas.getPageNumber()
                 text = f"Page {page_num}"
                 canvas.drawRightString(200, 20, text)
+            
             doc.build(elements, onFirstPage=add_page_numbers, onLaterPages=add_page_numbers)
-            if not temp:
-                messagebox.showinfo("Success", f"PDF successfully exported to {filename}")
+            messagebox.showinfo("Success", f"PDF successfully exported to {filename}")
             return filename
+            
         except Exception as e:
-            messagebox.showerror("Error", f"Error exporting to PDF: {str(e)}")
+            messagebox.showerror("Error", f"Error exporting to PDF: {str(e)}\n\nMake sure you have ReportLab installed by running:\npip install reportlab")
             return None
 
-    def save_to_docx(self, temp=False):
+    def save_to_docx(self):
         try:
             self.calculate_totals()
+
             def format_amount(value):
                 if value:
                     try:
@@ -655,27 +819,35 @@ class IntegratedCashFlowApp:
                     except:
                         return value
                 return ""
-            
-            if temp:
-                filename = f"temp_cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
-            else:
-                filename = self.get_save_filename("Word", ".docx")
-                if not filename:
-                    return None
+
+            default_filename = f"cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".docx",
+                filetypes=[("Word documents", "*.docx")],
+                initialfile=default_filename,
+                title="Save Word Document As"
+            )
+            if not filename:
+                return None
 
             doc = Document()
+
             if getattr(sys, 'frozen', False):
                 base_path = sys._MEIPASS
             else:
                 base_path = os.path.dirname(__file__)
+
             logo_path = os.path.join(base_path, "logo.png")
+
             if os.path.exists(logo_path):
                 paragraph = doc.add_paragraph()
                 run = paragraph.add_run()
                 run.add_picture(logo_path, width=Inches(1.5))
                 paragraph.alignment = 1
+
             doc.add_heading(self.title_var.get(), level=1)
-            doc.add_paragraph(f"For the year month {self.display_date.get()}")
+            doc.add_paragraph(f"For the year month {self.format_date_for_display(self.date_var.get())}")
+
             doc.add_heading("Beginning Cash Balances", level=2)
             table = doc.add_table(rows=2, cols=2)
             table.style = 'Table Grid'
@@ -685,6 +857,7 @@ class IntegratedCashFlowApp:
             table.cell(1, 1).text = format_amount(self.cash_hand_beg.get())
             for row in table.rows:
                 row.cells[1].paragraphs[0].alignment = 2
+
             doc.add_heading("Cash Inflows", level=2)
             table = doc.add_table(rows=10, cols=2)
             table.style = 'Table Grid'
@@ -705,8 +878,9 @@ class IntegratedCashFlowApp:
                 table.cell(i, 1).text = format_amount(var.get())
                 table.cell(i, 1).paragraphs[0].alignment = 2
             table.cell(9, 0).paragraphs[0].runs[0].bold = True
+
             doc.add_heading("Less: Cash Outflows", level=2)
-            table = doc.add_table(rows=18, cols=2)
+            table = doc.add_table(rows=17, cols=2)
             table.style = 'Table Grid'
             outflow_items = [
                 ("Cash Out Flows/Disbursements", self.cash_outflows),
@@ -725,14 +899,14 @@ class IntegratedCashFlowApp:
                 ("Cash Deposit to bank", self.cash_deposit),
                 ("Withholding tax on bank deposit", self.withholding_tax),
                 ("Refund for seri-culture", self.refund_sericulture),
-                ("Others", self.outflows_others),
-                ("", self.outflows_others_2)
+                ("Others", self.outflows_others)
             ]
             for i, (label, var) in enumerate(outflow_items):
                 table.cell(i, 0).text = label
                 table.cell(i, 1).text = format_amount(var.get())
                 table.cell(i, 1).paragraphs[0].alignment = 2
             table.cell(0, 0).paragraphs[0].runs[0].bold = True
+
             doc.add_heading("Ending Cash Balance", level=2)
             table = doc.add_table(rows=1, cols=2)
             table.style = 'Table Grid'
@@ -740,6 +914,7 @@ class IntegratedCashFlowApp:
             table.cell(0, 1).text = format_amount(self.ending_cash.get())
             table.cell(0, 1).paragraphs[0].alignment = 2
             table.cell(0, 0).paragraphs[0].runs[0].bold = True
+
             doc.add_heading("Breakdown of Cash", level=2)
             table = doc.add_table(rows=2, cols=2)
             table.style = 'Table Grid'
@@ -749,160 +924,76 @@ class IntegratedCashFlowApp:
             table.cell(1, 1).text = format_amount(self.ending_cash_hand.get())
             for row in table.rows:
                 row.cells[1].paragraphs[0].alignment = 2
+
             doc.save(filename)
-            if not temp:
-                messagebox.showinfo("Success", f"Word document saved to {filename}")
+            messagebox.showinfo("Success", f"Word document saved to {filename}")
             return filename
+            
         except Exception as e:
-            messagebox.showerror("Error", f"Error saving to Word: {str(e)}")
+            messagebox.showerror("Error", f"Error saving to Word: {str(e)}\n\nMake sure you have python-docx installed by running:\npip install python-docx")
             return None
 
     def send_email(self):
         try:
+            sender_email = self.SENDER_EMAIL
+            sender_password = self.SENDER_PASSWORD
             recipient_emails = [email.strip() for email in self.recipient_emails_var.get().split(',') if email.strip()]
+            
             if not recipient_emails:
-                messagebox.showerror("Error", "Please enter at least one recipient email.")
+                messagebox.showerror("Error", "Please fill in the recipient email field.")
                 return
 
-            pdf_filename = self.export_to_pdf(temp=True)
+            pdf_filename = self.export_to_pdf()
             if not pdf_filename:
                 return
-            docx_filename = self.save_to_docx(temp=True)
+            docx_filename = self.save_to_docx()
             if not docx_filename:
                 os.remove(pdf_filename)
                 return
 
-            service = self.get_gmail_service()
-
             msg = MIMEMultipart()
-            msg['From'] = SENDER_EMAIL
+            msg['From'] = sender_email
             msg['To'] = ", ".join(recipient_emails)
-            msg['Subject'] = f"Cash Flow Statement - {self.display_date.get()}"
-            msg.attach(MIMEText(f"Attached is the cash flow statement for {self.display_date.get()}.\n\nRegards,\nCash Flow App", 'plain'))
+            msg['Subject'] = f"Cash Flow Statement - {self.format_date_for_display(self.date_var.get())}"
 
-            for filename in [pdf_filename, docx_filename]:
-                with open(filename, 'rb') as f:
-                    part = MIMEApplication(f.read(), Name=os.path.basename(filename))
-                    part['Content-Disposition'] = f'attachment; filename="{os.path.basename(filename)}"'
-                    msg.attach(part)
+            body = f"Attached is the cash flow statement for {self.format_date_for_display(self.date_var.get())} in both PDF and Word formats.\n\nRegards,\nYour's truly"
+            msg.attach(MIMEText(body, 'plain'))
 
-            raw = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8')
-            service.users().messages().send(userId='me', body={'raw': raw}).execute()
+            with open(pdf_filename, 'rb') as f:
+                part = MIMEApplication(f.read(), Name=os.path.basename(pdf_filename))
+                part['Content-Disposition'] = f'attachment; filename="{os.path.basename(pdf_filename)}"'
+                msg.attach(part)
 
-            messagebox.showinfo("Success", f"Email sent to {', '.join(recipient_emails)}!")
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to send email: {str(e)}")
-        finally:
-            if 'pdf_filename' in locals() and os.path.exists(pdf_filename):
+            with open(docx_filename, 'rb') as f:
+                part = MIMEApplication(f.read(), Name=os.path.basename(docx_filename))
+                part['Content-Disposition'] = f'attachment; filename="{os.path.basename(docx_filename)}"'
+                msg.attach(part)
+
+            server = smtplib.SMTP('smtp.gmail.com', 587)
+            server.starttls()
+            server.login(sender_email, sender_password)
+            
+            server.send_message(msg)
+            server.quit()
+            
+            messagebox.showinfo("Success", f"Email with PDF and Word files sent to {', '.join(recipient_emails)}!")
+            os.remove(pdf_filename)
+            os.remove(docx_filename)
+            
+        except smtplib.SMTPAuthenticationError as e:
+            messagebox.showerror("Error", f"Authentication failed: {str(e)}\nCheck your hardcoded email and app password.")
+            if 'pdf_filename' in locals():
                 os.remove(pdf_filename)
-            if 'docx_filename' in locals() and os.path.exists(docx_filename):
+            if 'docx_filename' in locals():
+                os.remove(docx_filename)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to send email: {str(e)}\nEnsure your email credentials are correct and you have an internet connection.")
+            if 'pdf_filename' in locals():
+                os.remove(pdf_filename)
+            if 'docx_filename' in locals():
                 os.remove(docx_filename)
 
-    def setup_keyboard_shortcuts(self):
-        self.root.bind('<Control-s>', lambda e: self.save_to_csv())
-        self.root.bind('<Control-e>', lambda e: self.export_to_pdf())
-        self.root.bind('<Control-l>', lambda e: self.load_from_csv())
-        self.root.bind('<Control-g>', lambda e: self.send_email())
-        self.root.bind('<Control-w>', lambda e: self.save_to_docx())
-
-    def format_entry(self, var, entry_widget):
-        def on_change(*args):
-            value = var.get()
-            if value:
-                try:
-                    formatted = f"{Decimal(value.replace(',', '')):,.2f}"
-                    var.set(formatted)
-                except:
-                    pass
-        var.trace('w', on_change)
-        entry_widget.configure(justify="right")
-
-    def safe_decimal(self, var):
-        val = var.get().strip()
-        if not val:
-            return Decimal("0")
-        try:
-            val = val.replace(",", "")
-            return Decimal(val)
-        except:
-            raise ValueError(f"Invalid number: {val}")
-
-    def calculate_totals(self):
-        try:
-            inflow_total = sum([
-                self.safe_decimal(self.monthly_dues),
-                self.safe_decimal(self.certifications),
-                self.safe_decimal(self.membership_fee),
-                self.safe_decimal(self.vehicle_stickers),
-                self.safe_decimal(self.rentals),
-                self.safe_decimal(self.solicitations),
-                self.safe_decimal(self.interest_income),
-                self.safe_decimal(self.livelihood_fee),
-                self.safe_decimal(self.inflows_others)
-            ])
-            
-            outflow_total = sum([
-                self.safe_decimal(self.snacks_meals),
-                self.safe_decimal(self.transportation),
-                self.safe_decimal(self.office_supplies),
-                self.safe_decimal(self.printing),
-                self.safe_decimal(self.labor),
-                self.safe_decimal(self.billboard),
-                self.safe_decimal(self.cleaning),
-                self.safe_decimal(self.misc_expenses),
-                self.safe_decimal(self.federation_fee),
-                self.safe_decimal(self.uniforms),
-                self.safe_decimal(self.bod_mtg),
-                self.safe_decimal(self.general_assembly),
-                self.safe_decimal(self.cash_deposit),
-                self.safe_decimal(self.withholding_tax),
-                self.safe_decimal(self.refund_sericulture),
-                self.safe_decimal(self.outflows_others),
-                self.safe_decimal(self.outflows_others_2)
-            ])
-            
-            beginning_total = self.safe_decimal(self.cash_bank_beg) + self.safe_decimal(self.cash_hand_beg)
-            ending_balance = beginning_total + inflow_total - outflow_total
-            
-            self.total_receipts.set(f"{inflow_total:,.2f}")
-            self.cash_outflows.set(f"{outflow_total:,.2f}")
-            self.ending_cash.set(f"{ending_balance:,.2f}")
-            
-            if not self.ending_cash_bank.get() and not self.ending_cash_hand.get():
-                self.ending_cash_bank.set(f"{ending_balance * Decimal('0.8'):,.2f}")
-                self.ending_cash_hand.set(f"{ending_balance * Decimal('0.2'):,.2f}")
-        except Exception as e:
-            messagebox.showerror("Error", f"Calculation error: {str(e)}\nPlease ensure all values are valid numbers.")
-
-    def get_save_filename(self, file_type, default_extension):
-        default_filename = f"cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}{default_extension}"
-        filetypes = [(f"{file_type} files", f"*{default_extension}"), ("All files", "*.*")]
-        filename = filedialog.asksaveasfilename(
-            defaultextension=default_extension,
-            initialfile=default_filename,
-            filetypes=filetypes,
-            title=f"Save {file_type} As"
-        )
-        return filename
-
-    def get_gmail_service(self):
-        creds = None
-        if os.path.exists(TOKEN_FILE):
-            with open(TOKEN_FILE, 'rb') as token:
-                creds = pickle.load(token)
-        
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
-                flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
-                creds = flow.run_local_server(port=0)
-                with open(TOKEN_FILE, 'wb') as token:
-                    pickle.dump(creds, token)
-        
-        return build('gmail', 'v1', credentials=creds)
-
 if __name__ == "__main__":
-    root = ctk.CTk()
+    root = ctk.CTk()  # Use ctk.CTk instead of tk.Tk
     app = IntegratedCashFlowApp(root)
     root.mainloop()
