@@ -67,10 +67,7 @@ class FileHandler:
                 "Cash Deposit to bank": self.variables['cash_deposit'],
                 "Withholding tax on bank deposit": self.variables['withholding_tax'],
                 "Refund": self.variables['refund'],
-                "Others(outflow)": self.variables['outflows_others'],
-                "Ending cash balance": self.variables['ending_cash'],
-                "Cash in Bank": self.variables['ending_cash_bank'],
-                "Cash on Hand": self.variables['ending_cash_hand']
+                "Others(outflow)": self.variables['outflows_others']
             }
 
             for table in doc.tables:
@@ -129,10 +126,7 @@ class FileHandler:
                 "Cash Deposit to bank": self.variables['cash_deposit'],
                 "Withholding tax on bank deposit": self.variables['withholding_tax'],
                 "Refund": self.variables['refund'],
-                "Others(outflow)": self.variables['outflows_others'],
-                "Ending cash balance": self.variables['ending_cash'],
-                "Cash in Bank": self.variables['ending_cash_bank'],
-                "Cash on Hand": self.variables['ending_cash_hand']
+                "Others(outflow)": self.variables['outflows_others']
             }
 
             with pdfplumber.open(filename) as pdf:
