@@ -30,6 +30,8 @@ class FileHandler:
         try:
             date_obj = datetime.datetime.strptime(date_str, "%m/%d/%Y")
             return date_obj.strftime("%B %d, %Y")
+            # Optional: Uncomment the line below to show only month and year (e.g., "April 2025")
+            # return date_obj.strftime("%B %Y")
         except ValueError:
             return date_str
 
@@ -194,20 +196,32 @@ class FileHandler:
             )
             if not filename:
                 return None
-            doc = SimpleDocTemplate(filename, pagesize=letter)
+            # Define custom page size: 8.5 x 13 inches (612 x 936 points)
+            folio_size = (8.5 * 72, 13 * 72)
+            doc = SimpleDocTemplate(filename, pagesize=folio_size)
             styles = getSampleStyleSheet()
+            # Create a custom style for centered normal text
+            normal_centered_style = styles['Normal']
+            normal_centered_style.alignment = 1  # Center alignment
+            normal_centered_style.fontSize = 12
+            # Create a custom style for bold centered text
+            bold_centered_style = styles['Normal']
+            bold_centered_style.alignment = 1  # Center alignment
+            bold_centered_style.fontSize = 14
+            bold_centered_style.fontName = 'Helvetica-Bold'
+            # Create a custom style for minimized centered text
+            minimized_centered_style = styles['Normal']
+            minimized_centered_style.alignment = 1  # Center alignment
+            minimized_centered_style.fontSize = 10  # Smaller font size
             elements = []
-            if getattr(sys, 'frozen', False):
-                base_path = sys._MEIPASS
-            else:
-                base_path = os.path.dirname(__file__)
-            logo_path = os.path.join(base_path, "logo.png")
-            if os.path.exists(logo_path):
-                elements.append(Image(logo_path, width=100, height=100))
-                elements.append(Spacer(1, 12))
-            elements.append(Paragraph(self.title_var.get(), styles['Title']))
-            elements.append(Paragraph(f"For the year month {self.format_date_for_display(self.date_var.get())}", styles['Normal']))
+            # Add the new header
+            elements.append(Paragraph("Buena Oro Homeowners Association Inc.", normal_centered_style))
+            elements.append(Paragraph("Macansandig, Cagayan de Oro City", normal_centered_style))
             elements.append(Spacer(1, 12))
+            elements.append(Paragraph("CASH FLOW STATEMENT", bold_centered_style))
+            elements.append(Paragraph(f"For the Month of {self.format_date_for_display(self.date_var.get())}", minimized_centered_style))
+            elements.append(Spacer(1, 12))
+            # Beginning Cash Balances
             beg_data = [
                 ["Cash in Bank-beg", format_amount(self.variables['cash_bank_beg'].get())],
                 ["Cash on Hand-beg", format_amount(self.variables['cash_hand_beg'].get())]
@@ -329,18 +343,39 @@ class FileHandler:
             if not filename:
                 return None
             doc = Document()
-            if getattr(sys, 'frozen', False):
-                base_path = sys._MEIPASS
-            else:
-                base_path = os.path.dirname(__file__)
-            logo_path = os.path.join(base_path, "logo.png")
-            if os.path.exists(logo_path):
-                paragraph = doc.add_paragraph()
-                run = paragraph.add_run()
-                run.add_picture(logo_path, width=Inches(1.5))
-                paragraph.alignment = 1
-            doc.add_heading(self.title_var.get(), level=1)
-            doc.add_paragraph(f"For the year month {self.format_date_for_display(self.date_var.get())}")
+            # Set page size to 8.5 x 13 inches (Folio)
+            from docx.oxml.ns import qn
+            from docx.shared import Inches, Pt
+            section = doc.sections[0]
+            section.page_width = Inches(8.5)
+            section.page_height = Inches(13)
+            # Add the new header
+            # Buena Oro Homeowners Association Inc. (normal, centered)
+            p = doc.add_paragraph()
+            run = p.add_run("Buena Oro Homeowners Association Inc.")
+            run.font.size = Pt(12)
+            p.alignment = 1  # Center alignment
+            # Macansandig, Cagayan de Oro City (normal, centered)
+            p = doc.add_paragraph()
+            run = p.add_run("Macansandig, Cagayan de Oro City")
+            run.font.size = Pt(12)
+            p.alignment = 1  # Center alignment
+            # Add some spacing
+            doc.add_paragraph()
+            # CASH FLOW STATEMENT (bold, centered)
+            p = doc.add_paragraph()
+            run = p.add_run("CASH FLOW STATEMENT")
+            run.bold = True
+            run.font.size = Pt(14)
+            p.alignment = 1  # Center alignment
+            # For the Month of {date} (normal, minimized, centered)
+            p = doc.add_paragraph()
+            run = p.add_run(f"For the Month of {self.format_date_for_display(self.date_var.get())}")
+            run.font.size = Pt(10)  # Smaller font size
+            p.alignment = 1  # Center alignment
+            # Add some spacing before the content
+            doc.add_paragraph()
+            # Beginning Cash Balances
             doc.add_heading("Beginning Cash Balances", level=2)
             table = doc.add_table(rows=2, cols=2)
             table.style = 'Table Grid'
