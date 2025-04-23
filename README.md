@@ -1,4 +1,4 @@
-python libraries: pip install tkcalendar reportlab python-docx
+pip install customtkinter tkcalendar pdfplumber python-docx reportlab
 
 installer:
 
