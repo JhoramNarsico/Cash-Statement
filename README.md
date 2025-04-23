@@ -1,4 +1,4 @@
-pip install customtkinter tkcalendar pdfplumber python-docx reportlab
+pip install customtkinter tkcalendar pdfplumber python-docx reportlab pyinstaller
 
 installer:
 
