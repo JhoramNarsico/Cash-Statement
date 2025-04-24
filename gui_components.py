@@ -14,11 +14,12 @@ class GUIComponents:
         self.calculator = calculator
         self.file_handler = file_handler
         self.email_sender = email_sender
-        self.primary_color = "#1C2526"
-        self.secondary_color = "#2A3F4D"
-        self.accent_color = "#00A7E1"
-        self.text_color = "#E0E0E0"
-        self.success_color = "#4CAF50"
+        # Updated color scheme for light theme
+        self.primary_color = "#F5F7FA"
+        self.secondary_color = "#E8ECEF"
+        self.accent_color = "#007BFF"
+        self.text_color = "#212529"
+        self.success_color = "#28A745"
         self.create_widgets()
         self.setup_keyboard_shortcuts()
         self.date_var.trace('w', self.update_display_date)
@@ -43,7 +44,7 @@ class GUIComponents:
         tooltip = tk.Toplevel(widget)
         tooltip.wm_overrideredirect(True)
         tooltip.wm_geometry("+1000+1000")
-        label = tk.Label(tooltip, text=text, background="lightyellow", relief="solid", borderwidth=1, fg="black")
+        label = tk.Label(tooltip, text=text, background="#FFF3CD", relief="solid", borderwidth=1, fg="#212529", font=("Roboto", 10))
         label.pack()
 
         def show(event):
@@ -82,16 +83,16 @@ class GUIComponents:
 
         cal = HoverCalendar(
             popup,
-            background="#2A3F4D",
-            foreground="#E0E0E0",
-            selectbackground="#2A3F4D",
-            selectforeground="#E0E0E0",
+            background="#F5F7FA",
+            foreground="#212529",
+            selectbackground="#007BFF",
+            selectforeground="#FFFFFF",
             normalbackground="#FFFFFF",
-            normalforeground="#000000",
-            weekendbackground="#FFFFFF",
-            weekendforeground="#000000",
-            headersbackground="#2A3F4D",
-            headersforeground="#E0E0E0",
+            normalforeground="#212529",
+            weekendbackground="#E8ECEF",
+            weekendforeground="#212529",
+            headersbackground="#E8ECEF",
+            headersforeground="#212529",
             showothermonthdays=False,
             showweeknumbers=False
         )
@@ -111,11 +112,11 @@ class GUIComponents:
 
         confirm_button = ctk.CTkButton(
             popup,
-            text="Select",
+                                             text="Select",
             command=on_date_select,
             fg_color=self.accent_color,
-            text_color=self.text_color,
-            hover_color="#008CC1",
+            text_color="#FFFFFF",
+            hover_color="#0056B3",
             font=("Roboto", 14),
             width=120,
             height=40
@@ -127,64 +128,73 @@ class GUIComponents:
 
     def create_widgets(self):
         self.main_frame = ctk.CTkFrame(self.root, fg_color=self.primary_color)
-        self.main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        self.main_frame.pack(fill="both", expand=True, padx=15, pady=15)
 
-        self.scrollable_frame = ctk.CTkFrame(self.main_frame, fg_color=self.primary_color)
-        self.scrollable_frame.pack(fill="both", expand=True, padx=10, pady=5)
+        self.scrollable_frame = ctk.CTkScrollableFrame(self.main_frame, fg_color=self.primary_color)
+        self.scrollable_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Configure grid weights for responsiveness
+        self.scrollable_frame.grid_columnconfigure(0, weight=1)
+        self.scrollable_frame.grid_rowconfigure((0, 1, 2, 3), weight=0)
 
         # Date Frame
-        header_frame = ctk.CTkFrame(self.scrollable_frame, fg_color=self.secondary_color, corner_radius=10)
-        header_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=5)
+        header_frame = ctk.CTkFrame(self.scrollable_frame, fg_color=self.secondary_color, corner_radius=8)
+        header_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=8)
+        header_frame.grid_columnconfigure(0, weight=1)
 
         date_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
-        date_frame.pack(side="left", padx=5)
-        ctk.CTkLabel(date_frame, text="Date:", font=("Roboto", 12), text_color=self.text_color).pack(side="left")
+        date_frame.pack(side="left", padx=8, anchor="w")
+        ctk.CTkLabel(date_frame, text="Date:", font=("Roboto", 13), text_color=self.text_color).pack(side="left")
         date_button = ctk.CTkButton(
             date_frame,
             textvariable=self.display_date,
-            font=("Arial", 12),
-            fg_color="#3A4F5D",
+            font=("Roboto", 13),
+            fg_color="#FFFFFF",
             text_color=self.text_color,
+            border_width=1,
+            border_color="#CED4DA",
             command=self.show_calendar,
-            width=100,
-            height=28,
-            corner_radius=5,
-            hover_color="#4A5F6D"
+            width=120,
+            height=32,
+            corner_radius=6,
+            hover_color="#E8ECEF"
         )
-        date_button.pack(side="left")
+        date_button.pack(side="left", padx=5)
         self.create_tooltip(date_button, "Click to select a date from the calendar")
 
         # Email and Names Configuration Frame
-        email_frame = ctk.CTkFrame(self.scrollable_frame, fg_color=self.secondary_color, corner_radius=10)
-        email_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
+        email_frame = ctk.CTkFrame(self.scrollable_frame, fg_color=self.secondary_color, corner_radius=8)
+        email_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=8)
+        email_frame.grid_columnconfigure(0, weight=1)
 
-        # Recipients Field
-        ctk.CTkLabel(email_frame, text="Recipients (comma-separated):", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
-        email_entry = ctk.CTkEntry(email_frame, textvariable=self.variables['recipient_emails_var'], width=300, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
-        email_entry.pack(side="left", padx=5)
+        # Recipients Field (Adjusted width from 320 to 200)
+        ctk.CTkLabel(email_frame, text="Recipients (comma-separated):", font=("Roboto", 13), text_color=self.text_color).pack(side="left", padx=8)
+        email_entry = ctk.CTkEntry(email_frame, textvariable=self.variables['recipient_emails_var'], width=200, font=("Roboto", 13), fg_color="#FFFFFF", text_color=self.text_color, border_color="#CED4DA")
+        email_entry.pack(side="left", padx=8)
 
         # Prepared by Field
-        ctk.CTkLabel(email_frame, text="Prepared by (HOA Treasurer):", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
-        prepared_entry = ctk.CTkEntry(email_frame, textvariable=self.variables['prepared_by_var'], width=150, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
-        prepared_entry.pack(side="left", padx=5)
+        ctk.CTkLabel(email_frame, text="Prepared by (HOA Treasurer):", font=("Roboto", 13), text_color=self.text_color).pack(side="left", padx=8)
+        prepared_entry = ctk.CTkEntry(email_frame, textvariable=self.variables['prepared_by_var'], width=160, font=("Roboto", 13), fg_color="#FFFFFF", text_color=self.text_color, border_color="#CED4DA")
+        prepared_entry.pack(side="left", padx=8)
 
         # Noted by Fields (Two)
-        ctk.CTkLabel(email_frame, text="Noted by (HOA President):", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
-        noted_entry_1 = ctk.CTkEntry(email_frame, textvariable=self.variables['noted_by_var_1'], width=150, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
-        noted_entry_1.pack(side="left", padx=5)
+        ctk.CTkLabel(email_frame, text="Noted by (HOA President):", font=("Roboto", 13), text_color=self.text_color).pack(side="left", padx=8)
+        noted_entry_1 = ctk.CTkEntry(email_frame, textvariable=self.variables['noted_by_var_1'], width=160, font=("Roboto", 13), fg_color="#FFFFFF", text_color=self.text_color, border_color="#CED4DA")
+        noted_entry_1.pack(side="left", padx=8)
 
-        ctk.CTkLabel(email_frame, text="Noted by (CHUDD HCD-CORDS):", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
-        noted_entry_2 = ctk.CTkEntry(email_frame, textvariable=self.variables['noted_by_var_2'], width=150, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
-        noted_entry_2.pack(side="left", padx=5)
+        ctk.CTkLabel(email_frame, text="Noted by (CHUDD HCD-CORDS):", font=("Roboto", 13), text_color=self.text_color).pack(side="left", padx=8)
+        noted_entry_2 = ctk.CTkEntry(email_frame, textvariable=self.variables['noted_by_var_2'], width=160, font=("Roboto", 13), fg_color="#FFFFFF", text_color=self.text_color, border_color="#CED4DA")
+        noted_entry_2.pack(side="left", padx=8)
 
         # Checked by Field
-        ctk.CTkLabel(email_frame, text="Checked by (HOA Auditor):", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
-        checked_entry = ctk.CTkEntry(email_frame, textvariable=self.variables['checked_by_var'], width=150, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
-        checked_entry.pack(side="left", padx=5)
+        ctk.CTkLabel(email_frame, text="Checked by (HOA Auditor):", font=("Roboto", 13), text_color=self.text_color).pack(side="left", padx=8)
+        checked_entry = ctk.CTkEntry(email_frame, textvariable=self.variables['checked_by_var'], width=160, font=("Roboto", 13), fg_color="#FFFFFF", text_color=self.text_color, border_color="#CED4DA")
+        checked_entry.pack(side="left", padx=8)
 
         # Buttons Frame
         button_frame = ctk.CTkFrame(self.scrollable_frame, fg_color=self.primary_color)
-        button_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=5)
+        button_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=8)
+        button_frame.grid_columnconfigure(0, weight=1)
 
         buttons = [
             ("Load from Docx/Pdf (Ctrl+L)", self.file_handler.load_from_documentpdf),
@@ -198,34 +208,34 @@ class GUIComponents:
                 button_frame,
                 text=text,
                 command=command,
-                font=("Roboto", 12),
+                font=("Roboto", 13),
                 fg_color=self.accent_color,
-                hover_color="#008CC1",
-                text_color=self.text_color,
-                width=150,
-                height=35,
-                corner_radius=8
-            ).pack(side="left", padx=5)
+                hover_color="#0056B3",
+                text_color="#FFFFFF",
+                width=160,
+                height=36,
+                corner_radius=6
+            ).pack(side="left", padx=8, pady=5)
 
         # Columns Frame for responsive layout
         self.columns_frame = ctk.CTkFrame(self.scrollable_frame, fg_color=self.primary_color)
-        self.columns_frame.grid(row=3, column=0, sticky="nsew", padx=10, pady=5)
+        self.columns_frame.grid(row=3, column=0, sticky="nsew", padx=10, pady=8)
 
         # Define column frames
-        self.beg_frame = ctk.CTkFrame(self.columns_frame, fg_color=self.secondary_color, corner_radius=10)
-        ctk.CTkLabel(self.beg_frame, text="Beginning Cash Balances", font=("Roboto", 14, "bold"), text_color=self.text_color).pack(anchor="w", padx=5, pady=5)
+        self.beg_frame = ctk.CTkFrame(self.columns_frame, fg_color=self.secondary_color, corner_radius=8)
+        ctk.CTkLabel(self.beg_frame, text="Beginning Cash Balances", font=("Roboto", 15, "bold"), text_color=self.text_color).pack(anchor="w", padx=10, pady=8)
 
-        self.inflow_frame = ctk.CTkFrame(self.columns_frame, fg_color=self.secondary_color, corner_radius=10)
-        ctk.CTkLabel(self.inflow_frame, text="Cash Inflows", font=("Roboto", 14, "bold"), text_color=self.text_color).pack(anchor="w", padx=5, pady=5)
+        self.inflow_frame = ctk.CTkFrame(self.columns_frame, fg_color=self.secondary_color, corner_radius=8)
+        ctk.CTkLabel(self.inflow_frame, text="Cash Inflows", font=("Roboto", 15, "bold"), text_color=self.text_color).pack(anchor="w", padx=10, pady=8)
 
-        self.outflow_frame = ctk.CTkFrame(self.columns_frame, fg_color=self.secondary_color, corner_radius=10)
-        ctk.CTkLabel(self.outflow_frame, text="Cash Outflows", font=("Roboto", 14, "bold"), text_color=self.text_color).pack(anchor="w", padx=5, pady=5)
+        self.outflow_frame = ctk.CTkFrame(self.columns_frame, fg_color=self.secondary_color, corner_radius=8)
+        ctk.CTkLabel(self.outflow_frame, text="Cash Outflows", font=("Roboto", 15, "bold"), text_color=self.text_color).pack(anchor="w", padx=10, pady=8)
 
-        self.end_frame = ctk.CTkFrame(self.columns_frame, fg_color=self.secondary_color, corner_radius=10)
-        ctk.CTkLabel(self.end_frame, text="Ending Cash Balances", font=("Roboto", 14, "bold"), text_color=self.text_color).pack(anchor="w", padx=5, pady=5)
+        self.end_frame = ctk.CTkFrame(self.columns_frame, fg_color=self.secondary_color, corner_radius=8)
+        ctk.CTkLabel(self.end_frame, text="Ending Cash Balances", font=("Roboto", 15, "bold"), text_color=self.text_color).pack(anchor="w", padx=10, pady=8)
 
-        self.totals_frame = ctk.CTkFrame(self.columns_frame, fg_color=self.secondary_color, corner_radius=10)
-        ctk.CTkLabel(self.totals_frame, text="Totals", font=("Roboto", 14, "bold"), text_color=self.text_color).pack(anchor="w", padx=5, pady=5)
+        self.totals_frame = ctk.CTkFrame(self.columns_frame, fg_color=self.secondary_color, corner_radius=8)
+        ctk.CTkLabel(self.totals_frame, text="Totals", font=("Roboto", 15, "bold"), text_color=self.text_color).pack(anchor="w", padx=10, pady=8)
 
         self.column_frames = [
             self.beg_frame,
@@ -241,20 +251,20 @@ class GUIComponents:
     def populate_columns(self):
         # Beginning Balances
         beg_inner = ctk.CTkFrame(self.beg_frame, fg_color="transparent")
-        beg_inner.pack(fill="x", padx=5, pady=5)
+        beg_inner.pack(fill="x", padx=10, pady=8)
         beg_items = [
             ("Cash in Bank (beginning):", self.variables['cash_bank_beg']),
             ("Cash on Hand (beginning):", self.variables['cash_hand_beg'])
         ]
         for i, (label, var) in enumerate(beg_items):
-            ctk.CTkLabel(beg_inner, text=label, font=("Roboto", 11), text_color=self.text_color, anchor="w").grid(row=i, column=0, sticky="w", padx=5, pady=2)
-            entry = ctk.CTkEntry(beg_inner, textvariable=var, width=120, font=("Roboto", 11), fg_color="#3A4F5D", text_color=self.text_color)
-            entry.grid(row=i, column=1, sticky="e", padx=5, pady=2)
+            ctk.CTkLabel(beg_inner, text=label, font=("Roboto", 12), text_color=self.text_color, anchor="w").grid(row=i, column=0, sticky="w", padx=8, pady=4)
+            entry = ctk.CTkEntry(beg_inner, textvariable=var, width=140, font=("Roboto", 12), fg_color="#FFFFFF", text_color=self.text_color, border_color="#CED4DA")
+            entry.grid(row=i, column=1, sticky="e", padx=8, pady=4)
             self.calculator.format_entry(var, entry)
 
         # Cash Inflows
         inflow_inner = ctk.CTkFrame(self.inflow_frame, fg_color="transparent")
-        inflow_inner.pack(fill="x", padx=5, pady=5)
+        inflow_inner.pack(fill="x", padx=10, pady=8)
         inflow_items = [
             ("Monthly dues collected:", self.variables['monthly_dues']),
             ("Certifications issued:", self.variables['certifications']),
@@ -267,14 +277,14 @@ class GUIComponents:
             ("Others:", self.variables['inflows_others'])
         ]
         for i, (label, var) in enumerate(inflow_items):
-            ctk.CTkLabel(inflow_inner, text=label, font=("Roboto", 11), text_color=self.text_color, anchor="w").grid(row=i, column=0, sticky="w", padx=5, pady=2)
-            entry = ctk.CTkEntry(inflow_inner, textvariable=var, width=120, font=("Roboto", 11), fg_color="#3A4F5D", text_color=self.text_color)
-            entry.grid(row=i, column=1, sticky="e", padx=5, pady=2)
+            ctk.CTkLabel(inflow_inner, text=label, font=("Roboto", 12), text_color=self.text_color, anchor="w").grid(row=i, column=0, sticky="w", padx=8, pady=4)
+            entry = ctk.CTkEntry(inflow_inner, textvariable=var, width=140, font=("Roboto", 12), fg_color="#FFFFFF", text_color=self.text_color, border_color="#CED4DA")
+            entry.grid(row=i, column=1, sticky="e", padx=8, pady=4)
             self.calculator.format_entry(var, entry)
 
         # Cash Outflows
         outflow_inner = ctk.CTkFrame(self.outflow_frame, fg_color="transparent")
-        outflow_inner.pack(fill="x", padx=5, pady=5)
+        outflow_inner.pack(fill="x", padx=10, pady=8)
         outflow_items = [
             ("Snacks/Meals for visitors:", self.variables['snacks_meals']),
             ("Transportation expenses:", self.variables['transportation']),
@@ -294,39 +304,39 @@ class GUIComponents:
             ("Others:", self.variables['outflows_others'])
         ]
         for i, (label, var) in enumerate(outflow_items):
-            ctk.CTkLabel(outflow_inner, text=label, font=("Roboto", 11), text_color=self.text_color, anchor="w").grid(row=i, column=0, sticky="w", padx=5, pady=2)
-            entry = ctk.CTkEntry(outflow_inner, textvariable=var, width=120, font=("Roboto", 11), fg_color="#3A4F5D", text_color=self.text_color)
-            entry.grid(row=i, column=1, sticky="e", padx=5, pady=2)
+            ctk.CTkLabel(outflow_inner, text=label, font=("Roboto", 12), text_color=self.text_color, anchor="w").grid(row=i, column=0, sticky="w", padx=8, pady=4)
+            entry = ctk.CTkEntry(outflow_inner, textvariable=var, width=140, font=("Roboto", 12), fg_color="#FFFFFF", text_color=self.text_color, border_color="#CED4DA")
+            entry.grid(row=i, column=1, sticky="e", padx=8, pady=4)
             self.calculator.format_entry(var, entry)
 
         # Ending Balances
         end_inner = ctk.CTkFrame(self.end_frame, fg_color="transparent")
-        end_inner.pack(fill="x", padx=5, pady=5)
+        end_inner.pack(fill="x", padx=10, pady=8)
         end_items = [
             ("Cash in Bank:", self.variables['ending_cash_bank']),
             ("Cash on Hand:", self.variables['ending_cash_hand'])
         ]
         for i, (label, var) in enumerate(end_items):
-            ctk.CTkLabel(end_inner, text=label, font=("Roboto", 11), text_color=self.text_color, anchor="w").grid(row=i, column=0, sticky="w", padx=5, pady=2)
-            entry = ctk.CTkEntry(end_inner, textvariable=var, width=120, font=("Roboto", 11), fg_color="#3A4F5D", text_color=self.text_color, state="disabled")
-            entry.grid(row=i, column=1, sticky="e", padx=5, pady=2)
+            ctk.CTkLabel(end_inner, text=label, font=("Roboto", 12), text_color=self.text_color, anchor="w").grid(row=i, column=0, sticky="w", padx=8, pady=4)
+            entry = ctk.CTkEntry(end_inner, textvariable=var, width=140, font=("Roboto", 12), fg_color="#FFFFFF", text_color=self.text_color, border_color="#CED4DA", state="disabled")
+            entry.grid(row=i, column=1, sticky="e", padx=8, pady=4)
 
         # Totals
         total_inner = ctk.CTkFrame(self.totals_frame, fg_color="transparent")
-        total_inner.pack(fill="x", padx=5, pady=5)
+        total_inner.pack(fill="x", padx=10, pady=8)
         total_items = [
             ("Total Cash Receipts:", self.variables['total_receipts']),
             ("Cash Outflows:", self.variables['cash_outflows']),
             ("Ending Cash Balance:", self.variables['ending_cash'])
         ]
         for i, (label, var) in enumerate(total_items):
-            ctk.CTkLabel(total_inner, text=label, font=("Roboto", 11), text_color=self.text_color, anchor="w").grid(row=i, column=0, sticky="w", padx=5, pady=2)
-            entry = ctk.CTkEntry(total_inner, textvariable=var, width=120, font=("Roboto", 11), fg_color="#3A4F5D", text_color=self.text_color, state="disabled")
-            entry.grid(row=i, column=1, sticky="e", padx=5, pady=2)
+            ctk.CTkLabel(total_inner, text=label, font=("Roboto", 12), text_color=self.text_color, anchor="w").grid(row=i, column=0, sticky="w", padx=8, pady=4)
+            entry = ctk.CTkEntry(total_inner, textvariable=var, width=140, font=("Roboto", 12), fg_color="#FFFFFF", text_color=self.text_color, border_color="#CED4DA", state="disabled")
+            entry.grid(row=i, column=1, sticky="e", padx=8, pady=4)
 
     def update_layout(self, event=None):
         window_width = self.main_frame.winfo_width()
-        min_column_width = 250
+        min_column_width = 300
         num_columns = max(1, window_width // min_column_width)
         num_columns = min(num_columns, len(self.column_frames))
 
@@ -336,9 +346,9 @@ class GUIComponents:
         for i, frame in enumerate(self.column_frames):
             row = i // num_columns
             col = i % num_columns
-            frame.grid(row=row, column=col, sticky="nsew", padx=5, pady=5)
+            frame.grid(row=row, column=col, sticky="nsew", padx=8, pady=8)
 
-        self.columns_frame.grid_columnconfigure(tuple(range(num_columns)), weight=1)
+        self.columns_frame.grid_columnconfigure(tuple(range(num_columns)), weight=1, uniform="column")
         self.columns_frame.grid_rowconfigure(tuple(range((len(self.column_frames) + num_columns - 1) // num_columns)), weight=1)
 
     def clear_fields(self):

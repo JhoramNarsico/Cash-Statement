@@ -6,8 +6,8 @@ class CashFlowApp:
         self.root = root
         self.root.title("Cash Flow Statement Generator with Email")
         self.root.geometry("800x700")
-        ctk.set_appearance_mode("dark")
-        ctk.set_default_color_theme("blue")
+        ctk.set_appearance_mode("light")  # Changed to light theme
+        ctk.set_default_color_theme("blue")  # Keep blue theme for consistency
 
         # Initialize variables
         self.variables = {
@@ -16,8 +16,8 @@ class CashFlowApp:
             'date_var': ctk.StringVar(value=datetime.datetime.now().strftime("%m/%d/%Y")),
             'display_date': ctk.StringVar(value=datetime.datetime.now().strftime("%b %d, %Y")),
             'prepared_by_var': ctk.StringVar(),
-            'noted_by_var_1': ctk.StringVar(),  # First Noted by field
-            'noted_by_var_2': ctk.StringVar(),  # Second Noted by field
+            'noted_by_var_1': ctk.StringVar(),
+            'noted_by_var_2': ctk.StringVar(),
             'checked_by_var': ctk.StringVar(),
             'cash_bank_beg': ctk.StringVar(),
             'cash_hand_beg': ctk.StringVar(),
@@ -65,8 +65,8 @@ class CashFlowApp:
             self.variables['title_var'],
             self.variables['date_var'],
             self.variables['prepared_by_var'],
-            self.variables['noted_by_var_1'],  # Pass first Noted by
-            self.variables['noted_by_var_2'],  # Pass second Noted by
+            self.variables['noted_by_var_1'],
+            self.variables['noted_by_var_2'],
             self.variables['checked_by_var']
         )
         self.email_sender = EmailSender(
