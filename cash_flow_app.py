@@ -15,6 +15,9 @@ class CashFlowApp:
             'title_var': ctk.StringVar(value="Statement Of Cash Flows"),
             'date_var': ctk.StringVar(value=datetime.datetime.now().strftime("%m/%d/%Y")),
             'display_date': ctk.StringVar(value=datetime.datetime.now().strftime("%b %d, %Y")),
+            'prepared_by_var': ctk.StringVar(),
+            'noted_by_var': ctk.StringVar(),
+            'checked_by_var': ctk.StringVar(),  # New variable for Checked by
             'cash_bank_beg': ctk.StringVar(),
             'cash_hand_beg': ctk.StringVar(),
             'monthly_dues': ctk.StringVar(),
@@ -56,7 +59,14 @@ class CashFlowApp:
         from gui_components import GUIComponents
 
         self.calculator = CashFlowCalculator(self.variables)
-        self.file_handler = FileHandler(self.variables, self.variables['title_var'], self.variables['date_var'])
+        self.file_handler = FileHandler(
+            self.variables,
+            self.variables['title_var'],
+            self.variables['date_var'],
+            self.variables['prepared_by_var'],
+            self.variables['noted_by_var'],
+            self.variables['checked_by_var']  # Pass new variable
+        )
         self.email_sender = EmailSender(
             sender_email="chuddcdo@gmail.com",
             sender_password="jfyb eoog ukxr hhiq",

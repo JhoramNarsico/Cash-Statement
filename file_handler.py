@@ -8,15 +8,18 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet
-from docx.shared import Inches
+from docx.shared import Inches, Pt
 import sys
 import datetime
 
 class FileHandler:
-    def __init__(self, variables, title_var, date_var):
+    def __init__(self, variables, title_var, date_var, prepared_by_var, noted_by_var, checked_by_var):
         self.variables = variables
         self.title_var = title_var
         self.date_var = date_var
+        self.prepared_by_var = prepared_by_var
+        self.noted_by_var = noted_by_var
+        self.checked_by_var = checked_by_var  # New variable
 
     def parse_amount(self, text):
         if not text or text.strip() == "":
@@ -30,8 +33,6 @@ class FileHandler:
         try:
             date_obj = datetime.datetime.strptime(date_str, "%m/%d/%Y")
             return date_obj.strftime("%B %d, %Y")
-            # Optional: Uncomment the line below to show only month and year (e.g., "April 2025")
-            # return date_obj.strftime("%B %Y")
         except ValueError:
             return date_str
 
@@ -194,45 +195,74 @@ class FileHandler:
                 return None
             # Define custom page size: 8.5 x 13 inches (612 x 936 points)
             folio_size = (8.5 * 72, 13 * 72)
-            doc = SimpleDocTemplate(filename, pagesize=folio_size)
+            doc = SimpleDocTemplate(
+                filename,
+                pagesize=folio_size,
+                topMargin=36,
+                bottomMargin=90,  # Increased to accommodate extra footer line
+                leftMargin=36,
+                rightMargin=36
+            )
             styles = getSampleStyleSheet()
             # Create a custom style for centered normal text
             normal_centered_style = styles['Normal']
-            normal_centered_style.alignment = 1  # Center alignment
-            normal_centered_style.fontSize = 12
+            normal_centered_style.alignment = 1
+            normal_centered_style.fontSize = 10
             # Create a custom style for bold centered text
             bold_centered_style = styles['Normal']
-            bold_centered_style.alignment = 1  # Center alignment
-            bold_centered_style.fontSize = 14
+            bold_centered_style.alignment = 1
+            bold_centered_style.fontSize = 12
             bold_centered_style.fontName = 'Helvetica-Bold'
             # Create a custom style for minimized centered text
             minimized_centered_style = styles['Normal']
-            minimized_centered_style.alignment = 1  # Center alignment
-            minimized_centered_style.fontSize = 10  # Smaller font size
+            minimized_centered_style.alignment = 1
+            minimized_centered_style.fontSize = 8
+            # Create a custom style for footer (left-aligned for "Prepared by" and "Checked by")
+            footer_style = styles['Normal']
+            footer_style.alignment = 0  # Left-aligned for better control in table
+            footer_style.fontSize = 8
+            # Create a custom style for centered footer ("Noted by")
+            footer_centered_style = styles['Normal']
+            footer_centered_style.alignment = 1  # Center-aligned
+            footer_centered_style.fontSize = 8
             elements = []
-            # Add the new header
-            elements.append(Paragraph("Buena Oro Homeowners Association Inc.", normal_centered_style))
-            elements.append(Paragraph("Macansandig, Cagayan de Oro City", normal_centered_style))
-            elements.append(Spacer(1, 12))
-            elements.append(Paragraph("CASH FLOW STATEMENT", bold_centered_style))
-            elements.append(Paragraph(f"For the Month of {self.format_date_for_display(self.date_var.get())}", minimized_centered_style))
+            # Calculate the available width for the header (page width minus margins)
+            page_width = folio_size[0] - (doc.leftMargin + doc.rightMargin)  # 612 - (36 + 36) = 540 points
+            # Add the header using a table to ensure perfect centering
+            header_data = [
+                [Paragraph("Buena Oro Homeowners Association Inc.", normal_centered_style)],
+                [Paragraph("Macansandig, Cagayan de Oro City", normal_centered_style)],
+                [Paragraph("CASH FLOW STATEMENT", bold_centered_style)],
+                [Paragraph(f"For the Month of {self.format_date_for_display(self.date_var.get())}", minimized_centered_style)],
+            ]
+            header_table = Table(header_data, colWidths=[page_width], rowHeights=[20, 20, 24, 18])
+            header_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ]))
+            elements.append(header_table)
             elements.append(Spacer(1, 12))
             # Beginning Cash Balances
             beg_data = [
                 ["Cash in Bank-beg", format_amount(self.variables['cash_bank_beg'].get())],
                 ["Cash on Hand-beg", format_amount(self.variables['cash_hand_beg'].get())]
             ]
-            beg_table = Table(beg_data, colWidths=[300, 150])
+            beg_table = Table(beg_data, colWidths=[300, 150], rowHeights=[18, 18])
             beg_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
                 ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
             ]))
             elements.append(beg_table)
-            elements.append(Spacer(1, 12))
-            elements.append(Paragraph("<b>Cash inflows:</b>", styles['Normal']))
             elements.append(Spacer(1, 6))
+            elements.append(Paragraph("<b>Cash inflows:</b>", styles['Normal']))
+            elements.append(Spacer(1, 4))
             inflows_data = [
                 ["Monthly dues collected", format_amount(self.variables['monthly_dues'].get())],
                 ["Certifications issued", format_amount(self.variables['certifications'].get())],
@@ -245,17 +275,18 @@ class FileHandler:
                 ["Others(inflow)", format_amount(self.variables['inflows_others'].get())],
                 ["Total Cash receipt", format_amount(self.variables['total_receipts'].get())]
             ]
-            inflows_table = Table(inflows_data, colWidths=[300, 150])
+            inflows_table = Table(inflows_data, colWidths=[300, 150], rowHeights=[18]*10)
             inflows_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
                 ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
                 ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
             ]))
             elements.append(inflows_table)
-            elements.append(Spacer(1, 12))
-            elements.append(Paragraph("<b>Less:</b>", styles['Normal']))
             elements.append(Spacer(1, 6))
+            elements.append(Paragraph("<b>Less:</b>", styles['Normal']))
+            elements.append(Spacer(1, 4))
             outflows_data = [
                 ["Cash Out Flows/Disbursements", format_amount(self.variables['cash_outflows'].get())],
                 ["Snacks/Meals for visitors", format_amount(self.variables['snacks_meals'].get())],
@@ -275,44 +306,65 @@ class FileHandler:
                 ["Refund", format_amount(self.variables['refund'].get())],
                 ["Others(outflow)", format_amount(self.variables['outflows_others'].get())]
             ]
-            outflows_table = Table(outflows_data, colWidths=[300, 150])
+            outflows_table = Table(outflows_data, colWidths=[300, 150], rowHeights=[18]*17)
             outflows_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 ('BACKGROUND', (0, 0), (0, 0), colors.lightgrey),
                 ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
                 ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
             ]))
             elements.append(outflows_table)
-            elements.append(Spacer(1, 12))
+            elements.append(Spacer(1, 6))
             ending_data = [
                 ["Ending cash balance", format_amount(self.variables['ending_cash'].get())]
             ]
-            ending_table = Table(ending_data, colWidths=[300, 150])
+            ending_table = Table(ending_data, colWidths=[300, 150], rowHeights=[18])
             ending_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 ('BACKGROUND', (0, 0), (-1, -1), colors.lightgrey),
                 ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
                 ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
             ]))
             elements.append(ending_table)
-            elements.append(Spacer(1, 12))
-            elements.append(Paragraph("<b>Breakdown of cash:</b>", styles['Normal']))
             elements.append(Spacer(1, 6))
+            elements.append(Paragraph("<b>Breakdown of cash:</b>", styles['Normal']))
+            elements.append(Spacer(1, 4))
             breakdown_data = [
                 ["Cash in Bank", format_amount(self.variables['ending_cash_bank'].get())],
                 ["Cash on Hand", format_amount(self.variables['ending_cash_hand'].get())]
             ]
-            breakdown_table = Table(breakdown_data, colWidths=[300, 150])
+            breakdown_table = Table(breakdown_data, colWidths=[300, 150], rowHeights=[18, 18])
             breakdown_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
             ]))
             elements.append(breakdown_table)
-            def add_page_numbers(canvas, doc):
+            # Add footer with user-provided names in the desired layout
+            elements.append(Spacer(1, 24))
+            prepared_name = self.prepared_by_var.get() or "_______________________"
+            noted_name = self.noted_by_var.get() or "_______________________"
+            checked_name = self.checked_by_var.get() or "_______________________"
+            # Create a table for "Prepared by" and "Checked by" on the same line
+            footer_top_data = [
+                [f"Prepared by: {prepared_name}", f"Checked by: {checked_name}"]
+            ]
+            footer_top_table = Table(footer_top_data, colWidths=[225, 225], rowHeights=[18])
+            footer_top_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+                ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ]))
+            elements.append(footer_top_table)
+            # Add "Noted by" on a separate line, centered
+            elements.append(Paragraph(f"Noted by: {noted_name}", footer_centered_style))
+            def add_page_numbers_and_footer(canvas, doc):
                 page_num = canvas.getPageNumber()
                 text = f"Page {page_num}"
                 canvas.drawRightString(200, 20, text)
-            doc.build(elements, onFirstPage=add_page_numbers, onLaterPages=add_page_numbers)
+            doc.build(elements, onFirstPage=add_page_numbers_and_footer, onLaterPages=add_page_numbers_and_footer)
             messagebox.showinfo("Success", f"PDF successfully exported to {filename}")
             return filename
         except Exception as e:
@@ -345,45 +397,74 @@ class FileHandler:
             section = doc.sections[0]
             section.page_width = Inches(8.5)
             section.page_height = Inches(13)
-            # Add the new header
-            # Buena Oro Homeowners Association Inc. (normal, centered)
+            section.top_margin = Inches(0.5)
+            section.bottom_margin = Inches(1.2)  # Increased to accommodate extra footer line
+            section.left_margin = Inches(0.5)
+            section.right_margin = Inches(0.5)
+            # Add footer with user-provided names in the desired layout using paragraphs and tab stops
+            footer = section.footer
+            prepared_name = self.prepared_by_var.get() or "_______________________"
+            noted_name = self.noted_by_var.get() or "_______________________"
+            checked_name = self.checked_by_var.get() or "_______________________"
+            # First line: "Prepared by:" and "Checked by:" side by side using a tab stop
+            footer_para1 = footer.add_paragraph()
+            footer_para1.alignment = 0  # Left-aligned
+            run = footer_para1.add_run(f"Prepared by: {prepared_name}\tChecked by: {checked_name}")
+            run.font.size = Pt(8)
+            # Set a right-aligned tab stop to position "Checked by:" on the right
+            tab_stops = footer_para1.paragraph_format.tab_stops
+            tab_stops.add_tab_stop(Inches(7.5), alignment=2)  # Right-aligned tab at 7.5 inches (page width - margins)
+            # Second line: "Noted by:", centered
+            footer_para2 = footer.add_paragraph()
+            footer_para2.alignment = 1  # Center-aligned
+            run = footer_para2.add_run(f"Noted by: {noted_name}")
+            run.font.size = Pt(8)
+            # Add the header
             p = doc.add_paragraph()
             run = p.add_run("Buena Oro Homeowners Association Inc.")
-            run.font.size = Pt(12)
-            p.alignment = 1  # Center alignment
-            # Macansandig, Cagayan de Oro City (normal, centered)
+            run.font.size = Pt(10)
+            p.alignment = 1
             p = doc.add_paragraph()
             run = p.add_run("Macansandig, Cagayan de Oro City")
-            run.font.size = Pt(12)
-            p.alignment = 1  # Center alignment
-            # Add some spacing
-            doc.add_paragraph()
-            # CASH FLOW STATEMENT (bold, centered)
+            run.font.size = Pt(10)
+            p.alignment = 1
             p = doc.add_paragraph()
             run = p.add_run("CASH FLOW STATEMENT")
             run.bold = True
-            run.font.size = Pt(14)
-            p.alignment = 1  # Center alignment
-            # For the Month of {date} (normal, minimized, centered)
+            run.font.size = Pt(12)
+            p.alignment = 1
             p = doc.add_paragraph()
             run = p.add_run(f"For the Month of {self.format_date_for_display(self.date_var.get())}")
-            run.font.size = Pt(10)  # Smaller font size
-            p.alignment = 1  # Center alignment
-            # Add some spacing before the content
-            doc.add_paragraph()
+            run.font.size = Pt(8)
+            p.alignment = 1
             # Beginning Cash Balances
-            doc.add_heading("Beginning Cash Balances", level=2)
+            doc.add_heading("Beginning Cash Balances", level=2).style.font.size = Pt(10)
             table = doc.add_table(rows=2, cols=2)
             table.style = 'Table Grid'
+            table.autofit = True
+            # Set column widths (total width = 7.5 inches, roughly 2:1 ratio)
+            table.columns[0].width = Inches(5.0)
+            table.columns[1].width = Inches(2.5)
+            for row in table.rows:
+                row.height = Inches(0.2)
             table.cell(0, 0).text = "Cash in Bank-beg"
             table.cell(0, 1).text = format_amount(self.variables['cash_bank_beg'].get())
             table.cell(1, 0).text = "Cash on Hand-beg"
             table.cell(1, 1).text = format_amount(self.variables['cash_hand_beg'].get())
-            for row in table.rows:
-                row.cells[1].paragraphs[0].alignment = 2
-            doc.add_heading("Cash Inflows", level=2)
+            for i, row in enumerate(table.rows):
+                for j, cell in enumerate(row.cells):
+                    cell.paragraphs[0].runs[0].font.size = Pt(8)
+                    cell.paragraphs[0].alignment = 2 if j == 1 else 0
+            # Cash Inflows
+            doc.add_heading("Cash Inflows", level=2).style.font.size = Pt(10)
             table = doc.add_table(rows=10, cols=2)
             table.style = 'Table Grid'
+            table.autofit = True
+            # Set column widths
+            table.columns[0].width = Inches(5.0)
+            table.columns[1].width = Inches(2.5)
+            for row in table.rows:
+                row.height = Inches(0.2)
             inflow_items = [
                 ("Monthly dues collected", self.variables['monthly_dues']),
                 ("Certifications issued", self.variables['certifications']),
@@ -399,11 +480,20 @@ class FileHandler:
             for i, (label, var) in enumerate(inflow_items):
                 table.cell(i, 0).text = label
                 table.cell(i, 1).text = format_amount(var.get())
-                table.cell(i, 1).paragraphs[0].alignment = 2
+                for j, cell in enumerate(table.rows[i].cells):
+                    cell.paragraphs[0].runs[0].font.size = Pt(8)
+                    cell.paragraphs[0].alignment = 2 if j == 1 else 0
             table.cell(9, 0).paragraphs[0].runs[0].bold = True
-            doc.add_heading("Less: Cash Outflows", level=2)
+            # Less: Cash Outflows
+            doc.add_heading("Less: Cash Outflows", level=2).style.font.size = Pt(10)
             table = doc.add_table(rows=17, cols=2)
             table.style = 'Table Grid'
+            table.autofit = True
+            # Set column widths
+            table.columns[0].width = Inches(5.0)
+            table.columns[1].width = Inches(2.5)
+            for row in table.rows:
+                row.height = Inches(0.2)
             outflow_items = [
                 ("Cash Out Flows/Disbursements", self.variables['cash_outflows']),
                 ("Snacks/Meals for visitors", self.variables['snacks_meals']),
@@ -426,24 +516,43 @@ class FileHandler:
             for i, (label, var) in enumerate(outflow_items):
                 table.cell(i, 0).text = label
                 table.cell(i, 1).text = format_amount(var.get())
-                table.cell(i, 1).paragraphs[0].alignment = 2
+                for j, cell in enumerate(table.rows[i].cells):
+                    cell.paragraphs[0].runs[0].font.size = Pt(8)
+                    cell.paragraphs[0].alignment = 2 if j == 1 else 0
             table.cell(0, 0).paragraphs[0].runs[0].bold = True
-            doc.add_heading("Ending Cash Balance", level=2)
+            # Ending Cash Balance
+            doc.add_heading("Ending Cash Balance", level=2).style.font.size = Pt(10)
             table = doc.add_table(rows=1, cols=2)
             table.style = 'Table Grid'
+            table.autofit = True
+            # Set column widths
+            table.columns[0].width = Inches(5.0)
+            table.columns[1].width = Inches(2.5)
+            table.rows[0].height = Inches(0.2)
             table.cell(0, 0).text = "Ending cash balance"
             table.cell(0, 1).text = format_amount(self.variables['ending_cash'].get())
-            table.cell(0, 1).paragraphs[0].alignment = 2
+            for j, cell in enumerate(table.rows[0].cells):
+                cell.paragraphs[0].runs[0].font.size = Pt(8)
+                cell.paragraphs[0].alignment = 2 if j == 1 else 0
             table.cell(0, 0).paragraphs[0].runs[0].bold = True
-            doc.add_heading("Breakdown of Cash", level=2)
+            # Breakdown of Cash
+            doc.add_heading("Breakdown of Cash", level=2).style.font.size = Pt(10)
             table = doc.add_table(rows=2, cols=2)
             table.style = 'Table Grid'
+            table.autofit = True
+            # Set column widths
+            table.columns[0].width = Inches(5.0)
+            table.columns[1].width = Inches(2.5)
+            for row in table.rows:
+                row.height = Inches(0.2)
             table.cell(0, 0).text = "Cash in Bank"
             table.cell(0, 1).text = format_amount(self.variables['ending_cash_bank'].get())
             table.cell(1, 0).text = "Cash on Hand"
             table.cell(1, 1).text = format_amount(self.variables['ending_cash_hand'].get())
-            for row in table.rows:
-                row.cells[1].paragraphs[0].alignment = 2
+            for i, row in enumerate(table.rows):
+                for j, cell in enumerate(row.cells):
+                    cell.paragraphs[0].runs[0].font.size = Pt(8)
+                    cell.paragraphs[0].alignment = 2 if j == 1 else 0
             doc.save(filename)
             messagebox.showinfo("Success", f"Word document saved to {filename}")
             return filename

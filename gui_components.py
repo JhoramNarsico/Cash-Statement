@@ -73,7 +73,7 @@ class GUIComponents:
         popup_height = 400
         main_width = self.root.winfo_width()
         main_height = self.root.winfo_height()
-        main_x = self.root.winfo_x()
+        main_x = self.root.winfo_x主要的
         main_y = self.root.winfo_y()
 
         x = main_x + (main_width - popup_width) // 2
@@ -132,14 +132,9 @@ class GUIComponents:
         self.scrollable_frame = ctk.CTkFrame(self.main_frame, fg_color=self.primary_color)
         self.scrollable_frame.pack(fill="both", expand=True, padx=10, pady=5)
 
-        # Title and Date Frame
+        # Date Frame
         header_frame = ctk.CTkFrame(self.scrollable_frame, fg_color=self.secondary_color, corner_radius=10)
         header_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=5)
-
-        # Removed Title Label and Entry
-        # ctk.CTkLabel(header_frame, text="Title:", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
-        # title_entry = ctk.CTkEntry(header_frame, textvariable=self.title_var, width=200, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
-        # title_entry.pack(side="left", padx=5)
 
         date_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
         date_frame.pack(side="left", padx=5)
@@ -159,13 +154,29 @@ class GUIComponents:
         date_button.pack(side="left")
         self.create_tooltip(date_button, "Click to select a date from the calendar")
 
-        # Email Configuration Frame
+        # Email and Names Configuration Frame
         email_frame = ctk.CTkFrame(self.scrollable_frame, fg_color=self.secondary_color, corner_radius=10)
         email_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
 
+        # Recipients Field
         ctk.CTkLabel(email_frame, text="Recipients (comma-separated):", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
         email_entry = ctk.CTkEntry(email_frame, textvariable=self.variables['recipient_emails_var'], width=300, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
         email_entry.pack(side="left", padx=5)
+
+        # Prepared by Field
+        ctk.CTkLabel(email_frame, text="Prepared by:", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
+        prepared_entry = ctk.CTkEntry(email_frame, textvariable=self.variables['prepared_by_var'], width=150, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
+        prepared_entry.pack(side="left", padx=5)
+
+        # Noted by Field
+        ctk.CTkLabel(email_frame, text="Noted by:", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
+        noted_entry = ctk.CTkEntry(email_frame, textvariable=self.variables['noted_by_var'], width=150, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
+        noted_entry.pack(side="left", padx=5)
+
+        # Checked by Field
+        ctk.CTkLabel(email_frame, text="Checked by:", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
+        checked_entry = ctk.CTkEntry(email_frame, textvariable=self.variables['checked_by_var'], width=150, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
+        checked_entry.pack(side="left", padx=5)
 
         # Buttons Frame
         button_frame = ctk.CTkFrame(self.scrollable_frame, fg_color=self.primary_color)
@@ -337,7 +348,8 @@ class GUIComponents:
             self.variables['federation_fee'], self.variables['uniforms'], self.variables['bod_mtg'],
             self.variables['general_assembly'], self.variables['cash_deposit'], self.variables['withholding_tax'],
             self.variables['refund'], self.variables['outflows_others'], self.variables['ending_cash_bank'],
-            self.variables['ending_cash_hand']
+            self.variables['ending_cash_hand'], self.variables['prepared_by_var'], self.variables['noted_by_var'],
+            self.variables['checked_by_var']  # Added to clear Checked by field
         ]
         for var in input_vars:
             var.set("")
