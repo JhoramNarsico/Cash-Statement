@@ -4,6 +4,11 @@ from decimal import Decimal
 from tkinter import filedialog, messagebox
 import pdfplumber
 from docx import Document
+from docx.enum.text import WD_LINE_SPACING
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib import colors
+from docx.enum.section import WD_SECTION
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
@@ -49,32 +54,33 @@ class FileHandler:
             label_to_var = {
                 "Cash in Bank-beg": self.variables['cash_bank_beg'],
                 "Cash on Hand-beg": self.variables['cash_hand_beg'],
-                "Monthly dues collected": self.variables['monthly_dues'],
-                "Certifications issued": self.variables['certifications'],
-                "Membership fee": self.variables['membership_fee'],
-                "Vehicle stickers": self.variables['vehicle_stickers'],
+                "Monthly Dues Collected": self.variables['monthly_dues'],
+                "Certifications Issued": self.variables['certifications'],
+                "Membership Fee": self.variables['membership_fee'],
+                "Vehicle Stickers": self.variables['vehicle_stickers'],
                 "Rentals": self.variables['rentals'],
                 "Solicitations/Donations": self.variables['solicitations'],
-                "Interest Income on bank deposits": self.variables['interest_income'],
+                "Interest Income on Bank Deposits": self.variables['interest_income'],
                 "Livelihood Management Fee": self.variables['livelihood_fee'],
-                "Others(inflow)": self.variables['inflows_others'],
-                "Cash Out Flows/Disbursements": self.variables['cash_outflows'],
-                "Snacks/Meals for visitors": self.variables['snacks_meals'],
-                "Transportation expenses": self.variables['transportation'],
-                "Office supplies expense": self.variables['office_supplies'],
-                "Printing and photocopy": self.variables['printing'],
+                "Others (Inflow)": self.variables['inflows_others'],
+                "Total Cash Receipts": self.variables['total_receipts'],
+                "Cash Outflows/Disbursements": self.variables['cash_outflows'],
+                "Snacks/Meals for Visitors": self.variables['snacks_meals'],
+                "Transportation Expenses": self.variables['transportation'],
+                "Office Supplies Expense": self.variables['office_supplies'],
+                "Printing and Photocopy": self.variables['printing'],
                 "Labor": self.variables['labor'],
-                "Billboard expense": self.variables['billboard'],
-                "Clearing/cleaning charges": self.variables['cleaning'],
-                "Miscellaneous expenses": self.variables['misc_expenses'],
-                "Federation fee": self.variables['federation_fee'],
+                "Billboard Expense": self.variables['billboard'],
+                "Clearing/Cleaning Charges": self.variables['cleaning'],
+                "Miscellaneous Expenses": self.variables['misc_expenses'],
+                "Federation Fee": self.variables['federation_fee'],
                 "HOA-BOD Uniforms": self.variables['uniforms'],
-                "BOD Mtg": self.variables['bod_mtg'],
+                "BOD Meeting": self.variables['bod_mtg'],
                 "General Assembly": self.variables['general_assembly'],
-                "Cash Deposit to bank": self.variables['cash_deposit'],
-                "Withholding tax on bank deposit": self.variables['withholding_tax'],
+                "Cash Deposit to Bank": self.variables['cash_deposit'],
+                "Withholding Tax on Bank Deposit": self.variables['withholding_tax'],
                 "Refund": self.variables['refund'],
-                "Others(outflow)": self.variables['outflows_others']
+                "Others (Outflow)": self.variables['outflows_others']
             }
 
             for table in doc.tables:
@@ -126,33 +132,33 @@ class FileHandler:
             label_to_var = {
                 "Cash in Bank-beg": self.variables['cash_bank_beg'],
                 "Cash on Hand-beg": self.variables['cash_hand_beg'],
-                "Monthly dues collected": self.variables['monthly_dues'],
-                "Certifications issued": self.variables['certifications'],
-                "Membership fee": self.variables['membership_fee'],
-                "Vehicle stickers": self.variables['vehicle_stickers'],
+                "Monthly Dues Collected": self.variables['monthly_dues'],
+                "Certifications Issued": self.variables['certifications'],
+                "Membership Fee": self.variables['membership_fee'],
+                "Vehicle Stickers": self.variables['vehicle_stickers'],
                 "Rentals": self.variables['rentals'],
                 "Solicitations/Donations": self.variables['solicitations'],
-                "Interest Income on bank deposits": self.variables['interest_income'],
+                "Interest Income on Bank Deposits": self.variables['interest_income'],
                 "Livelihood Management Fee": self.variables['livelihood_fee'],
-                "Others(inflow)": self.variables['inflows_others'],
-                "Total Cash receipt": self.variables['total_receipts'],
-                "Cash Out Flows/Disbursements": self.variables['cash_outflows'],
-                "Snacks/Meals for visitors": self.variables['snacks_meals'],
-                "Transportation expenses": self.variables['transportation'],
-                "Office supplies expense": self.variables['office_supplies'],
-                "Printing and photocopy": self.variables['printing'],
+                "Others (Inflow)": self.variables['inflows_others'],
+                "Total Cash Receipts": self.variables['total_receipts'],
+                "Cash Outflows/Disbursements": self.variables['cash_outflows'],
+                "Snacks/Meals for Visitors": self.variables['snacks_meals'],
+                "Transportation Expenses": self.variables['transportation'],
+                "Office Supplies Expense": self.variables['office_supplies'],
+                "Printing and Photocopy": self.variables['printing'],
                 "Labor": self.variables['labor'],
-                "Billboard expense": self.variables['billboard'],
-                "Clearing/cleaning charges": self.variables['cleaning'],
-                "Miscellaneous expenses": self.variables['misc_expenses'],
-                "Federation fee": self.variables['federation_fee'],
+                "Billboard Expense": self.variables['billboard'],
+                "Clearing/Cleaning Charges": self.variables['cleaning'],
+                "Miscellaneous Expenses": self.variables['misc_expenses'],
+                "Federation Fee": self.variables['federation_fee'],
                 "HOA-BOD Uniforms": self.variables['uniforms'],
-                "BOD Mtg": self.variables['bod_mtg'],
+                "BOD Meeting": self.variables['bod_mtg'],
                 "General Assembly": self.variables['general_assembly'],
-                "Cash Deposit to bank": self.variables['cash_deposit'],
-                "Withholding tax on bank deposit": self.variables['withholding_tax'],
+                "Cash Deposit to Bank": self.variables['cash_deposit'],
+                "Withholding Tax on Bank Deposit": self.variables['withholding_tax'],
                 "Refund": self.variables['refund'],
-                "Others(outflow)": self.variables['outflows_others']
+                "Others (Outflow)": self.variables['outflows_others']
             }
 
             with pdfplumber.open(filename) as pdf:
@@ -230,7 +236,8 @@ class FileHandler:
             if not filename:
                 return None
 
-            # Define custom page size: 8.5 x 13 inches (612 x 936)
+            # Define custom page size: 8.5 x 13 inches (612 x 936
+
             folio_size = (8.5 * 72, 13 * 72)
             doc = SimpleDocTemplate(
                 filename,
@@ -276,6 +283,13 @@ class FileHandler:
             footer_style.leading = 10
             footer_style.fontName = 'Helvetica'
 
+                    # Custom style for "Noted by:" with 1.5 line spacing
+            noted_style = styles['Normal']
+            noted_style.fontSize = 8
+            noted_style.leading = 15  # 1.5 line spacing (1.5 * 10)
+            noted_style.fontName = 'Helvetica'
+            noted_style.alignment = 1  # Center
+
             elements = []
 
             # Header (matching Word format)
@@ -287,6 +301,10 @@ class FileHandler:
 
             # Beginning Cash Balances
             elements.append(Paragraph("Beginning Cash Balances", header_style))
+            beg_data = [
+                ["Cash in Bank-beg", format_amount(self.variables['cash_bank_beg'].get())],
+                ["Cash on Hand-beg", format_amount(self.variables['cash_hand_beg'].get())]
+            ]
             beg_data = [
                 ["Cash in Bank-beg", format_amount(self.variables['cash_bank_beg'].get())],
                 ["Cash on Hand-beg", format_amount(self.variables['cash_hand_beg'].get())]
@@ -338,7 +356,6 @@ class FileHandler:
             # Cash Outflows
             elements.append(Paragraph("Less: Cash Outflows", header_style))
             outflows_data = [
-                ["Cash Outflows/Disbursements", format_amount(self.variables['cash_outflows'].get())],
                 ["Snacks/Meals for Visitors", format_amount(self.variables['snacks_meals'].get())],
                 ["Transportation Expenses", format_amount(self.variables['transportation'].get())],
                 ["Office Supplies Expense", format_amount(self.variables['office_supplies'].get())],
@@ -354,7 +371,8 @@ class FileHandler:
                 ["Cash Deposit to Bank", format_amount(self.variables['cash_deposit'].get())],
                 ["Withholding Tax on Bank Deposit", format_amount(self.variables['withholding_tax'].get())],
                 ["Refund", format_amount(self.variables['refund'].get())],
-                ["Others (Outflow)", format_amount(self.variables['outflows_others'].get())]
+                ["Others (Outflow)", format_amount(self.variables['outflows_others'].get())],
+                ["Cash Outflows/Disbursements", format_amount(self.variables['cash_outflows'].get())]
             ]
             outflows_table = Table(outflows_data, colWidths=[360, 180], rowHeights=[14.4]*17)
             outflows_table.setStyle(TableStyle([
@@ -407,51 +425,55 @@ class FileHandler:
                 ('RIGHTPADDING', (1, 0), (1, -1), 3),
             ]))
             elements.append(breakdown_table)
+            elements.append(Spacer(1, 12))
 
-            # Footer with names and titles (using a table for precise alignment)
+            # Footer (matching Word format with tab stops)
             prepared_name = self.prepared_by_var.get() or "_______________________"
             noted_name_1 = self.noted_by_var_1.get() or "_______________________"
             noted_name_2 = self.noted_by_var_2.get() or "_______________________"
             checked_name = self.checked_by_var.get() or "_______________________"
-
-            # Define titles
-            prepared_title = "HOA Treasurer"
-            noted_title_1 = "HOA President"
-            noted_title_2 = "CHUDD HCD-CORDS"
-            checked_title = "HOA Auditor"
-
-            # Footer table data: two rows (Prepared/Checked and Noted1/Noted2), with names and titles
-            footer_data = [
-                [
-                    f"Prepared by:\n{prepared_name}\n{prepared_title}",
-                    f"Checked by:\n{checked_name}\n{checked_title}"
-                ],
-                [
-                    f"Noted by:\n{noted_name_1}\n{noted_title_1}",
-                    f"Noted by:\n{noted_name_2}\n{noted_title_2}"
-                ]
+            
+            # Simulate tab stops using spaces and alignment
+# First two-column section: Prepared by and Checked by
+            prepared_text = f"Prepared by:<br/>{prepared_name}<br/>HOA Treasurer"
+            checked_text = f"Checked by:<br/>{checked_name}<br/>HOA Auditor"
+            footer_data_1 = [
+                [Paragraph(prepared_text, footer_style), Paragraph(checked_text, footer_style)]
             ]
-
-            # Create footer table
-            footer_table = Table(footer_data, colWidths=[270, 270], rowHeights=[60, 60])  # Equal column widths, 540pt total
-            footer_table.setStyle(TableStyle([
-                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 0), (-1, -1), 8),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            footer_table_1 = Table(footer_data_1, colWidths=[270, 270])  # 540 points total width (page width - margins)
+            footer_table_1.setStyle(TableStyle([
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('LEFTPADDING', (0, 0), (-1, -1), 6),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-                ('TOPPADDING', (0, 0), (-1, -1), 6),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-                ('GRID', (0, 0), (-1, -1), 0, colors.transparent),  # No grid lines
-                ('LINEBELOW', (0, 0), (0, 0), 1, colors.black, None, (2, 2)),  # Underline Prepared by
-                ('LINEBELOW', (1, 0), (1, 0), 1, colors.black, None, (2, 2)),  # Underline Checked by
-                ('LINEBELOW', (0, 1), (0, 1), 1, colors.black, None, (2, 2)),  # Underline Noted by 1
-                ('LINEBELOW', (1, 1), (1, 1), 1, colors.black, None, (2, 2)),  # Underline Noted by 2
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
             ]))
+            elements.append(Spacer(1, 6))  # Space before
+            elements.append(footer_table_1)
+            elements.append(Spacer(1, 6))  # Space after
 
-            elements.append(Spacer(1, 24))  # Space before footer
-            elements.append(footer_table)
+        # Noted by (single column)
+            elements.append(Paragraph("Noted by:", noted_style))
+            elements.append(Spacer(1, 6))
+
+        # Second two-column section: HOA President and CHUDD HCD-CORDS
+            noted_text_1 = f"{noted_name_1}<br/>HOA President"
+            noted_text_2 = f"{noted_name_2}<br/>CHUDD HCD-CORDS"
+            footer_data_2 = [
+                [Paragraph(noted_text_1, footer_style), Paragraph(noted_text_2, footer_style)]
+            ]
+            footer_table_2 = Table(footer_data_2, colWidths=[270, 270])
+            footer_table_2.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ]))
+            elements.append(footer_table_2)
+            elements.append(Spacer(1, 6))  # Space after
 
             doc.build(elements)
             messagebox.showinfo("Success", f"PDF successfully exported to {filename}")
@@ -488,55 +510,9 @@ class FileHandler:
             section.page_width = Inches(8.5)
             section.page_height = Inches(13)
             section.top_margin = Inches(0.5)
-            section.bottom_margin = Inches(1.2)
+            section.bottom_margin = Inches(0.8)
             section.left_margin = Inches(0.5)
             section.right_margin = Inches(0.5)
-
-            # Footer with names and titles (using a table for precise alignment)
-            footer = section.footer
-            prepared_name = self.prepared_by_var.get() or "_______________________"
-            noted_name_1 = self.noted_by_var_1.get() or "_______________________"
-            noted_name_2 = self.noted_by_var_2.get() or "_______________________"
-            checked_name = self.checked_by_var.get() or "_______________________"
-
-            # Define titles
-            prepared_title = "HOA Treasurer"
-            noted_title_1 = "HOA President"
-            noted_title_2 = "CHUDD HCD-CORDS"
-            checked_title = "HOA Auditor"
-
-            # Create footer table with width parameter
-            footer_table = footer.add_table(rows=2, cols=2, width=Inches(7.5))  # Total width = page width - margins
-            footer_table.style = 'Table Grid'
-            footer_table.autofit = True
-            footer_table.columns[0].width = Inches(3.75)  # Approx 270pt
-            footer_table.columns[1].width = Inches(3.75)  # Approx 270pt
-            for row in footer_table.rows:
-                row.height = Inches(0.8)  # Approx 60pt
-
-            # Populate footer table
-            footer_table.cell(0, 0).text = f"Prepared by:\n{prepared_name}\n{prepared_title}"
-            footer_table.cell(0, 1).text = f"Checked by:\n{checked_name}\n{checked_title}"
-            footer_table.cell(1, 0).text = f"Noted by:\n{noted_name_1}\n{noted_title_1}"
-            footer_table.cell(1, 1).text = f"Noted by:\n{noted_name_2}\n{noted_title_2}"
-
-            # Style footer table
-            for i, row in enumerate(footer_table.rows):
-                for j, cell in enumerate(row.cells):
-                    cell.paragraphs[0].alignment = 1  # Center
-                    for run in cell.paragraphs[0].runs:
-                        run.font.size = Pt(8)
-                        run.font.name = 'Helvetica'
-                    # Add underline to names (second line)
-                    lines = cell.text.split('\n')
-                    cell.paragraphs[0].clear()
-                    for k, line in enumerate(lines):
-                        run = cell.paragraphs[0].add_run(line + ('\n' if k < len(lines)-1 else ''))
-                        run.font.size = Pt(8)
-                        run.font.name = 'Helvetica'
-                        if k == 1:  # Underline the name
-                            run.underline = True
-
             # Header
             p = doc.add_paragraph()
             run = p.add_run("Buena Oro Homeowners Association Inc.")
@@ -551,12 +527,15 @@ class FileHandler:
             run.bold = True
             run.font.size = Pt(12)
             p.alignment = 1
+ # The 'get()' method is used to retrieve the current string value from a Tkinter StringVar object.
+# It is not a standard Python method, but specific to Tkinter and similar frameworks.
+# For instance, in this context, 'self.variables' is a dictionary containing Tkinter StringVar objects.
+# The '.get()' method is used to fetch the current value of these variables.
 
             p = doc.add_paragraph()
             run = p.add_run(f"For the Month of {self.format_date_for_display(self.date_var.get())}")
             run.font.size = Pt(8)
             p.alignment = 1
-
             # Beginning Cash Balances
             doc.add_heading("Beginning Cash Balances", level=2).style.font.size = Pt(10)
             table = doc.add_table(rows=2, cols=2)
@@ -574,7 +553,6 @@ class FileHandler:
                 for j, cell in enumerate(row.cells):
                     cell.paragraphs[0].runs[0].font.size = Pt(8)
                     cell.paragraphs[0].alignment = 2 if j == 1 else 0
-
             # Cash Inflows
             doc.add_heading("Cash Inflows", level=2).style.font.size = Pt(10)
             table = doc.add_table(rows=10, cols=2)
@@ -585,16 +563,16 @@ class FileHandler:
             for row in table.rows:
                 row.height = Inches(0.2)
             inflow_items = [
-                ("Monthly dues collected", self.variables['monthly_dues']),
-                ("Certifications issued", self.variables['certifications']),
-                ("Membership fee", self.variables['membership_fee']),
-                ("Vehicle stickers", self.variables['vehicle_stickers']),
+                ("Monthly Dues Collected", self.variables['monthly_dues']),
+                ("Certifications Issued", self.variables['certifications']),
+                ("Membership Fee", self.variables['membership_fee']),
+                ("Vehicle Stickers", self.variables['vehicle_stickers']),
                 ("Rentals", self.variables['rentals']),
                 ("Solicitations/Donations", self.variables['solicitations']),
-                ("Interest Income on bank deposits", self.variables['interest_income']),
+                ("Interest Income on Bank Deposits", self.variables['interest_income']),
                 ("Livelihood Management Fee", self.variables['livelihood_fee']),
-                ("Others(inflow)", self.variables['inflows_others']),
-                ("Total Cash receipt", self.variables['total_receipts'])
+                ("Others (Inflow)", self.variables['inflows_others']),
+                ("Total Cash Receipts", self.variables['total_receipts'])
             ]
             for i, (label, var) in enumerate(inflow_items):
                 table.cell(i, 0).text = label
@@ -603,7 +581,6 @@ class FileHandler:
                     cell.paragraphs[0].runs[0].font.size = Pt(8)
                     cell.paragraphs[0].alignment = 2 if j == 1 else 0
             table.cell(9, 0).paragraphs[0].runs[0].bold = True
-
             # Cash Outflows
             doc.add_heading("Less: Cash Outflows", level=2).style.font.size = Pt(10)
             table = doc.add_table(rows=17, cols=2)
@@ -614,23 +591,23 @@ class FileHandler:
             for row in table.rows:
                 row.height = Inches(0.2)
             outflow_items = [
-                ("Cash Out Flows/Disbursements", self.variables['cash_outflows']),
-                ("Snacks/Meals for visitors", self.variables['snacks_meals']),
-                ("Transportation expenses", self.variables['transportation']),
-                ("Office supplies expense", self.variables['office_supplies']),
-                ("Printing and photocopy", self.variables['printing']),
+                ("Snacks/Meals for Visitors", self.variables['snacks_meals']),
+                ("Transportation Expenses", self.variables['transportation']),
+                ("Office Supplies Expense", self.variables['office_supplies']),
+                ("Printing and Photocopy", self.variables['printing']),
                 ("Labor", self.variables['labor']),
-                ("Billboard expense", self.variables['billboard']),
-                ("Clearing/cleaning charges", self.variables['cleaning']),
-                ("Miscellaneous expenses", self.variables['misc_expenses']),
-                ("Federation fee", self.variables['federation_fee']),
+                ("Billboard Expense", self.variables['billboard']),
+                ("Clearing/Cleaning Charges", self.variables['cleaning']),
+                ("Miscellaneous Expenses", self.variables['misc_expenses']),
+                ("Federation Fee", self.variables['federation_fee']),
                 ("HOA-BOD Uniforms", self.variables['uniforms']),
-                ("BOD Mtg", self.variables['bod_mtg']),
+                ("BOD Meeting", self.variables['bod_mtg']),
                 ("General Assembly", self.variables['general_assembly']),
-                ("Cash Deposit to bank", self.variables['cash_deposit']),
-                ("Withholding tax on bank deposit", self.variables['withholding_tax']),
+                ("Cash Deposit to Bank", self.variables['cash_deposit']),
+                ("Withholding Tax on Bank Deposit", self.variables['withholding_tax']),
                 ("Refund", self.variables['refund']),
-                ("Others(outflow)", self.variables['outflows_others'])
+                ("Others (Outflow)", self.variables['outflows_others']),
+                ("Cash Outflows/Disbursements", self.variables['cash_outflows'])
             ]
             for i, (label, var) in enumerate(outflow_items):
                 table.cell(i, 0).text = label
@@ -639,7 +616,6 @@ class FileHandler:
                     cell.paragraphs[0].runs[0].font.size = Pt(8)
                     cell.paragraphs[0].alignment = 2 if j == 1 else 0
             table.cell(0, 0).paragraphs[0].runs[0].bold = True
-
             # Ending Cash Balance
             doc.add_heading("Ending Cash Balance", level=2).style.font.size = Pt(10)
             table = doc.add_table(rows=1, cols=2)
@@ -654,7 +630,6 @@ class FileHandler:
                 cell.paragraphs[0].runs[0].font.size = Pt(8)
                 cell.paragraphs[0].alignment = 2 if j == 1 else 0
             table.cell(0, 0).paragraphs[0].runs[0].bold = True
-
             # Breakdown of Cash
             doc.add_heading("Breakdown of Cash", level=2).style.font.size = Pt(10)
             table = doc.add_table(rows=2, cols=2)
@@ -672,7 +647,103 @@ class FileHandler:
                 for j, cell in enumerate(row.cells):
                     cell.paragraphs[0].runs[0].font.size = Pt(8)
                     cell.paragraphs[0].alignment = 2 if j == 1 else 0
+            doc.add_paragraph()
+            # Footer with names
+            prepared_name = self.prepared_by_var.get() or "_______________________"
+            noted_name_1 = self.noted_by_var_1.get() or "_______________________"
+            noted_name_2 = self.noted_by_var_2.get() or "_______________________"
+            checked_name = self.checked_by_var.get() or "_______________________"
+             # Add a section break and switch to two-column layout for the signature section
+            doc.add_section(WD_SECTION.CONTINUOUS)  # Add a continuous section break
+            signature_section = doc.sections[-1]  # Get the new section
+            signature_section.start_type
+            sectPr = signature_section._sectPr
+            cols = sectPr.xpath("./w:cols")[0]
+            cols.set(qn("w:num"), "2")  # Set to two columns
+            cols.set(qn("w:space"), "720")  # Set space between columns (720 twips = 0.5 inches)
+            # Prepared by (left column)
+            p1 = doc.add_paragraph()
+            p1.add_run("Prepared by:")
+            p1.alignment = 1  # Center within the column
+            p1.runs[0].font.size = Pt(8)
 
+        # Signature line for Prepared by
+            p2 = doc.add_paragraph()
+            p2.add_run(prepared_name)
+            p2.alignment = 1
+            p2.runs[0].font.size = Pt(8)
+
+        # HOA Treasurer
+            p3 = doc.add_paragraph()
+            p3.add_run("HOA Treasurer")
+            p3.alignment = 1
+            p3.runs[0].font.size = Pt(8)
+
+        # Move to the second column (Word will automatically flow to the next column)
+        # Checked by (right column)
+            p4 = doc.add_paragraph()
+            p4.add_run("Checked by:")
+            p4.alignment = 1
+            p4.runs[0].font.size = Pt(8)
+
+            # Signature line for Checked by
+            p5 = doc.add_paragraph()
+            p5.add_run(checked_name)
+            p5.alignment = 1
+            p5.runs[0].font.size = Pt(8)
+
+            # HOA Auditor
+            p6 = doc.add_paragraph()
+            p6.add_run("HOA Auditor")
+            p6.alignment = 1
+            p6.runs[0].font.size = Pt(8)
+
+            # Noted by (spans both columns, so we need to switch back to single-column temporarily)
+            doc.add_section(WD_SECTION.CONTINUOUS)  # Add another section break
+            noted_section = doc.sections[-1]
+            sectPr = noted_section._sectPr
+            cols = sectPr.xpath("./w:cols")[0]
+            cols.set(qn("w:num"), "1")  # Set back to one column
+
+            
+            p7 = doc.add_paragraph()
+            p7.paragraph_format.line_spacing_rule = WD_LINE_SPACING.MULTIPLE
+            p7.paragraph_format.line_spacing = 1.5
+            p7.add_run("Noted by:")
+            p7.alignment = 1
+            p7.runs[0].font.size = Pt(8)
+
+            # Switch back to two columns for the Noted by signatures
+            doc.add_section(WD_SECTION.CONTINUOUS)
+            noted_signatures_section = doc.sections[-1]
+            sectPr = noted_signatures_section._sectPr
+            cols = sectPr.xpath("./w:cols")[0]
+            cols.set(qn("w:num"), "2")
+            cols.set(qn("w:space"), "720")
+
+            # Signature line for HOA President (left column)
+            p8 = doc.add_paragraph()
+            p8.add_run(noted_name_1)
+            p8.alignment = 1
+            p8.runs[0].font.size = Pt(8)
+
+            # HOA President
+            p9 = doc.add_paragraph()
+            p9.add_run("HOA President")
+            p9.alignment = 1
+            p9.runs[0].font.size = Pt(8)
+
+            # Signature line for CHUDD HCD-CORDS (right column)
+            p10 = doc.add_paragraph()
+            p10.add_run(noted_name_2)
+            p10.alignment = 1
+            p10.runs[0].font.size = Pt(8)
+
+            # CHUDD HCD-CORDS
+            p11 = doc.add_paragraph()
+            p11.add_run("CHUDD HCD-CORDS")
+            p11.alignment = 1
+            p11.runs[0].font.size = Pt(8)
             doc.save(filename)
             messagebox.showinfo("Success", f"Word document saved to {filename}")
             return filename
@@ -685,10 +756,11 @@ class FileHandler:
         try:
             filename = filedialog.askopenfilename(
                 filetypes=[
-                    ("Word Documents", "*.docx"),
-                    ("PDF Files", "*.pdf"),
-                ],
-                title="Select a Document (DOCX or PDF)"
+                ("All Files", "*.*"),  # Show all files
+                ("Word Documents", "*.docx"),
+                ("PDF Files", "*.pdf"),
+            ],
+        title="Select a Document (DOCX or PDF)"
             )
             if not filename:
                 return
