@@ -230,8 +230,7 @@ class FileHandler:
             if not filename:
                 return None
 
-            # Define custom page size: 8.5 x 13 inches (612 x 936
-
+            # Define custom page size: 8.5 x 13 inches (612 x 936)
             folio_size = (8.5 * 72, 13 * 72)
             doc = SimpleDocTemplate(
                 filename,
@@ -288,10 +287,6 @@ class FileHandler:
 
             # Beginning Cash Balances
             elements.append(Paragraph("Beginning Cash Balances", header_style))
-            beg_data = [
-                ["Cash in Bank-beg", format_amount(self.variables['cash_bank_beg'].get())],
-                ["Cash on Hand-beg", format_amount(self.variables['cash_hand_beg'].get())]
-            ]
             beg_data = [
                 ["Cash in Bank-beg", format_amount(self.variables['cash_bank_beg'].get())],
                 ["Cash on Hand-beg", format_amount(self.variables['cash_hand_beg'].get())]
@@ -412,25 +407,51 @@ class FileHandler:
                 ('RIGHTPADDING', (1, 0), (1, -1), 3),
             ]))
             elements.append(breakdown_table)
-            elements.append(Spacer(1, 12))
 
-            # Footer (matching Word format with tab stops)
+            # Footer with names and titles (using a table for precise alignment)
             prepared_name = self.prepared_by_var.get() or "_______________________"
             noted_name_1 = self.noted_by_var_1.get() or "_______________________"
             noted_name_2 = self.noted_by_var_2.get() or "_______________________"
             checked_name = self.checked_by_var.get() or "_______________________"
-            
-            # Simulate tab stops using spaces and alignment
-            footer_para1 = Paragraph(
-                f"Prepared by: {prepared_name}{' ' * 50}Checked by: {checked_name}",
-                footer_style
-            )
-            footer_para2 = Paragraph(
-                f"Noted by: {noted_name_1}{' ' * 50}Noted by: {noted_name_2}",
-                footer_style
-            )
-            elements.append(footer_para1)
-            elements.append(footer_para2)
+
+            # Define titles
+            prepared_title = "HOA Treasurer"
+            noted_title_1 = "HOA President"
+            noted_title_2 = "CHUDD HCD-CORDS"
+            checked_title = "HOA Auditor"
+
+            # Footer table data: two rows (Prepared/Checked and Noted1/Noted2), with names and titles
+            footer_data = [
+                [
+                    f"Prepared by:\n{prepared_name}\n{prepared_title}",
+                    f"Checked by:\n{checked_name}\n{checked_title}"
+                ],
+                [
+                    f"Noted by:\n{noted_name_1}\n{noted_title_1}",
+                    f"Noted by:\n{noted_name_2}\n{noted_title_2}"
+                ]
+            ]
+
+            # Create footer table
+            footer_table = Table(footer_data, colWidths=[270, 270], rowHeights=[60, 60])  # Equal column widths, 540pt total
+            footer_table.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('GRID', (0, 0), (-1, -1), 0, colors.transparent),  # No grid lines
+                ('LINEBELOW', (0, 0), (0, 0), 1, colors.black, None, (2, 2)),  # Underline Prepared by
+                ('LINEBELOW', (1, 0), (1, 0), 1, colors.black, None, (2, 2)),  # Underline Checked by
+                ('LINEBELOW', (0, 1), (0, 1), 1, colors.black, None, (2, 2)),  # Underline Noted by 1
+                ('LINEBELOW', (1, 1), (1, 1), 1, colors.black, None, (2, 2)),  # Underline Noted by 2
+            ]))
+
+            elements.append(Spacer(1, 24))  # Space before footer
+            elements.append(footer_table)
 
             doc.build(elements)
             messagebox.showinfo("Success", f"PDF successfully exported to {filename}")
@@ -470,24 +491,52 @@ class FileHandler:
             section.bottom_margin = Inches(1.2)
             section.left_margin = Inches(0.5)
             section.right_margin = Inches(0.5)
-            # Footer with names
+
+            # Footer with names and titles (using a table for precise alignment)
             footer = section.footer
             prepared_name = self.prepared_by_var.get() or "_______________________"
             noted_name_1 = self.noted_by_var_1.get() or "_______________________"
             noted_name_2 = self.noted_by_var_2.get() or "_______________________"
             checked_name = self.checked_by_var.get() or "_______________________"
-            footer_para1 = footer.add_paragraph()
-            footer_para1.alignment = 0
-            run = footer_para1.add_run(f"Prepared by: {prepared_name}\tChecked by: {checked_name}")
-            run.font.size = Pt(8)
-            tab_stops = footer_para1.paragraph_format.tab_stops
-            tab_stops.add_tab_stop(Inches(7.5), alignment=2)
-            footer_para2 = footer.add_paragraph()
-            footer_para2.alignment = 0
-            run = footer_para2.add_run(f"Noted by: {noted_name_1}\tNoted by: {noted_name_2}")
-            run.font.size = Pt(8)
-            tab_stops = footer_para2.paragraph_format.tab_stops
-            tab_stops.add_tab_stop(Inches(7.5), alignment=2)
+
+            # Define titles
+            prepared_title = "HOA Treasurer"
+            noted_title_1 = "HOA President"
+            noted_title_2 = "CHUDD HCD-CORDS"
+            checked_title = "HOA Auditor"
+
+            # Create footer table with width parameter
+            footer_table = footer.add_table(rows=2, cols=2, width=Inches(7.5))  # Total width = page width - margins
+            footer_table.style = 'Table Grid'
+            footer_table.autofit = True
+            footer_table.columns[0].width = Inches(3.75)  # Approx 270pt
+            footer_table.columns[1].width = Inches(3.75)  # Approx 270pt
+            for row in footer_table.rows:
+                row.height = Inches(0.8)  # Approx 60pt
+
+            # Populate footer table
+            footer_table.cell(0, 0).text = f"Prepared by:\n{prepared_name}\n{prepared_title}"
+            footer_table.cell(0, 1).text = f"Checked by:\n{checked_name}\n{checked_title}"
+            footer_table.cell(1, 0).text = f"Noted by:\n{noted_name_1}\n{noted_title_1}"
+            footer_table.cell(1, 1).text = f"Noted by:\n{noted_name_2}\n{noted_title_2}"
+
+            # Style footer table
+            for i, row in enumerate(footer_table.rows):
+                for j, cell in enumerate(row.cells):
+                    cell.paragraphs[0].alignment = 1  # Center
+                    for run in cell.paragraphs[0].runs:
+                        run.font.size = Pt(8)
+                        run.font.name = 'Helvetica'
+                    # Add underline to names (second line)
+                    lines = cell.text.split('\n')
+                    cell.paragraphs[0].clear()
+                    for k, line in enumerate(lines):
+                        run = cell.paragraphs[0].add_run(line + ('\n' if k < len(lines)-1 else ''))
+                        run.font.size = Pt(8)
+                        run.font.name = 'Helvetica'
+                        if k == 1:  # Underline the name
+                            run.underline = True
+
             # Header
             p = doc.add_paragraph()
             run = p.add_run("Buena Oro Homeowners Association Inc.")
@@ -502,15 +551,12 @@ class FileHandler:
             run.bold = True
             run.font.size = Pt(12)
             p.alignment = 1
- # The 'get()' method is used to retrieve the current string value from a Tkinter StringVar object.
-# It is not a standard Python method, but specific to Tkinter and similar frameworks.
-# For instance, in this context, 'self.variables' is a dictionary containing Tkinter StringVar objects.
-# The '.get()' method is used to fetch the current value of these variables.
 
             p = doc.add_paragraph()
             run = p.add_run(f"For the Month of {self.format_date_for_display(self.date_var.get())}")
             run.font.size = Pt(8)
             p.alignment = 1
+
             # Beginning Cash Balances
             doc.add_heading("Beginning Cash Balances", level=2).style.font.size = Pt(10)
             table = doc.add_table(rows=2, cols=2)
@@ -528,6 +574,7 @@ class FileHandler:
                 for j, cell in enumerate(row.cells):
                     cell.paragraphs[0].runs[0].font.size = Pt(8)
                     cell.paragraphs[0].alignment = 2 if j == 1 else 0
+
             # Cash Inflows
             doc.add_heading("Cash Inflows", level=2).style.font.size = Pt(10)
             table = doc.add_table(rows=10, cols=2)
@@ -556,6 +603,7 @@ class FileHandler:
                     cell.paragraphs[0].runs[0].font.size = Pt(8)
                     cell.paragraphs[0].alignment = 2 if j == 1 else 0
             table.cell(9, 0).paragraphs[0].runs[0].bold = True
+
             # Cash Outflows
             doc.add_heading("Less: Cash Outflows", level=2).style.font.size = Pt(10)
             table = doc.add_table(rows=17, cols=2)
@@ -591,6 +639,7 @@ class FileHandler:
                     cell.paragraphs[0].runs[0].font.size = Pt(8)
                     cell.paragraphs[0].alignment = 2 if j == 1 else 0
             table.cell(0, 0).paragraphs[0].runs[0].bold = True
+
             # Ending Cash Balance
             doc.add_heading("Ending Cash Balance", level=2).style.font.size = Pt(10)
             table = doc.add_table(rows=1, cols=2)
@@ -605,6 +654,7 @@ class FileHandler:
                 cell.paragraphs[0].runs[0].font.size = Pt(8)
                 cell.paragraphs[0].alignment = 2 if j == 1 else 0
             table.cell(0, 0).paragraphs[0].runs[0].bold = True
+
             # Breakdown of Cash
             doc.add_heading("Breakdown of Cash", level=2).style.font.size = Pt(10)
             table = doc.add_table(rows=2, cols=2)
@@ -622,6 +672,7 @@ class FileHandler:
                 for j, cell in enumerate(row.cells):
                     cell.paragraphs[0].runs[0].font.size = Pt(8)
                     cell.paragraphs[0].alignment = 2 if j == 1 else 0
+
             doc.save(filename)
             messagebox.showinfo("Success", f"Word document saved to {filename}")
             return filename
