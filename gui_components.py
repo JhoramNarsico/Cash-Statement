@@ -112,7 +112,7 @@ class GUIComponents:
 
         confirm_button = ctk.CTkButton(
             popup,
-                                             text="Select",
+            text="Select",
             command=on_date_select,
             fg_color=self.accent_color,
             text_color="#FFFFFF",
@@ -130,8 +130,43 @@ class GUIComponents:
         self.main_frame = ctk.CTkFrame(self.root, fg_color=self.primary_color)
         self.main_frame.pack(fill="both", expand=True, padx=15, pady=15)
 
-        self.scrollable_frame = ctk.CTkScrollableFrame(self.main_frame, fg_color=self.primary_color)
+        # Create a canvas for horizontal scrolling
+        self.canvas = tk.Canvas(self.main_frame, bg=self.primary_color, highlightthickness=0)
+        self.canvas.pack(side="left", fill="both", expand=True)
+
+        # Add a horizontal scrollbar
+        self.h_scrollbar = tk.Scrollbar(self.main_frame, orient="horizontal", command=self.canvas.xview)
+        self.h_scrollbar.pack(side="bottom", fill="x")
+
+        # Configure canvas to use the scrollbar
+        self.canvas.configure(xscrollcommand=self.h_scrollbar.set)
+
+        # Create a frame inside the canvas to hold the scrollable frame
+        self.canvas_frame = ctk.CTkFrame(self.canvas, fg_color=self.primary_color)
+        self.canvas_window = self.canvas.create_window((0, 0), window=self.canvas_frame, anchor="nw")
+
+        # Create the scrollable frame inside the canvas frame
+        self.scrollable_frame = ctk.CTkScrollableFrame(self.canvas_frame, fg_color=self.primary_color)
         self.scrollable_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Bind canvas to update scroll region
+        def update_scroll_region(event=None):
+            self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+        self.canvas_frame.bind("<Configure>", update_scroll_region)
+
+        # Bind mouse wheel for horizontal scrolling
+        def on_mouse_wheel(event):
+            if event.delta:
+                self.canvas.xview_scroll(int(-1 * (event.delta / 120)), "units")
+            elif event.num == 4:
+                self.canvas.xview_scroll(-1, "units")
+            elif event.num == 5:
+                self.canvas.xview_scroll(1, "units")
+
+        self.canvas.bind_all("<MouseWheel>", on_mouse_wheel)  # Windows
+        self.canvas.bind_all("<Button-4>", on_mouse_wheel)   # Linux
+        self.canvas.bind_all("<Button-5>", on_mouse_wheel)   # Linux
 
         # Configure grid weights for responsiveness
         self.scrollable_frame.grid_columnconfigure(0, weight=1)
