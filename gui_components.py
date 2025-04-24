@@ -42,13 +42,13 @@ class GUIComponents:
         tooltip = tk.Toplevel(widget)
         tooltip.wm_overrideredirect(True)
         tooltip.wm_geometry("+1000+1000")
-        font_size = max(7, int(self.screen_height / 80 * 0.65))  # Scaled to 65%
+        font_size = max(9, int(self.screen_height / 80 * 0.85))  # Scaled to 85%
         label = tk.Label(tooltip, text=text, background="#FFFFE0", relief="solid", borderwidth=1, font=("Arial", font_size))
         label.pack()
 
         def show(event):
-            x = widget.winfo_rootx() + 13  # Scaled from 20
-            y = widget.winfo_rooty() + 13  # Scaled from 20
+            x = widget.winfo_rootx() + 17  # Scaled from 20
+            y = widget.winfo_rooty() + 17  # Scaled from 20
             tooltip.wm_geometry(f"+{x}+{y}")
             tooltip.deiconify()
 
@@ -64,8 +64,8 @@ class GUIComponents:
         popup = tk.Toplevel(self.root)
         popup.title("Select Date")
         
-        popup_width = max(195, min(390, int(self.screen_width * 0.3 * 0.65)))  # Scaled to 65%
-        popup_height = max(195, min(390, int(self.screen_height * 0.3 * 0.65)))  # Scaled to 65%
+        popup_width = max(255, min(510, int(self.screen_width * 0.3 * 0.85)))  # Scaled to 85%
+        popup_height = max(255, min(510, int(self.screen_height * 0.3 * 0.85)))  # Scaled to 85%
         popup.geometry(f"{popup_width}x{popup_height}")
         popup.transient(self.root)
         popup.grab_set()
@@ -81,12 +81,12 @@ class GUIComponents:
         y = main_y + (main_height - popup_height) // 2
         popup.geometry(f"{popup_width}x{popup_height}+{x}+{y}")
 
-        font_size = max(8, int(self.screen_height / 60 * 0.65))  # Scaled to 65%
+        font_size = max(10, int(self.screen_height / 60 * 0.85))  # Scaled to 85%
         cal = HoverCalendar(
             popup,
             font=("Arial", font_size)
         )
-        cal.pack(padx=13, pady=13, fill="both", expand=True)  # Scaled padx, pady
+        cal.pack(padx=17, pady=17, fill="both", expand=True)  # Scaled padx, pady
 
         try:
             current_date = datetime.datetime.strptime(self.date_var.get(), "%m/%d/%Y")
@@ -105,9 +105,11 @@ class GUIComponents:
             text="Select",
             command=on_date_select,
             font=("Arial", font_size),
-            width=int(self.screen_width * 0.008 * 0.65)  # Scaled button width
+            width=int(self.screen_width * 0.008 * 0.85),  # Scaled to 85%
+            padx=5,  # Internal padding
+            pady=2   # Internal padding
         )
-        confirm_button.pack(pady=13)  # Scaled pady
+        confirm_button.pack(pady=17)  # Scaled pady
 
         popup.deiconify()
         popup.protocol("WM_DELETE_WINDOW", popup.destroy)
@@ -115,7 +117,7 @@ class GUIComponents:
     def create_widgets(self):
         # Main frame
         self.main_frame = tk.Frame(self.root)
-        self.main_frame.pack(fill="both", expand=True, padx=10, pady=10)  # Scaled padx, pady
+        self.main_frame.pack(fill="both", expand=True, padx=13, pady=13)  # Scaled padx, pady from 15
 
         # Scrollable frame using Canvas and Scrollbar
         self.canvas = tk.Canvas(self.main_frame)
@@ -138,15 +140,15 @@ class GUIComponents:
         self.scrollable_frame.grid_rowconfigure((0, 1, 2, 3), weight=0)
 
         # Dynamic font size
-        base_font_size = max(8, int(self.screen_height / 60 * 0.65))  # Scaled to 65%
+        base_font_size = max(10, int(self.screen_height / 60 * 0.85))  # Scaled to 85%
 
         # Date Frame
         header_frame = tk.Frame(self.scrollable_frame, relief="groove", borderwidth=2)
-        header_frame.grid(row=0, column=0, sticky="ew", padx=7, pady=5)  # Scaled padx, pady
+        header_frame.grid(row=0, column=0, sticky="ew", padx=9, pady=7)  # Scaled padx, pady
         header_frame.grid_columnconfigure(0, weight=1)
 
         date_frame = tk.Frame(header_frame)
-        date_frame.pack(side="left", padx=5, anchor="w")  # Scaled padx
+        date_frame.pack(side="left", padx=7, anchor="w")  # Scaled padx
         tk.Label(date_frame, text="Date:", font=("Arial", base_font_size)).pack(side="left")
         date_button = tk.Button(
             date_frame,
@@ -154,66 +156,66 @@ class GUIComponents:
             font=("Arial", base_font_size),
             command=self.show_calendar
         )
-        date_button.pack(side="left", padx=3)  # Scaled padx
+        date_button.pack(side="left", padx=4)  # Scaled padx
         self.create_tooltip(date_button, "Click to select a date from the calendar")
 
         # Email and Names Configuration Frame
         email_frame = tk.Frame(self.scrollable_frame, relief="groove", borderwidth=2)
-        email_frame.grid(row=1, column=0, sticky="ew", padx=7, pady=5)  # Scaled padx, pady
+        email_frame.grid(row=1, column=0, sticky="ew", padx=9, pady=7)  # Scaled padx, pady
         email_frame.grid_columnconfigure(0, weight=1)
 
         # Recipients Field
-        tk.Label(email_frame, text="Recipients (comma-separated):", font=("Arial", base_font_size)).pack(side="left", padx=5)  # Scaled padx
+        tk.Label(email_frame, text="Recipients (comma-separated):", font=("Arial", base_font_size)).pack(side="left", padx=7)  # Scaled padx
         email_entry = tk.Entry(
             email_frame,
             textvariable=self.variables['recipient_emails_var'],
-            width=int(self.screen_width * 0.015 * 0.65),  # Scaled to 65%
+            width=int(self.screen_width * 0.015 * 0.85),  # Scaled to 85%
             font=("Arial", base_font_size)
         )
-        email_entry.pack(side="left", padx=5)  # Scaled padx
+        email_entry.pack(side="left", padx=7)  # Scaled padx
 
         # Prepared by Field
-        tk.Label(email_frame, text="Prepared by (HOA Treasurer):", font=("Arial", base_font_size)).pack(side="left", padx=5)  # Scaled padx
+        tk.Label(email_frame, text="Prepared by (HOA Treasurer):", font=("Arial", base_font_size)).pack(side="left", padx=7)  # Scaled padx
         prepared_entry = tk.Entry(
             email_frame,
             textvariable=self.variables['prepared_by_var'],
-            width=int(self.screen_width * 0.012 * 0.65),  # Scaled to 65%
+            width=int(self.screen_width * 0.012 * 0.85),  # Scaled to 85%
             font=("Arial", base_font_size)
         )
-        prepared_entry.pack(side="left", padx=5)  # Scaled padx
+        prepared_entry.pack(side="left", padx=7)  # Scaled padx
 
         # Noted by Fields (Two)
-        tk.Label(email_frame, text="Noted by (HOA President):", font=("Arial", base_font_size)).pack(side="left", padx=5)  # Scaled padx
+        tk.Label(email_frame, text="Noted by (HOA President):", font=("Arial", base_font_size)).pack(side="left", padx=7)  # Scaled padx
         noted_entry_1 = tk.Entry(
             email_frame,
             textvariable=self.variables['noted_by_var_1'],
-            width=int(self.screen_width * 0.012 * 0.65),  # Scaled to 65%
+            width=int(self.screen_width * 0.012 * 0.85),  # Scaled to 85%
             font=("Arial", base_font_size)
         )
-        noted_entry_1.pack(side="left", padx=5)  # Scaled padx
+        noted_entry_1.pack(side="left", padx=7)  # Scaled padx
 
-        tk.Label(email_frame, text="Noted by (CHUDD HCD-CORDS):", font=("Arial", base_font_size)).pack(side="left", padx=5)  # Scaled padx
+        tk.Label(email_frame, text="Noted by (CHUDD HCD-CORDS):", font=("Arial", base_font_size)).pack(side="left", padx=7)  # Scaled padx
         noted_entry_2 = tk.Entry(
             email_frame,
             textvariable=self.variables['noted_by_var_2'],
-            width=int(self.screen_width * 0.012 * 0.65),  # Scaled to 65%
+            width=int(self.screen_width * 0.012 * 0.85),  # Scaled to 85%
             font=("Arial", base_font_size)
         )
-        noted_entry_2.pack(side="left", padx=5)  # Scaled padx
+        noted_entry_2.pack(side="left", padx=7)  # Scaled padx
 
         # Checked by Field
-        tk.Label(email_frame, text="Checked by (HOA Auditor):", font=("Arial", base_font_size)).pack(side="left", padx=5)  # Scaled padx
+        tk.Label(email_frame, text="Checked by (HOA Auditor):", font=("Arial", base_font_size)).pack(side="left", padx=7)  # Scaled padx
         checked_entry = tk.Entry(
             email_frame,
             textvariable=self.variables['checked_by_var'],
-            width=int(self.screen_width * 0.012 * 0.65),  # Scaled to 65%
+            width=int(self.screen_width * 0.012 * 0.85),  # Scaled to 85%
             font=("Arial", base_font_size)
         )
-        checked_entry.pack(side="left", padx=5)  # Scaled padx
+        checked_entry.pack(side="left", padx=7)  # Scaled padx
 
         # Buttons Frame
         button_frame = tk.Frame(self.scrollable_frame)
-        button_frame.grid(row=2, column=0, sticky="ew", padx=7, pady=5)  # Scaled padx, pady
+        button_frame.grid(row=2, column=0, sticky="ew", padx=9, pady=7)  # Scaled padx, pady
         button_frame.grid_columnconfigure(0, weight=1)
 
         buttons = [
@@ -229,30 +231,30 @@ class GUIComponents:
                 text=text,
                 command=command,
                 font=("Arial", base_font_size),
-                width=int(self.screen_width * 0.015 * 0.65),  # Increased width
-                padx=5,  # Internal padding for text
-                pady=2   # Internal padding for height
-            ).pack(side="left", padx=6, pady=2)  # Increased padx between buttons
+                width=int(self.screen_width * 0.015 * 0.85),  # Scaled to 85%
+                padx=5,  # Internal padding
+                pady=2   # Internal padding
+            ).pack(side="left", padx=8, pady=3)  # Scaled padx, pady
 
         # Columns Frame
         self.columns_frame = tk.Frame(self.scrollable_frame)
-        self.columns_frame.grid(row=3, column=0, sticky="nsew", padx=7, pady=5)  # Scaled padx, pady
+        self.columns_frame.grid(row=3, column=0, sticky="nsew", padx=9, pady=7)  # Scaled padx, pady
 
         # Define column frames
         self.beg_frame = tk.Frame(self.columns_frame, relief="groove", borderwidth=2)
-        tk.Label(self.beg_frame, text="Beginning Cash Balances", font=("Arial", int(base_font_size + 2 * 0.65), "bold")).pack(anchor="w", padx=7, pady=5)  # Scaled font, padx, pady
+        tk.Label(self.beg_frame, text="Beginning Cash Balances", font=("Arial", int(base_font_size + 2 * 0.85), "bold")).pack(anchor="w", padx=9, pady=7)  # Scaled font, padx, pady
 
         self.inflow_frame = tk.Frame(self.columns_frame, relief="groove", borderwidth=2)
-        tk.Label(self.inflow_frame, text="Cash Inflows", font=("Arial", int(base_font_size + 2 * 0.65), "bold")).pack(anchor="w", padx=7, pady=5)  # Scaled font, padx, pady
+        tk.Label(self.inflow_frame, text="Cash Inflows", font=("Arial", int(base_font_size + 2 * 0.85), "bold")).pack(anchor="w", padx=9, pady=7)  # Scaled font, padx, pady
 
         self.outflow_frame = tk.Frame(self.columns_frame, relief="groove", borderwidth=2)
-        tk.Label(self.outflow_frame, text="Cash Outflows", font=("Arial", int(base_font_size + 2 * 0.65), "bold")).pack(anchor="w", padx=7, pady=5)  # Scaled font, padx, pady
+        tk.Label(self.outflow_frame, text="Cash Outflows", font=("Arial", int(base_font_size + 2 * 0.85), "bold")).pack(anchor="w", padx=9, pady=7)  # Scaled font, padx, pady
 
         self.end_frame = tk.Frame(self.columns_frame, relief="groove", borderwidth=2)
-        tk.Label(self.end_frame, text="Ending Cash Balances", font=("Arial", int(base_font_size + 2 * 0.65), "bold")).pack(anchor="w", padx=7, pady=5)  # Scaled font, padx, pady
+        tk.Label(self.end_frame, text="Ending Cash Balances", font=("Arial", int(base_font_size + 2 * 0.85), "bold")).pack(anchor="w", padx=9, pady=7)  # Scaled font, padx, pady
 
         self.totals_frame = tk.Frame(self.columns_frame, relief="groove", borderwidth=2)
-        tk.Label(self.totals_frame, text="Totals", font=("Arial", int(base_font_size + 2 * 0.65), "bold")).pack(anchor="w", padx=7, pady=5)  # Scaled font, padx, pady
+        tk.Label(self.totals_frame, text="Totals", font=("Arial", int(base_font_size + 2 * 0.85), "bold")).pack(anchor="w", padx=9, pady=7)  # Scaled font, padx, pady
 
         self.column_frames = [
             self.beg_frame,
@@ -266,29 +268,29 @@ class GUIComponents:
         self.root.bind("<Configure>", self.update_layout)
 
     def populate_columns(self):
-        base_font_size = max(8, int(self.screen_height / 60 * 0.65))  # Scaled to 65%
+        base_font_size = max(10, int(self.screen_height / 60 * 0.85))  # Scaled to 85%
         
         # Beginning Balances
         beg_inner = tk.Frame(self.beg_frame)
-        beg_inner.pack(fill="x", padx=7, pady=5)  # Scaled padx, pady
+        beg_inner.pack(fill="x", padx=9, pady=7)  # Scaled padx, pady
         beg_items = [
             ("Cash in Bank (beginning):", self.variables['cash_bank_beg']),
             ("Cash on Hand (beginning):", self.variables['cash_hand_beg'])
         ]
         for i, (label, var) in enumerate(beg_items):
-            tk.Label(beg_inner, text=label, font=("Arial", base_font_size), anchor="w").grid(row=i, column=0, sticky="w", padx=5, pady=2)  # Scaled padx, pady
+            tk.Label(beg_inner, text=label, font=("Arial", base_font_size), anchor="w").grid(row=i, column=0, sticky="w", padx=7, pady=3)  # Scaled padx, pady
             entry = tk.Entry(
                 beg_inner,
                 textvariable=var,
-                width=int(self.screen_width * 0.01 * 0.65),  # Scaled to 65%
+                width=int(self.screen_width * 0.01 * 0.85),  # Scaled to 85%
                 font=("Arial", base_font_size)
             )
-            entry.grid(row=i, column=1, sticky="e", padx=5, pady=2)  # Scaled padx, pady
+            entry.grid(row=i, column=1, sticky="e", padx=7, pady=3)  # Scaled padx, pady
             self.calculator.format_entry(var, entry)
 
         # Cash Inflows
         inflow_inner = tk.Frame(self.inflow_frame)
-        inflow_inner.pack(fill="x", padx=7, pady=5)  # Scaled padx, pady
+        inflow_inner.pack(fill="x", padx=9, pady=7)  # Scaled padx, pady
         inflow_items = [
             ("Monthly dues collected:", self.variables['monthly_dues']),
             ("Certifications issued:", self.variables['certifications']),
@@ -301,19 +303,19 @@ class GUIComponents:
             ("Others:", self.variables['inflows_others'])
         ]
         for i, (label, var) in enumerate(inflow_items):
-            tk.Label(inflow_inner, text=label, font=("Arial", base_font_size), anchor="w").grid(row=i, column=0, sticky="w", padx=5, pady=2)  # Scaled padx, pady
+            tk.Label(inflow_inner, text=label, font=("Arial", base_font_size), anchor="w").grid(row=i, column=0, sticky="w", padx=7, pady=3)  # Scaled padx, pady
             entry = tk.Entry(
                 inflow_inner,
                 textvariable=var,
-                width=int(self.screen_width * 0.01 * 0.65),  # Scaled to 65%
+                width=int(self.screen_width * 0.01 * 0.85),  # Scaled to 85%
                 font=("Arial", base_font_size)
             )
-            entry.grid(row=i, column=1, sticky="e", padx=5, pady=2)  # Scaled padx, pady
+            entry.grid(row=i, column=1, sticky="e", padx=7, pady=3)  # Scaled padx, pady
             self.calculator.format_entry(var, entry)
 
         # Cash Outflows
         outflow_inner = tk.Frame(self.outflow_frame)
-        outflow_inner.pack(fill="x", padx=7, pady=5)  # Scaled padx, pady
+        outflow_inner.pack(fill="x", padx=9, pady=7)  # Scaled padx, pady
         outflow_items = [
             ("Snacks/Meals for visitors:", self.variables['snacks_meals']),
             ("Transportation expenses:", self.variables['transportation']),
@@ -333,56 +335,56 @@ class GUIComponents:
             ("Others:", self.variables['outflows_others'])
         ]
         for i, (label, var) in enumerate(outflow_items):
-            tk.Label(outflow_inner, text=label, font=("Arial", base_font_size), anchor="w").grid(row=i, column=0, sticky="w", padx=5, pady=2)  # Scaled padx, pady
+            tk.Label(outflow_inner, text=label, font=("Arial", base_font_size), anchor="w").grid(row=i, column=0, sticky="w", padx=7, pady=3)  # Scaled padx, pady
             entry = tk.Entry(
                 outflow_inner,
                 textvariable=var,
-                width=int(self.screen_width * 0.01 * 0.65),  # Scaled to 65%
+                width=int(self.screen_width * 0.01 * 0.85),  # Scaled to 85%
                 font=("Arial", base_font_size)
             )
-            entry.grid(row=i, column=1, sticky="e", padx=5, pady=2)  # Scaled padx, pady
+            entry.grid(row=i, column=1, sticky="e", padx=7, pady=3)  # Scaled padx, pady
             self.calculator.format_entry(var, entry)
 
         # Ending Balances
         end_inner = tk.Frame(self.end_frame)
-        end_inner.pack(fill="x", padx=7, pady=5)  # Scaled padx, pady
+        end_inner.pack(fill="x", padx=9, pady=7)  # Scaled padx, pady
         end_items = [
             ("Cash in Bank:", self.variables['ending_cash_bank']),
             ("Cash on Hand:", self.variables['ending_cash_hand'])
         ]
         for i, (label, var) in enumerate(end_items):
-            tk.Label(end_inner, text=label, font=("Arial", base_font_size), anchor="w").grid(row=i, column=0, sticky="w", padx=5, pady=2)  # Scaled padx, pady
+            tk.Label(end_inner, text=label, font=("Arial", base_font_size), anchor="w").grid(row=i, column=0, sticky="w", padx=7, pady=3)  # Scaled padx, pady
             entry = tk.Entry(
                 end_inner,
                 textvariable=var,
-                width=int(self.screen_width * 0.01 * 0.65),  # Scaled to 65%
+                width=int(self.screen_width * 0.01 * 0.85),  # Scaled to 85%
                 font=("Arial", base_font_size),
                 state="disabled"
             )
-            entry.grid(row=i, column=1, sticky="e", padx=5, pady=2)  # Scaled padx, pady
+            entry.grid(row=i, column=1, sticky="e", padx=7, pady=3)  # Scaled padx, pady
 
         # Totals
         total_inner = tk.Frame(self.totals_frame)
-        total_inner.pack(fill="x", padx=7, pady=5)  # Scaled padx, pady
+        total_inner.pack(fill="x", padx=9, pady=7)  # Scaled padx, pady
         total_items = [
             ("Total Cash Receipts:", self.variables['total_receipts']),
             ("Cash Outflows:", self.variables['cash_outflows']),
             ("Ending Cash Balance:", self.variables['ending_cash'])
         ]
         for i, (label, var) in enumerate(total_items):
-            tk.Label(total_inner, text=label, font=("Arial", base_font_size), anchor="w").grid(row=i, column=0, sticky="w", padx=5, pady=2)  # Scaled padx, pady
+            tk.Label(total_inner, text=label, font=("Arial", base_font_size), anchor="w").grid(row=i, column=0, sticky="w", padx=7, pady=3)  # Scaled padx, pady
             entry = tk.Entry(
                 total_inner,
                 textvariable=var,
-                width=int(self.screen_width * 0.01 * 0.65),  # Scaled to 65%
+                width=int(self.screen_width * 0.01 * 0.85),  # Scaled to 85%
                 font=("Arial", base_font_size),
                 state="disabled"
             )
-            entry.grid(row=i, column=1, sticky="e", padx=5, pady=2)  # Scaled padx, pady
+            entry.grid(row=i, column=1, sticky="e", padx=7, pady=3)  # Scaled padx, pady
 
     def update_layout(self, event=None):
         window_width = self.main_frame.winfo_width()
-        min_column_width = int(self.screen_width * 0.2 * 0.65)  # Scaled to 65%
+        min_column_width = int(self.screen_width * 0.2 * 0.85)  # Scaled to 85%
         num_columns = max(1, window_width // min_column_width)
         num_columns = min(num_columns, len(self.column_frames))
 
@@ -395,7 +397,7 @@ class GUIComponents:
         for i, frame in enumerate(self.column_frames):
             row = i // num_columns
             col = i % num_columns
-            frame.grid(row=row, column=col, sticky="nsew", padx=5, pady=5)  # Scaled padx, pady
+            frame.grid(row=row, column=col, sticky="nsew", padx=7, pady=7)  # Scaled padx, pady
 
         self.columns_frame.grid_columnconfigure(tuple(range(num_columns)), weight=1, uniform="column")
         self.columns_frame.grid_rowconfigure(tuple(range((len(self.column_frames) + num_columns - 1) // num_columns)), weight=1)
