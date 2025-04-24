@@ -165,10 +165,6 @@ class FileHandler:
                             self.date_var.set(date_obj.strftime("%m/%d/%Y"))
                         except Exception as e:
                             print(f"Error parsing date: {e}")
-                    elif line == self.title_var.get():
-                        continue
-                    elif line and not line.startswith(("Cash", "Less:", "Breakdown")):
-                        self.title_var.set(line)
 
             messagebox.showinfo("Success", "PDF data loaded successfully!")
             return True

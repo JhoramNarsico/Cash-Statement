@@ -136,9 +136,10 @@ class GUIComponents:
         header_frame = ctk.CTkFrame(self.scrollable_frame, fg_color=self.secondary_color, corner_radius=10)
         header_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=5)
 
-        ctk.CTkLabel(header_frame, text="Title:", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
-        title_entry = ctk.CTkEntry(header_frame, textvariable=self.title_var, width=200, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
-        title_entry.pack(side="left", padx=5)
+        # Removed Title Label and Entry
+        # ctk.CTkLabel(header_frame, text="Title:", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
+        # title_entry = ctk.CTkEntry(header_frame, textvariable=self.title_var, width=200, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
+        # title_entry.pack(side="left", padx=5)
 
         date_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
         date_frame.pack(side="left", padx=5)
