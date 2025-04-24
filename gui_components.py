@@ -164,21 +164,21 @@ class GUIComponents:
         email_entry.pack(side="left", padx=5)
 
         # Prepared by Field
-        ctk.CTkLabel(email_frame, text="Prepared by:", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
+        ctk.CTkLabel(email_frame, text="Prepared by (HOA Treasurer):", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
         prepared_entry = ctk.CTkEntry(email_frame, textvariable=self.variables['prepared_by_var'], width=150, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
         prepared_entry.pack(side="left", padx=5)
 
         # Noted by Fields (Two)
-        ctk.CTkLabel(email_frame, text="Noted by 1:", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
+        ctk.CTkLabel(email_frame, text="Noted by (HOA President):", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
         noted_entry_1 = ctk.CTkEntry(email_frame, textvariable=self.variables['noted_by_var_1'], width=150, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
         noted_entry_1.pack(side="left", padx=5)
 
-        ctk.CTkLabel(email_frame, text="Noted by 2:", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
+        ctk.CTkLabel(email_frame, text="Noted by (CHUDD HCD-CORDS):", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
         noted_entry_2 = ctk.CTkEntry(email_frame, textvariable=self.variables['noted_by_var_2'], width=150, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
         noted_entry_2.pack(side="left", padx=5)
 
         # Checked by Field
-        ctk.CTkLabel(email_frame, text="Checked by:", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
+        ctk.CTkLabel(email_frame, text="Checked by (HOA Auditor):", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
         checked_entry = ctk.CTkEntry(email_frame, textvariable=self.variables['checked_by_var'], width=150, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
         checked_entry.pack(side="left", padx=5)
 
