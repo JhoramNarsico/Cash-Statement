@@ -209,7 +209,7 @@ class FileHandler:
             return False
 
     def export_to_pdf(self):
-        """Export data to a single-page PDF with centered header matching Word format."""
+        """Export data to a single-page PDF matching the Word document format."""
         try:
             def format_amount(value):
                 if value:
@@ -219,6 +219,7 @@ class FileHandler:
                     except:
                         return value
                 return ""
+
             default_filename = f"cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
             filename = filedialog.asksaveasfilename(
                 defaultextension=".pdf",
@@ -228,201 +229,213 @@ class FileHandler:
             )
             if not filename:
                 return None
-            # Define custom page size: 8.5 x 13 inches (612 x 936 points)
+
+            # Define custom page size: 8.5 x 13 inches (612 x 936
+
             folio_size = (8.5 * 72, 13 * 72)
             doc = SimpleDocTemplate(
                 filename,
                 pagesize=folio_size,
-                topMargin=24,
-                bottomMargin=60,
-                leftMargin=36,
-                rightMargin=36
+                topMargin=36,  # 0.5in
+                bottomMargin=36,  # 0.5in
+                leftMargin=36,  # 0.5in
+                rightMargin=36  # 0.5in
             )
             styles = getSampleStyleSheet()
+
             # Create custom styles
-            normal_centered_style = styles['Normal']
-            normal_centered_style.alignment = 1  # Center alignment
-            normal_centered_style.fontSize = 9
-            normal_centered_style.leading = 10
-            normal_centered_style.spaceBefore = 0
-            normal_centered_style.spaceAfter = 0
-            bold_centered_style = styles['Normal']
-            bold_centered_style.alignment = 1
-            bold_centered_style.fontSize = 11
-            bold_centered_style.fontName = 'Helvetica-Bold'
-            bold_centered_style.leading = 12
-            bold_centered_style.spaceBefore = 0
-            bold_centered_style.spaceAfter = 0
-            minimized_centered_style = styles['Normal']
-            minimized_centered_style.alignment = 1
-            minimized_centered_style.fontSize = 7
-            minimized_centered_style.leading = 8
-            minimized_centered_style.spaceBefore = 0
-            minimized_centered_style.spaceAfter = 0
+            header_style = styles['Normal']
+            header_style.alignment = 1  # Center
+            header_style.fontSize = 10
+            header_style.leading = 12
+            header_style.fontName = 'Helvetica'
+
+            title_style = styles['Normal']
+            title_style.alignment = 1
+            title_style.fontSize = 12
+            title_style.leading = 14
+            title_style.fontName = 'Helvetica-Bold'
+
+            date_style = styles['Normal']
+            date_style.alignment = 1
+            date_style.fontSize = 8
+            date_style.leading = 10
+            date_style.fontName = 'Helvetica'
+
+            table_style = styles['Normal']
+            table_style.fontSize = 8
+            table_style.leading = 10
+            table_style.fontName = 'Helvetica'
+
+            table_bold_style = styles['Normal']
+            table_bold_style.fontSize = 8
+            table_bold_style.leading = 10
+            table_bold_style.fontName = 'Helvetica-Bold'
+
             footer_style = styles['Normal']
-            footer_style.alignment = 0
-            footer_style.fontSize = 7
+            footer_style.fontSize = 8
+            footer_style.leading = 10
+            footer_style.fontName = 'Helvetica'
+
             elements = []
-            # Calculate available width
-            page_width = folio_size[0] - (doc.leftMargin + doc.rightMargin)  # 540 points
-            # Header
-            header_data = [
-                [Paragraph("Buena Oro Homeowners Association Inc.", normal_centered_style)],
-                [Paragraph("Macansandig, Cagayan de Oro City", normal_centered_style)],
-                [Paragraph("CASH FLOW STATEMENT", bold_centered_style)],
-                [Paragraph(f"For the Month of {self.format_date_for_display(self.date_var.get())}", minimized_centered_style)],
-            ]
-            # Create inner header table
-            header_table = Table(header_data, colWidths=[page_width], rowHeights=[18, 18, 22, 16])
-            header_table.setStyle(TableStyle([
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('LEFTPADDING', (0, 0), (-1, -1), 0),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-                ('TOPPADDING', (0, 0), (-1, -1), 0),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-                ('BOX', (0, 0), (-1, -1), 0, colors.transparent),  # No border
-            ]))
-            # Wrap the header table in an outer table to ensure centering
-            outer_header_table = Table([[header_table]], colWidths=[page_width])
-            outer_header_table.setStyle(TableStyle([
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('BOX', (0, 0), (-1, -1), 0, colors.transparent),
-                ('LEFTPADDING', (0, 0), (-1, -1), 0),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-                ('TOPPADDING', (0, 0), (-1, -1), 0),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-            ]))
-            outer_header_table.hAlign = 'CENTER'
-            elements.append(outer_header_table)
-            elements.append(Spacer(1, 8))
+
+            # Header (matching Word format)
+            elements.append(Paragraph("Buena Oro Homeowners Association Inc.", header_style))
+            elements.append(Paragraph("Macansandig, Cagayan de Oro City", header_style))
+            elements.append(Paragraph("CASH FLOW STATEMENT", title_style))
+            elements.append(Paragraph(f"For the Month of {self.format_date_for_display(self.date_var.get())}", date_style))
+            elements.append(Spacer(1, 6))  # Reduced spacing to match Word
+
             # Beginning Cash Balances
+            elements.append(Paragraph("Beginning Cash Balances", header_style))
             beg_data = [
                 ["Cash in Bank-beg", format_amount(self.variables['cash_bank_beg'].get())],
                 ["Cash on Hand-beg", format_amount(self.variables['cash_hand_beg'].get())]
             ]
-            beg_table = Table(beg_data, colWidths=[300, 150], rowHeights=[16, 16])
+            beg_data = [
+                ["Cash in Bank-beg", format_amount(self.variables['cash_bank_beg'].get())],
+                ["Cash on Hand-beg", format_amount(self.variables['cash_hand_beg'].get())]
+            ]
+            beg_table = Table(beg_data, colWidths=[360, 180], rowHeights=[14 for _ in range(len(beg_data))])
+
             beg_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
                 ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-                ('FONTSIZE', (0, 0), (-1, -1), 7),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 3),
+                ('RIGHTPADDING', (1, 0), (1, -1), 3),
             ]))
             elements.append(beg_table)
-            elements.append(Spacer(1, 4))
-            elements.append(Paragraph("<b>Cash inflows:</b>", styles['Normal']))
-            elements.append(Spacer(1, 3))
+            elements.append(Spacer(1, 6))
+
             # Cash Inflows
+            elements.append(Paragraph("Cash Inflows", header_style))
             inflows_data = [
-                ["Monthly dues collected", format_amount(self.variables['monthly_dues'].get())],
-                ["Certifications issued", format_amount(self.variables['certifications'].get())],
-                ["Membership fee", format_amount(self.variables['membership_fee'].get())],
-                ["Vehicle stickers", format_amount(self.variables['vehicle_stickers'].get())],
+                ["Monthly Dues Collected", format_amount(self.variables['monthly_dues'].get())],
+                ["Certifications Issued", format_amount(self.variables['certifications'].get())],
+                ["Membership Fee", format_amount(self.variables['membership_fee'].get())],
+                ["Vehicle Stickers", format_amount(self.variables['vehicle_stickers'].get())],
                 ["Rentals", format_amount(self.variables['rentals'].get())],
                 ["Solicitations/Donations", format_amount(self.variables['solicitations'].get())],
-                ["Interest Income on bank deposits", format_amount(self.variables['interest_income'].get())],
+                ["Interest Income on Bank Deposits", format_amount(self.variables['interest_income'].get())],
                 ["Livelihood Management Fee", format_amount(self.variables['livelihood_fee'].get())],
-                ["Others(inflow)", format_amount(self.variables['inflows_others'].get())],
-                ["Total Cash receipt", format_amount(self.variables['total_receipts'].get())]
+                ["Others (Inflow)", format_amount(self.variables['inflows_others'].get())],
+                ["Total Cash Receipts", format_amount(self.variables['total_receipts'].get())]
             ]
-            inflows_table = Table(inflows_data, colWidths=[300, 150], rowHeights=[16]*10)
+            inflows_table = Table(inflows_data, colWidths=[360, 180], rowHeights=[14.4]*10)
             inflows_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
+                ('FONTNAME', (0, 0), (-1, -2), 'Helvetica'),
                 ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
                 ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-                ('FONTSIZE', (0, 0), (-1, -1), 7),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 3),
+                ('RIGHTPADDING', (1, 0), (1, -1), 3),
             ]))
             elements.append(inflows_table)
-            elements.append(Spacer(1, 4))
-            elements.append(Paragraph("<b>Less:</b>", styles['Normal']))
-            elements.append(Spacer(1, 3))
+            elements.append(Spacer(1, 6))
+
             # Cash Outflows
+            elements.append(Paragraph("Less: Cash Outflows", header_style))
             outflows_data = [
-                ["Cash Out Flows/Disbursements", format_amount(self.variables['cash_outflows'].get())],
-                ["Snacks/Meals for visitors", format_amount(self.variables['snacks_meals'].get())],
-                ["Transportation expenses", format_amount(self.variables['transportation'].get())],
-                ["Office supplies expense", format_amount(self.variables['office_supplies'].get())],
-                ["Printing and photocopy", format_amount(self.variables['printing'].get())],
+                ["Cash Outflows/Disbursements", format_amount(self.variables['cash_outflows'].get())],
+                ["Snacks/Meals for Visitors", format_amount(self.variables['snacks_meals'].get())],
+                ["Transportation Expenses", format_amount(self.variables['transportation'].get())],
+                ["Office Supplies Expense", format_amount(self.variables['office_supplies'].get())],
+                ["Printing and Photocopy", format_amount(self.variables['printing'].get())],
                 ["Labor", format_amount(self.variables['labor'].get())],
-                ["Billboard expense", format_amount(self.variables['billboard'].get())],
-                ["Clearing/cleaning charges", format_amount(self.variables['cleaning'].get())],
-                ["Miscellaneous expenses", format_amount(self.variables['misc_expenses'].get())],
-                ["Federation fee", format_amount(self.variables['federation_fee'].get())],
+                ["Billboard Expense", format_amount(self.variables['billboard'].get())],
+                ["Clearing/Cleaning Charges", format_amount(self.variables['cleaning'].get())],
+                ["Miscellaneous Expenses", format_amount(self.variables['misc_expenses'].get())],
+                ["Federation Fee", format_amount(self.variables['federation_fee'].get())],
                 ["HOA-BOD Uniforms", format_amount(self.variables['uniforms'].get())],
-                ["BOD Mtg", format_amount(self.variables['bod_mtg'].get())],
+                ["BOD Meeting", format_amount(self.variables['bod_mtg'].get())],
                 ["General Assembly", format_amount(self.variables['general_assembly'].get())],
-                ["Cash Deposit to bank", format_amount(self.variables['cash_deposit'].get())],
-                ["Withholding tax on bank deposit", format_amount(self.variables['withholding_tax'].get())],
+                ["Cash Deposit to Bank", format_amount(self.variables['cash_deposit'].get())],
+                ["Withholding Tax on Bank Deposit", format_amount(self.variables['withholding_tax'].get())],
                 ["Refund", format_amount(self.variables['refund'].get())],
-                ["Others(outflow)", format_amount(self.variables['outflows_others'].get())]
+                ["Others (Outflow)", format_amount(self.variables['outflows_others'].get())]
             ]
-            outflows_table = Table(outflows_data, colWidths=[300, 150], rowHeights=[16]*17)
+            outflows_table = Table(outflows_data, colWidths=[360, 180], rowHeights=[14.4]*17)
             outflows_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 ('BACKGROUND', (0, 0), (0, 0), colors.lightgrey),
                 ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
                 ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-                ('FONTSIZE', (0, 0), (-1, -1), 7),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 3),
+                ('RIGHTPADDING', (1, 0), (1, -1), 3),
             ]))
             elements.append(outflows_table)
-            elements.append(Spacer(1, 4))
+            elements.append(Spacer(1, 6))
+
             # Ending Cash Balance
+            elements.append(Paragraph("Ending Cash Balance", header_style))
             ending_data = [
-                ["Ending cash balance", format_amount(self.variables['ending_cash'].get())]
+                ["Ending Cash Balance", format_amount(self.variables['ending_cash'].get())]
             ]
-            ending_table = Table(ending_data, colWidths=[300, 150], rowHeights=[16])
+            ending_table = Table(ending_data, colWidths=[360, 180], rowHeights=[14.4])
             ending_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 ('BACKGROUND', (0, 0), (-1, -1), colors.lightgrey),
                 ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
                 ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-                ('FONTSIZE', (0, 0), (-1, -1), 7),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 3),
+                ('RIGHTPADDING', (1, 0), (1, -1), 3),
             ]))
             elements.append(ending_table)
-            elements.append(Spacer(1, 4))
-            elements.append(Paragraph("<b>Breakdown of cash:</b>", styles['Normal']))
-            elements.append(Spacer(1, 3))
+            elements.append(Spacer(1, 6))
+
             # Breakdown of Cash
+            elements.append(Paragraph("Breakdown of Cash", header_style))
             breakdown_data = [
                 ["Cash in Bank", format_amount(self.variables['ending_cash_bank'].get())],
                 ["Cash on Hand", format_amount(self.variables['ending_cash_hand'].get())]
             ]
-            breakdown_table = Table(breakdown_data, colWidths=[300, 150], rowHeights=[16, 16])
+            breakdown_table = Table(breakdown_data, colWidths=[360, 180], rowHeights=[14.4, 14.4])
             breakdown_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
                 ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-                ('FONTSIZE', (0, 0), (-1, -1), 7),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 3),
+                ('RIGHTPADDING', (1, 0), (1, -1), 3),
             ]))
             elements.append(breakdown_table)
-            # Footer with user-provided names
             elements.append(Spacer(1, 12))
+
+            # Footer (matching Word format with tab stops)
             prepared_name = self.prepared_by_var.get() or "_______________________"
             noted_name_1 = self.noted_by_var_1.get() or "_______________________"
             noted_name_2 = self.noted_by_var_2.get() or "_______________________"
             checked_name = self.checked_by_var.get() or "_______________________"
-            # Single footer table for all names
-            footer_data = [
-                [f"Prepared by: {prepared_name}", f"Noted by: {noted_name_1}"],
-                [f"Checked by: {checked_name}", f"Noted by: {noted_name_2}"]
-            ]
-            footer_table = Table(footer_data, colWidths=[225, 225], rowHeights=[14, 14])
-            footer_table.setStyle(TableStyle([
-                ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-                ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-                ('FONTSIZE', (0, 0), (-1, -1), 7),
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ]))
-            elements.append(footer_table)
-            def add_page_numbers_and_footer(canvas, doc):
-                page_num = canvas.getPageNumber()
-                text = f"Page {page_num}"
-                canvas.drawRightString(200, 20, text)
-            doc.build(elements, onFirstPage=add_page_numbers_and_footer, onLaterPages=add_page_numbers_and_footer)
+            
+            # Simulate tab stops using spaces and alignment
+            footer_para1 = Paragraph(
+                f"Prepared by: {prepared_name}{' ' * 50}Checked by: {checked_name}",
+                footer_style
+            )
+            footer_para2 = Paragraph(
+                f"Noted by: {noted_name_1}{' ' * 50}Noted by: {noted_name_2}",
+                footer_style
+            )
+            elements.append(footer_para1)
+            elements.append(footer_para2)
+
+            doc.build(elements)
             messagebox.showinfo("Success", f"PDF successfully exported to {filename}")
             return filename
+
         except Exception as e:
             messagebox.showerror("Error", f"Error exporting to PDF: {str(e)}\n\nMake sure you have ReportLab installed by running:\npip install reportlab")
             return None
@@ -489,6 +502,11 @@ class FileHandler:
             run.bold = True
             run.font.size = Pt(12)
             p.alignment = 1
+ # The 'get()' method is used to retrieve the current string value from a Tkinter StringVar object.
+# It is not a standard Python method, but specific to Tkinter and similar frameworks.
+# For instance, in this context, 'self.variables' is a dictionary containing Tkinter StringVar objects.
+# The '.get()' method is used to fetch the current value of these variables.
+
             p = doc.add_paragraph()
             run = p.add_run(f"For the Month of {self.format_date_for_display(self.date_var.get())}")
             run.font.size = Pt(8)
