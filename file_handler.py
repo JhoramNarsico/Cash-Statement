@@ -6,22 +6,24 @@ import pdfplumber
 from docx import Document
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from docx.shared import Inches, Pt
 import sys
 import datetime
 
 class FileHandler:
-    def __init__(self, variables, title_var, date_var, prepared_by_var, noted_by_var, checked_by_var):
+    def __init__(self, variables, title_var, date_var, prepared_by_var, noted_by_var_1, noted_by_var_2, checked_by_var):
         self.variables = variables
         self.title_var = title_var
         self.date_var = date_var
         self.prepared_by_var = prepared_by_var
-        self.noted_by_var = noted_by_var
-        self.checked_by_var = checked_by_var  # New variable
+        self.noted_by_var_1 = noted_by_var_1
+        self.noted_by_var_2 = noted_by_var_2
+        self.checked_by_var = checked_by_var
 
     def parse_amount(self, text):
+        """Parse text to extract numerical amount, removing non-numeric characters except decimal."""
         if not text or text.strip() == "":
             return ""
         try:
@@ -30,6 +32,7 @@ class FileHandler:
             return text
 
     def format_date_for_display(self, date_str):
+        """Convert mm/dd/yyyy to MMMM dd, yyyy for display."""
         try:
             date_obj = datetime.datetime.strptime(date_str, "%m/%d/%Y")
             return date_obj.strftime("%B %d, %Y")
@@ -37,6 +40,7 @@ class FileHandler:
             return date_str
 
     def load_from_docx(self, filename):
+        """Load data from a Word document into the application variables."""
         try:
             print("Loading DOCX")
             with open(filename, 'rb') as file:
@@ -89,6 +93,24 @@ class FileHandler:
                         if label in label_to_var:
                             label_to_var[label].set(self.parse_amount(value))
 
+            # Extract footer names (Prepared by, Noted by, Checked by)
+            footer = doc.sections[0].footer
+            footer_text = ""
+            for para in footer.paragraphs:
+                footer_text += para.text + "\n"
+            for line in footer_text.split("\n"):
+                line = line.strip()
+                if line.startswith("Prepared by:"):
+                    self.prepared_by_var.set(line.replace("Prepared by:", "").strip())
+                elif line.startswith("Noted by:"):
+                    noted_name = line.replace("Noted by:", "").strip()
+                    if not self.noted_by_var_1.get():
+                        self.noted_by_var_1.set(noted_name)
+                    elif not self.noted_by_var_2.get():
+                        self.noted_by_var_2.set(noted_name)
+                elif line.startswith("Checked by:"):
+                    self.checked_by_var.set(line.replace("Checked by:", "").strip())
+
             messagebox.showinfo("Success", "Document loaded successfully")
             return True
 
@@ -97,6 +119,7 @@ class FileHandler:
             return False
 
     def load_from_pdf(self, filename):
+        """Load data from a PDF document into the application variables."""
         try:
             print(f"Attempting to load PDF: {filename}")
 
@@ -154,6 +177,7 @@ class FileHandler:
                                 except Exception as e:
                                     print(f"Error setting {label}: {e}")
 
+            # Extract date and footer names
             with pdfplumber.open(filename) as pdf:
                 first_page = pdf.pages[0]
                 text = first_page.extract_text()
@@ -166,6 +190,16 @@ class FileHandler:
                             self.date_var.set(date_obj.strftime("%m/%d/%Y"))
                         except Exception as e:
                             print(f"Error parsing date: {e}")
+                    elif line.startswith("Prepared by:"):
+                        self.prepared_by_var.set(line.replace("Prepared by:", "").strip())
+                    elif line.startswith("Noted by:"):
+                        noted_name = line.replace("Noted by:", "").strip()
+                        if not self.noted_by_var_1.get():
+                            self.noted_by_var_1.set(noted_name)
+                        elif not self.noted_by_var_2.get():
+                            self.noted_by_var_2.set(noted_name)
+                    elif line.startswith("Checked by:"):
+                        self.checked_by_var.set(line.replace("Checked by:", "").strip())
 
             messagebox.showinfo("Success", "PDF data loaded successfully!")
             return True
@@ -175,6 +209,7 @@ class FileHandler:
             return False
 
     def export_to_pdf(self):
+        """Export data to a single-page PDF with centered header matching Word format."""
         try:
             def format_amount(value):
                 if value:
@@ -198,44 +233,47 @@ class FileHandler:
             doc = SimpleDocTemplate(
                 filename,
                 pagesize=folio_size,
-                topMargin=36,
-                bottomMargin=90,  # Increased to accommodate extra footer line
+                topMargin=24,
+                bottomMargin=60,
                 leftMargin=36,
                 rightMargin=36
             )
             styles = getSampleStyleSheet()
-            # Create a custom style for centered normal text
+            # Create custom styles
             normal_centered_style = styles['Normal']
-            normal_centered_style.alignment = 1
-            normal_centered_style.fontSize = 10
-            # Create a custom style for bold centered text
+            normal_centered_style.alignment = 1  # Center alignment
+            normal_centered_style.fontSize = 9
+            normal_centered_style.leading = 10
+            normal_centered_style.spaceBefore = 0
+            normal_centered_style.spaceAfter = 0
             bold_centered_style = styles['Normal']
             bold_centered_style.alignment = 1
-            bold_centered_style.fontSize = 12
+            bold_centered_style.fontSize = 11
             bold_centered_style.fontName = 'Helvetica-Bold'
-            # Create a custom style for minimized centered text
+            bold_centered_style.leading = 12
+            bold_centered_style.spaceBefore = 0
+            bold_centered_style.spaceAfter = 0
             minimized_centered_style = styles['Normal']
             minimized_centered_style.alignment = 1
-            minimized_centered_style.fontSize = 8
-            # Create a custom style for footer (left-aligned for "Prepared by" and "Checked by")
+            minimized_centered_style.fontSize = 7
+            minimized_centered_style.leading = 8
+            minimized_centered_style.spaceBefore = 0
+            minimized_centered_style.spaceAfter = 0
             footer_style = styles['Normal']
-            footer_style.alignment = 0  # Left-aligned for better control in table
-            footer_style.fontSize = 8
-            # Create a custom style for centered footer ("Noted by")
-            footer_centered_style = styles['Normal']
-            footer_centered_style.alignment = 1  # Center-aligned
-            footer_centered_style.fontSize = 8
+            footer_style.alignment = 0
+            footer_style.fontSize = 7
             elements = []
-            # Calculate the available width for the header (page width minus margins)
-            page_width = folio_size[0] - (doc.leftMargin + doc.rightMargin)  # 612 - (36 + 36) = 540 points
-            # Add the header using a table to ensure perfect centering
+            # Calculate available width
+            page_width = folio_size[0] - (doc.leftMargin + doc.rightMargin)  # 540 points
+            # Header
             header_data = [
                 [Paragraph("Buena Oro Homeowners Association Inc.", normal_centered_style)],
                 [Paragraph("Macansandig, Cagayan de Oro City", normal_centered_style)],
                 [Paragraph("CASH FLOW STATEMENT", bold_centered_style)],
                 [Paragraph(f"For the Month of {self.format_date_for_display(self.date_var.get())}", minimized_centered_style)],
             ]
-            header_table = Table(header_data, colWidths=[page_width], rowHeights=[20, 20, 24, 18])
+            # Create inner header table
+            header_table = Table(header_data, colWidths=[page_width], rowHeights=[18, 18, 22, 16])
             header_table.setStyle(TableStyle([
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -243,26 +281,40 @@ class FileHandler:
                 ('RIGHTPADDING', (0, 0), (-1, -1), 0),
                 ('TOPPADDING', (0, 0), (-1, -1), 0),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+                ('BOX', (0, 0), (-1, -1), 0, colors.transparent),  # No border
             ]))
-            elements.append(header_table)
-            elements.append(Spacer(1, 12))
+            # Wrap the header table in an outer table to ensure centering
+            outer_header_table = Table([[header_table]], colWidths=[page_width])
+            outer_header_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('BOX', (0, 0), (-1, -1), 0, colors.transparent),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ]))
+            outer_header_table.hAlign = 'CENTER'
+            elements.append(outer_header_table)
+            elements.append(Spacer(1, 8))
             # Beginning Cash Balances
             beg_data = [
                 ["Cash in Bank-beg", format_amount(self.variables['cash_bank_beg'].get())],
                 ["Cash on Hand-beg", format_amount(self.variables['cash_hand_beg'].get())]
             ]
-            beg_table = Table(beg_data, colWidths=[300, 150], rowHeights=[18, 18])
+            beg_table = Table(beg_data, colWidths=[300, 150], rowHeights=[16, 16])
             beg_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
                 ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('FONTSIZE', (0, 0), (-1, -1), 7),
             ]))
             elements.append(beg_table)
-            elements.append(Spacer(1, 6))
-            elements.append(Paragraph("<b>Cash inflows:</b>", styles['Normal']))
             elements.append(Spacer(1, 4))
+            elements.append(Paragraph("<b>Cash inflows:</b>", styles['Normal']))
+            elements.append(Spacer(1, 3))
+            # Cash Inflows
             inflows_data = [
                 ["Monthly dues collected", format_amount(self.variables['monthly_dues'].get())],
                 ["Certifications issued", format_amount(self.variables['certifications'].get())],
@@ -275,18 +327,19 @@ class FileHandler:
                 ["Others(inflow)", format_amount(self.variables['inflows_others'].get())],
                 ["Total Cash receipt", format_amount(self.variables['total_receipts'].get())]
             ]
-            inflows_table = Table(inflows_data, colWidths=[300, 150], rowHeights=[18]*10)
+            inflows_table = Table(inflows_data, colWidths=[300, 150], rowHeights=[16]*10)
             inflows_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
                 ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
                 ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('FONTSIZE', (0, 0), (-1, -1), 7),
             ]))
             elements.append(inflows_table)
-            elements.append(Spacer(1, 6))
-            elements.append(Paragraph("<b>Less:</b>", styles['Normal']))
             elements.append(Spacer(1, 4))
+            elements.append(Paragraph("<b>Less:</b>", styles['Normal']))
+            elements.append(Spacer(1, 3))
+            # Cash Outflows
             outflows_data = [
                 ["Cash Out Flows/Disbursements", format_amount(self.variables['cash_outflows'].get())],
                 ["Snacks/Meals for visitors", format_amount(self.variables['snacks_meals'].get())],
@@ -306,60 +359,63 @@ class FileHandler:
                 ["Refund", format_amount(self.variables['refund'].get())],
                 ["Others(outflow)", format_amount(self.variables['outflows_others'].get())]
             ]
-            outflows_table = Table(outflows_data, colWidths=[300, 150], rowHeights=[18]*17)
+            outflows_table = Table(outflows_data, colWidths=[300, 150], rowHeights=[16]*17)
             outflows_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 ('BACKGROUND', (0, 0), (0, 0), colors.lightgrey),
                 ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
                 ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('FONTSIZE', (0, 0), (-1, -1), 7),
             ]))
             elements.append(outflows_table)
-            elements.append(Spacer(1, 6))
+            elements.append(Spacer(1, 4))
+            # Ending Cash Balance
             ending_data = [
                 ["Ending cash balance", format_amount(self.variables['ending_cash'].get())]
             ]
-            ending_table = Table(ending_data, colWidths=[300, 150], rowHeights=[18])
+            ending_table = Table(ending_data, colWidths=[300, 150], rowHeights=[16])
             ending_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 ('BACKGROUND', (0, 0), (-1, -1), colors.lightgrey),
                 ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
                 ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('FONTSIZE', (0, 0), (-1, -1), 7),
             ]))
             elements.append(ending_table)
-            elements.append(Spacer(1, 6))
-            elements.append(Paragraph("<b>Breakdown of cash:</b>", styles['Normal']))
             elements.append(Spacer(1, 4))
+            elements.append(Paragraph("<b>Breakdown of cash:</b>", styles['Normal']))
+            elements.append(Spacer(1, 3))
+            # Breakdown of Cash
             breakdown_data = [
                 ["Cash in Bank", format_amount(self.variables['ending_cash_bank'].get())],
                 ["Cash on Hand", format_amount(self.variables['ending_cash_hand'].get())]
             ]
-            breakdown_table = Table(breakdown_data, colWidths=[300, 150], rowHeights=[18, 18])
+            breakdown_table = Table(breakdown_data, colWidths=[300, 150], rowHeights=[16, 16])
             breakdown_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('FONTSIZE', (0, 0), (-1, -1), 7),
             ]))
             elements.append(breakdown_table)
-            # Add footer with user-provided names in the desired layout
-            elements.append(Spacer(1, 24))
+            # Footer with user-provided names
+            elements.append(Spacer(1, 12))
             prepared_name = self.prepared_by_var.get() or "_______________________"
-            noted_name = self.noted_by_var.get() or "_______________________"
+            noted_name_1 = self.noted_by_var_1.get() or "_______________________"
+            noted_name_2 = self.noted_by_var_2.get() or "_______________________"
             checked_name = self.checked_by_var.get() or "_______________________"
-            # Create a table for "Prepared by" and "Checked by" on the same line
-            footer_top_data = [
-                [f"Prepared by: {prepared_name}", f"Checked by: {checked_name}"]
+            # Single footer table for all names
+            footer_data = [
+                [f"Prepared by: {prepared_name}", f"Noted by: {noted_name_1}"],
+                [f"Checked by: {checked_name}", f"Noted by: {noted_name_2}"]
             ]
-            footer_top_table = Table(footer_top_data, colWidths=[225, 225], rowHeights=[18])
-            footer_top_table.setStyle(TableStyle([
-                ('ALIGN', (0, 0), (0, 0), 'LEFT'),
-                ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
-                ('FONTSIZE', (0, 0), (-1, -1), 8),
+            footer_table = Table(footer_data, colWidths=[225, 225], rowHeights=[14, 14])
+            footer_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+                ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+                ('FONTSIZE', (0, 0), (-1, -1), 7),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ]))
-            elements.append(footer_top_table)
-            # Add "Noted by" on a separate line, centered
-            elements.append(Paragraph(f"Noted by: {noted_name}", footer_centered_style))
+            elements.append(footer_table)
             def add_page_numbers_and_footer(canvas, doc):
                 page_num = canvas.getPageNumber()
                 text = f"Page {page_num}"
@@ -372,6 +428,7 @@ class FileHandler:
             return None
 
     def save_to_docx(self):
+        """Save data to a Word document with two Noted by fields in the footer."""
         try:
             def format_amount(value):
                 if value:
@@ -391,35 +448,34 @@ class FileHandler:
             if not filename:
                 return None
             doc = Document()
-            # Set page size to 8.5 x 13 inches (Folio)
             from docx.oxml.ns import qn
             from docx.shared import Inches, Pt
             section = doc.sections[0]
             section.page_width = Inches(8.5)
             section.page_height = Inches(13)
             section.top_margin = Inches(0.5)
-            section.bottom_margin = Inches(1.2)  # Increased to accommodate extra footer line
+            section.bottom_margin = Inches(1.2)
             section.left_margin = Inches(0.5)
             section.right_margin = Inches(0.5)
-            # Add footer with user-provided names in the desired layout using paragraphs and tab stops
+            # Footer with names
             footer = section.footer
             prepared_name = self.prepared_by_var.get() or "_______________________"
-            noted_name = self.noted_by_var.get() or "_______________________"
+            noted_name_1 = self.noted_by_var_1.get() or "_______________________"
+            noted_name_2 = self.noted_by_var_2.get() or "_______________________"
             checked_name = self.checked_by_var.get() or "_______________________"
-            # First line: "Prepared by:" and "Checked by:" side by side using a tab stop
             footer_para1 = footer.add_paragraph()
-            footer_para1.alignment = 0  # Left-aligned
+            footer_para1.alignment = 0
             run = footer_para1.add_run(f"Prepared by: {prepared_name}\tChecked by: {checked_name}")
             run.font.size = Pt(8)
-            # Set a right-aligned tab stop to position "Checked by:" on the right
             tab_stops = footer_para1.paragraph_format.tab_stops
-            tab_stops.add_tab_stop(Inches(7.5), alignment=2)  # Right-aligned tab at 7.5 inches (page width - margins)
-            # Second line: "Noted by:", centered
+            tab_stops.add_tab_stop(Inches(7.5), alignment=2)
             footer_para2 = footer.add_paragraph()
-            footer_para2.alignment = 1  # Center-aligned
-            run = footer_para2.add_run(f"Noted by: {noted_name}")
+            footer_para2.alignment = 0
+            run = footer_para2.add_run(f"Noted by: {noted_name_1}\tNoted by: {noted_name_2}")
             run.font.size = Pt(8)
-            # Add the header
+            tab_stops = footer_para2.paragraph_format.tab_stops
+            tab_stops.add_tab_stop(Inches(7.5), alignment=2)
+            # Header
             p = doc.add_paragraph()
             run = p.add_run("Buena Oro Homeowners Association Inc.")
             run.font.size = Pt(10)
@@ -442,7 +498,6 @@ class FileHandler:
             table = doc.add_table(rows=2, cols=2)
             table.style = 'Table Grid'
             table.autofit = True
-            # Set column widths (total width = 7.5 inches, roughly 2:1 ratio)
             table.columns[0].width = Inches(5.0)
             table.columns[1].width = Inches(2.5)
             for row in table.rows:
@@ -460,7 +515,6 @@ class FileHandler:
             table = doc.add_table(rows=10, cols=2)
             table.style = 'Table Grid'
             table.autofit = True
-            # Set column widths
             table.columns[0].width = Inches(5.0)
             table.columns[1].width = Inches(2.5)
             for row in table.rows:
@@ -484,12 +538,11 @@ class FileHandler:
                     cell.paragraphs[0].runs[0].font.size = Pt(8)
                     cell.paragraphs[0].alignment = 2 if j == 1 else 0
             table.cell(9, 0).paragraphs[0].runs[0].bold = True
-            # Less: Cash Outflows
+            # Cash Outflows
             doc.add_heading("Less: Cash Outflows", level=2).style.font.size = Pt(10)
             table = doc.add_table(rows=17, cols=2)
             table.style = 'Table Grid'
             table.autofit = True
-            # Set column widths
             table.columns[0].width = Inches(5.0)
             table.columns[1].width = Inches(2.5)
             for row in table.rows:
@@ -525,7 +578,6 @@ class FileHandler:
             table = doc.add_table(rows=1, cols=2)
             table.style = 'Table Grid'
             table.autofit = True
-            # Set column widths
             table.columns[0].width = Inches(5.0)
             table.columns[1].width = Inches(2.5)
             table.rows[0].height = Inches(0.2)
@@ -540,7 +592,6 @@ class FileHandler:
             table = doc.add_table(rows=2, cols=2)
             table.style = 'Table Grid'
             table.autofit = True
-            # Set column widths
             table.columns[0].width = Inches(5.0)
             table.columns[1].width = Inches(2.5)
             for row in table.rows:
@@ -561,6 +612,7 @@ class FileHandler:
             return None
 
     def load_from_documentpdf(self):
+        """Load data from either a Word or PDF document."""
         try:
             filename = filedialog.askopenfilename(
                 filetypes=[

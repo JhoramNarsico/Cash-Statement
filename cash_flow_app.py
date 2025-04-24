@@ -16,8 +16,9 @@ class CashFlowApp:
             'date_var': ctk.StringVar(value=datetime.datetime.now().strftime("%m/%d/%Y")),
             'display_date': ctk.StringVar(value=datetime.datetime.now().strftime("%b %d, %Y")),
             'prepared_by_var': ctk.StringVar(),
-            'noted_by_var': ctk.StringVar(),
-            'checked_by_var': ctk.StringVar(),  # New variable for Checked by
+            'noted_by_var_1': ctk.StringVar(),  # First Noted by field
+            'noted_by_var_2': ctk.StringVar(),  # Second Noted by field
+            'checked_by_var': ctk.StringVar(),
             'cash_bank_beg': ctk.StringVar(),
             'cash_hand_beg': ctk.StringVar(),
             'monthly_dues': ctk.StringVar(),
@@ -64,8 +65,9 @@ class CashFlowApp:
             self.variables['title_var'],
             self.variables['date_var'],
             self.variables['prepared_by_var'],
-            self.variables['noted_by_var'],
-            self.variables['checked_by_var']  # Pass new variable
+            self.variables['noted_by_var_1'],  # Pass first Noted by
+            self.variables['noted_by_var_2'],  # Pass second Noted by
+            self.variables['checked_by_var']
         )
         self.email_sender = EmailSender(
             sender_email="chuddcdo@gmail.com",

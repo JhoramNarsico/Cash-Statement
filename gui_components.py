@@ -73,7 +73,7 @@ class GUIComponents:
         popup_height = 400
         main_width = self.root.winfo_width()
         main_height = self.root.winfo_height()
-        main_x = self.root.winfo_x主要的
+        main_x = self.root.winfo_x()
         main_y = self.root.winfo_y()
 
         x = main_x + (main_width - popup_width) // 2
@@ -168,10 +168,14 @@ class GUIComponents:
         prepared_entry = ctk.CTkEntry(email_frame, textvariable=self.variables['prepared_by_var'], width=150, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
         prepared_entry.pack(side="left", padx=5)
 
-        # Noted by Field
-        ctk.CTkLabel(email_frame, text="Noted by:", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
-        noted_entry = ctk.CTkEntry(email_frame, textvariable=self.variables['noted_by_var'], width=150, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
-        noted_entry.pack(side="left", padx=5)
+        # Noted by Fields (Two)
+        ctk.CTkLabel(email_frame, text="Noted by 1:", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
+        noted_entry_1 = ctk.CTkEntry(email_frame, textvariable=self.variables['noted_by_var_1'], width=150, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
+        noted_entry_1.pack(side="left", padx=5)
+
+        ctk.CTkLabel(email_frame, text="Noted by 2:", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
+        noted_entry_2 = ctk.CTkEntry(email_frame, textvariable=self.variables['noted_by_var_2'], width=150, font=("Roboto", 12), fg_color="#3A4F5D", text_color=self.text_color)
+        noted_entry_2.pack(side="left", padx=5)
 
         # Checked by Field
         ctk.CTkLabel(email_frame, text="Checked by:", font=("Roboto", 12), text_color=self.text_color).pack(side="left", padx=5)
@@ -348,8 +352,8 @@ class GUIComponents:
             self.variables['federation_fee'], self.variables['uniforms'], self.variables['bod_mtg'],
             self.variables['general_assembly'], self.variables['cash_deposit'], self.variables['withholding_tax'],
             self.variables['refund'], self.variables['outflows_others'], self.variables['ending_cash_bank'],
-            self.variables['ending_cash_hand'], self.variables['prepared_by_var'], self.variables['noted_by_var'],
-            self.variables['checked_by_var']  # Added to clear Checked by field
+            self.variables['ending_cash_hand'], self.variables['prepared_by_var'], 
+            self.variables['noted_by_var_1'], self.variables['noted_by_var_2'], self.variables['checked_by_var']
         ]
         for var in input_vars:
             var.set("")
