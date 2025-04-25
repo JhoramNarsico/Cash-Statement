@@ -112,12 +112,12 @@ You can package the application into a single executable file (.exe on Windows, 
 
 2.  **Run PyInstaller:** Open your terminal or command prompt, navigate to the project directory (where `cash_flow_app.py` is located), and run the following command:
     ```bash
-    pyinstaller --name "HOACashFlowApp" --windowed --onefile cash_flow_app.py
+    pyinstaller --name "HOACashFlowApp" --windowed --onefile main.py
     ```
     *   `--name "HOACashFlowApp"`: Sets the name of the executable and build folders.
     *   `--windowed`: Prevents a console window from opening when the GUI application runs.
     *   `--onefile`: Packages everything into a single executable file (can increase startup time). Alternatively, omit this to create a folder with the executable and its dependencies.
-    *   `cash_flow_app.py`: The main script of your application.
+    *   `main.py`: The main script of your application.
 
 3.  **Find the Executable:** PyInstaller will create a few folders (`build`, `dist`) and a `.spec` file. The final executable will be located inside the `dist` folder (e.g., `dist/HOACashFlowApp.exe` on Windows).
 
