@@ -2,8 +2,8 @@
 
 A desktop application built with Python and CustomTkinter to help Homeowners Associations (HOAs) generate standardized cash flow statements. It allows for data entry, calculation, loading data from existing documents (DOCX/PDF), exporting to PDF and DOCX formats, and emailing the generated reports.
 
-![Screenshot Placeholder](docs/screenshot.png)
-*(Replace `docs/screenshot.png` with the actual path to a screenshot of your application)*
+![Screenshot Placeholder](screenshot.png)
+*(Replace `screenshot.png` with the actual path to a screenshot of your application)*
 
 ## Features
 
