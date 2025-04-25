@@ -4,6 +4,7 @@ from tkinter import messagebox
 import datetime
 import time
 import logging
+from tkinter import HORIZONTAL # Import HORIZONTAL
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -24,6 +25,7 @@ class GUIComponents:
     Manages the creation and layout of GUI elements for the HOA Cash Flow application,
     with a fixed horizontal layout for the main data sections.
     (Address field removed).
+    Includes horizontal scrolling for smaller screens.
     """
     def __init__(self, root, variables, title_var, date_var, display_date, calculator, file_handler, email_sender):
         """
@@ -246,28 +248,67 @@ class GUIComponents:
     # --- MODIFIED create_widgets ---
     def create_widgets(self):
         """Creates and arranges all the main widgets with fixed horizontal data columns."""
-        # --- Main Scrolling Area (Same as before) ---
+        # --- Main Scrolling Area ---
         self.main_frame = ctk.CTkFrame(self.root, corner_radius=0, fg_color=self.BG_COLOR)
         self.main_frame.pack(fill="both", expand=True)
+        # Configure main_frame grid: Row 0 for canvas (weight 1), Row 1 for horizontal scrollbar (weight 0)
         self.main_frame.grid_rowconfigure(0, weight=1)
-        self.main_frame.grid_columnconfigure(0, weight=1)
+        self.main_frame.grid_rowconfigure(1, weight=0) # Row for horizontal scrollbar
+        self.main_frame.grid_columnconfigure(0, weight=1) # Column for canvas and h_scrollbar
+        self.main_frame.grid_columnconfigure(1, weight=0) # Column for vertical scrollbar
+
+        # Create Canvas and Scrollbars
         self.canvas = ctk.CTkCanvas(self.main_frame, highlightthickness=0, bg=self.BG_COLOR)
-        self.scrollbar = ctk.CTkScrollbar(self.main_frame, orientation="vertical", command=self.canvas.yview)
+        self.v_scrollbar = ctk.CTkScrollbar(self.main_frame, orientation="vertical", command=self.canvas.yview)
+        # ADDED: Horizontal scrollbar
+        self.h_scrollbar = ctk.CTkScrollbar(self.main_frame, orientation=HORIZONTAL, command=self.canvas.xview)
+
+        # Create Scrollable Frame (content holder)
         self.scrollable_frame = ctk.CTkFrame(self.canvas, corner_radius=0, fg_color=self.BG_COLOR)
         self.scrollable_frame.bind(
-            "<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+            "<Configure>", lambda e: self.update_layout() # Call update_layout on content resize
         )
+
+        # Place Scrollable Frame into Canvas
         self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        # Link Canvas and Scrollbars
+        self.canvas.configure(yscrollcommand=self.v_scrollbar.set, xscrollcommand=self.h_scrollbar.set) # Added xscrollcommand
+
+        # Grid the Canvas and Scrollbars
         self.canvas.grid(row=0, column=0, sticky="nsew")
-        self.scrollbar.grid(row=0, column=1, sticky="ns")
-        self.scrollable_frame.grid_columnconfigure(0, weight=1) # Let content define width, scrollbar adjusts
+        self.v_scrollbar.grid(row=0, column=1, sticky="ns")
+        self.h_scrollbar.grid(row=1, column=0, sticky="ew") # Place horizontal scrollbar below canvas
+
+        # Allow scrollable_frame content to define its width, configure its grid
+        self.scrollable_frame.grid_columnconfigure(0, weight=1) # Let content define width
+
+        # --- Mouse Wheel Scrolling (Vertical and Horizontal) ---
         def _scroll_canvas(event):
-            if event.num == 5 or event.delta < 0: self.canvas.yview_scroll(1, "units")
-            elif event.num == 4 or event.delta > 0: self.canvas.yview_scroll(-1, "units")
-        self.canvas.bind("<MouseWheel>", _scroll_canvas)
-        self.canvas.bind("<Button-4>", _scroll_canvas)
-        self.canvas.bind("<Button-5>", _scroll_canvas)
+            # Vertical Scroll (Mouse Wheel)
+            if event.state & 0x1: # Check if Shift key is pressed (for horizontal)
+                if event.num == 5 or event.delta < 0: self.canvas.xview_scroll(1, "units")
+                elif event.num == 4 or event.delta > 0: self.canvas.xview_scroll(-1, "units")
+            else: # No Shift key (for vertical)
+                if event.num == 5 or event.delta < 0: self.canvas.yview_scroll(1, "units")
+                elif event.num == 4 or event.delta > 0: self.canvas.yview_scroll(-1, "units")
+
+        # Bind mouse wheel for both vertical and horizontal (Shift+Wheel)
+        self.canvas.bind("<MouseWheel>", _scroll_canvas) # Handles Windows/macOS trackpad vertical scroll
+        self.canvas.bind("<Button-4>", _scroll_canvas) # Handles Linux vertical scroll up
+        self.canvas.bind("<Button-5>", _scroll_canvas) # Handles Linux vertical scroll down
+        # Ensure the scrollable frame also gets wheel events if mouse is over it directly
+        self.scrollable_frame.bind("<MouseWheel>", _scroll_canvas)
+        self.scrollable_frame.bind("<Button-4>", _scroll_canvas)
+        self.scrollable_frame.bind("<Button-5>", _scroll_canvas)
+        # Bind Shift+MouseWheel specifically for horizontal scrolling if needed (might be redundant with above state check)
+        # self.canvas.bind("<Shift-MouseWheel>", _scroll_canvas) # Handled in _scroll_canvas logic now
+        # self.canvas.bind("<Shift-Button-4>", _scroll_canvas) # Linux horizontal scroll left
+        # self.canvas.bind("<Shift-Button-5>", _scroll_canvas) # Linux horizontal scroll right
+        # self.scrollable_frame.bind("<Shift-MouseWheel>", _scroll_canvas)
+        # self.scrollable_frame.bind("<Shift-Button-4>", _scroll_canvas)
+        # self.scrollable_frame.bind("<Shift-Button-5>", _scroll_canvas)
+
 
         # --- Content within Scrollable Frame ---
 
@@ -315,10 +356,11 @@ class GUIComponents:
         self.columns_frame = ctk.CTkFrame(self.scrollable_frame, fg_color="transparent")
         self.columns_frame.grid(row=2, column=0, sticky="nsew", padx=self.section_pad_x / 2, pady=0)
 
-        # --- MODIFICATION: Configure columns_frame for fixed 5 horizontal columns ---
+        # --- Configure columns_frame for fixed 5 horizontal columns ---
         num_data_cols = 5
+        min_col_width = int(self.min_input_width * 1.7) # Minimum width for each data column
         for i in range(num_data_cols):
-            self.columns_frame.grid_columnconfigure(i, weight=1, uniform="data_cols", minsize=int(self.min_input_width*1.3)) # Added minsize
+            self.columns_frame.grid_columnconfigure(i, weight=1, uniform="data_cols", minsize=min_col_width) # Added minsize
         self.columns_frame.grid_rowconfigure(0, weight=1) # Only one row needed for sections
 
         # --- Create section frames (as children of columns_frame) ---
@@ -327,9 +369,8 @@ class GUIComponents:
         self.outflow_frame = self._create_section_frame("Cash Outflows")
         self.end_frame = self._create_section_frame("Ending Cash Balances (Calculated)")
         self.totals_frame = self._create_section_frame("Totals (Calculated)")
-        # No longer need self.column_frames list for layout logic
 
-        # --- MODIFICATION: Place section frames directly into the grid ---
+        # --- Place section frames directly into the grid ---
         self.beg_frame.grid(row=0, column=0, sticky="nsew", padx=self.base_pad_x//2, pady=self.base_pad_y)
         self.inflow_frame.grid(row=0, column=1, sticky="nsew", padx=self.base_pad_x//2, pady=self.base_pad_y)
         self.outflow_frame.grid(row=0, column=2, sticky="nsew", padx=self.base_pad_x//2, pady=self.base_pad_y)
@@ -350,7 +391,11 @@ class GUIComponents:
             ("Checked by (Auditor):", 'checked_by_var', "Name of HOA Auditor")
         ]
         num_name_fields = len(name_fields_data)
-        names_frame.grid_columnconfigure(tuple(range(num_name_fields)), weight=1, uniform="name_group")
+        min_name_col_width = int(self.min_input_width * 1.5)
+        for i in range(num_name_fields): # Configure columns for name fields
+            names_frame.grid_columnconfigure(i, weight=1, uniform="name_group", minsize=min_name_col_width)
+
+        #names_frame.grid_columnconfigure(tuple(range(num_name_fields)), weight=1, uniform="name_group") # Original line
         for i, (label_text, var_key, tooltip_text) in enumerate(name_fields_data):
             frame = ctk.CTkFrame(names_frame, fg_color="transparent")
             frame.grid(row=0, column=i, sticky="nsew", padx=self.base_pad_x, pady=self.base_pad_y)
@@ -458,32 +503,35 @@ class GUIComponents:
     # --- debounce_layout remains the same ---
     def debounce_layout(self, event=None):
         """Debounces the layout update function call on window resize."""
-        # Only trigger if the main_frame itself resizes
+        # Only trigger if the main_frame itself resizes (or called without event)
         if event and event.widget != self.main_frame:
-             # print(f"Ignoring configure event from {event.widget}") # Debugging line
+             # logging.debug(f"Ignoring configure event from {event.widget}") # Debugging line
              return
-        # print(f"Debouncing layout update due to configure event on {event.widget if event else 'timer'}") # Debugging line
+        # logging.debug(f"Debouncing layout update due to configure event on {event.widget if event else 'timer'}") # Debugging line
         if self.debounce_id: self.root.after_cancel(self.debounce_id)
         self.debounce_id = self.root.after(self.layout_debounce_delay_ms, self.update_layout)
 
     # --- MODIFIED update_layout ---
     def update_layout(self):
-        """Adjusts the canvas size to fit the content width."""
-        # No longer needs to rearrange the data columns (beg, inflow, etc.)
-        # as they are fixed in the horizontal layout in create_widgets.
-        # This function now primarily ensures the canvas scrollregion is correct
-        # and the window drawn on the canvas matches the available width.
+        """Adjusts the canvas size and scrollregion to fit content."""
+        # This function ensures the canvas scrollregion is correct and the window
+        # drawn on the canvas matches the content's required size.
 
         self.main_frame.update_idletasks() # Ensure dimensions are current
-        container_width = self.main_frame.winfo_width()
-        if self.scrollbar.winfo_ismapped():
-             container_width -= self.scrollbar.winfo_width()
+        self.scrollable_frame.update_idletasks() # Ensure content dimensions are current
 
-        # Only need to update the width of the window object within the canvas
-        # and the canvas scroll region.
-        self.canvas.itemconfig(self.canvas_window, width=max(container_width, self.scrollable_frame.winfo_reqwidth())) # Use requested width if larger
+        # Set the canvas window item size to the required size of the scrollable frame
+        req_width = self.scrollable_frame.winfo_reqwidth()
+        req_height = self.scrollable_frame.winfo_reqheight()
+        self.canvas.itemconfig(self.canvas_window, width=req_width, height=req_height)
+
+        # Configure the scroll region to encompass the entire scrollable frame
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        logging.debug(f"Updating canvas window width to {max(container_width, self.scrollable_frame.winfo_reqwidth())}px and scrollregion.")
+
+        # No need to calculate container_width/height here for setting itemconfig width/height
+        # The scrollbars and canvas handle the viewable area automatically based on scrollregion.
+        logging.debug(f"Updating canvas window item size to {req_width}x{req_height}px and scrollregion.")
+
         self.debounce_id = None # Reset debounce ID
 
 
@@ -538,8 +586,10 @@ if __name__ == '__main__':
     # --- End Placeholders ---
 
     root = ctk.CTk()
-    root.title("HOA Cash Flow (Fixed Horizontal Layout)")
-    root.geometry("1200x750") # Start with a reasonably wide size
+    root.title("HOA Cash Flow (Fixed Horizontal + Scroll)")
+    # Start with a size that might require horizontal scrolling on smaller screens
+    # Make it wider initially to show the fixed layout better if space allows
+    root.geometry("1400x750") # Increased width for testing
 
     # Initialize necessary variables
     variables = {} # Let _initialize_missing_variables handle creation
@@ -554,5 +604,8 @@ if __name__ == '__main__':
 
     # Create the GUI
     gui = GUIComponents(root, variables, title_var, date_var, display_date, calculator, file_handler, email_sender)
+
+    # Force an initial layout update after a short delay to ensure scrollbars appear if needed
+    root.after(200, gui.update_layout)
 
     root.mainloop()
