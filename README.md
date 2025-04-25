@@ -42,29 +42,24 @@ A desktop application built with Python and CustomTkinter to help Homeowners Ass
     ```
     Or download the ZIP file and extract it.
 
-2.  **Create Virtual Environment (Recommended):**
-    ```bash
-    python -m venv venv
-    ```
-    *   On Windows: `.\venv\Scripts\activate`
-    *   On macOS/Linux: `source venv/bin/activate`
-
-3.  **Install Dependencies:** Create a `requirements.txt` file with the following content:
-    ```plaintext
-    # requirements.txt
-    customtkinter
-    tkcalendar
-    pdfplumber
-    python-docx
-    reportlab
-    pyinstaller
-    ```
-    *(Remove `tkcalendar` if you don't need the popup. Remove `pyinstaller` if you don't need to build an executable).*
-
-    Then run:
-    ```bash
-    pip install -r requirements.txt
-    ```
+2.  **Install Dependencies:**
+    *   Navigate to the project directory in your terminal or command prompt.
+    *   Create a `requirements.txt` file in the project directory with the following content:
+        ```plaintext
+        # requirements.txt
+        customtkinter
+        tkcalendar
+        pdfplumber
+        python-docx
+        reportlab
+        pyinstaller
+        ```
+        *(Remove `tkcalendar` if you don't need the popup. Remove `pyinstaller` if you don't need to build an executable).*
+    *   Run the following command to install the required libraries into your Python environment:
+        ```bash
+        pip install -r requirements.txt
+        ```
+        *(Note: This installs packages globally or into your user site-packages if not using a virtual environment. Using a virtual environment is generally recommended for managing project dependencies to avoid conflicts.)*
 
 ## Configuration (Email)
 
@@ -90,11 +85,10 @@ The application uses Gmail (smtp.gmail.com) to send emails.
 
 ## Usage
 
-1.  **Run the Application:**
+1.  **Run the Application:** Open your terminal or command prompt, navigate to the project directory, and run:
     ```bash
     python cash_flow_app.py
     ```
-    *(Make sure your virtual environment is activated if you created one)*
 
 2.  **Select Date:** Click the "Select Date" button at the top right to choose the reporting period end date.
 3.  **Enter Data:** Fill in the beginning balances, cash inflow amounts, and cash outflow amounts in the respective sections. Amounts will be formatted automatically.
@@ -111,11 +105,10 @@ The application uses Gmail (smtp.gmail.com) to send emails.
 
 You can package the application into a single executable file (.exe on Windows, app bundle on macOS) so it can be run without installing Python or the dependencies on other machines.
 
-1.  **Install PyInstaller:** Make sure it's installed (it's included in the `requirements.txt` above).
+1.  **Install PyInstaller:** Make sure it's installed (it should be if you followed the `requirements.txt` installation). If not:
     ```bash
     pip install pyinstaller
     ```
-    *(Ensure your virtual environment is active)*
 
 2.  **Run PyInstaller:** Open your terminal or command prompt, navigate to the project directory (where `cash_flow_app.py` is located), and run the following command:
     ```bash
@@ -158,6 +151,7 @@ You can package the application into a single executable file (.exe on Windows, 
 *   **Ending Balance Calculation:** The breakdown of ending cash between "Bank" and "Hand" is based on a simplified calculation within the provided code. It might need adjustment based on specific HOA accounting practices.
 *   **tkcalendar Dependency:** The calendar popup requires the `tkcalendar` library. If not installed, this feature will be unavailable, and an error message will appear upon clicking the date button.
 *   **PyInstaller Build Size:** `--onefile` executables can be relatively large because they bundle Python and all dependencies.
+*   **Global Package Installation:** Without a virtual environment, dependencies are installed globally or in the user site-packages, which can potentially lead to conflicts with other Python projects.
 
 ## Future Improvements
 
