@@ -5,7 +5,7 @@ class HoverCalendar(Calendar):
     def __init__(self, master=None, **kw):
         # Increase font size and add zoom for larger cells
         kw.setdefault('font', ("Arial", 14))
-        kw.setdefault('zoom', 1.5)  # Scale calendar grid by 1.5x
+        kw.setdefault('zoom', 1)  # Scale calendar grid by 1.5x
         super().__init__(master, **kw)
         self._setup_hover_navigation()
 

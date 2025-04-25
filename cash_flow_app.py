@@ -1,4 +1,4 @@
-import customtkinter as ctk
+import tkinter as tk
 import datetime
 
 class CashFlowApp:
@@ -6,51 +6,49 @@ class CashFlowApp:
         self.root = root
         self.root.title("Cash Flow Statement Generator with Email")
         self.root.geometry("800x700")
-        ctk.set_appearance_mode("light")  # Changed to light theme
-        ctk.set_default_color_theme("blue")  # Keep blue theme for consistency
 
         # Initialize variables
         self.variables = {
-            'recipient_emails_var': ctk.StringVar(),
-            'title_var': ctk.StringVar(value="Statement Of Cash Flows"),
-            'date_var': ctk.StringVar(value=datetime.datetime.now().strftime("%m/%d/%Y")),
-            'display_date': ctk.StringVar(value=datetime.datetime.now().strftime("%b %d, %Y")),
-            'prepared_by_var': ctk.StringVar(),
-            'noted_by_var_1': ctk.StringVar(),
-            'noted_by_var_2': ctk.StringVar(),
-            'checked_by_var': ctk.StringVar(),
-            'cash_bank_beg': ctk.StringVar(),
-            'cash_hand_beg': ctk.StringVar(),
-            'monthly_dues': ctk.StringVar(),
-            'certifications': ctk.StringVar(),
-            'membership_fee': ctk.StringVar(),
-            'vehicle_stickers': ctk.StringVar(),
-            'rentals': ctk.StringVar(),
-            'solicitations': ctk.StringVar(),
-            'interest_income': ctk.StringVar(),
-            'livelihood_fee': ctk.StringVar(),
-            'inflows_others': ctk.StringVar(),
-            'total_receipts': ctk.StringVar(),
-            'cash_outflows': ctk.StringVar(),
-            'snacks_meals': ctk.StringVar(),
-            'transportation': ctk.StringVar(),
-            'office_supplies': ctk.StringVar(),
-            'printing': ctk.StringVar(),
-            'labor': ctk.StringVar(),
-            'billboard': ctk.StringVar(),
-            'cleaning': ctk.StringVar(),
-            'misc_expenses': ctk.StringVar(),
-            'federation_fee': ctk.StringVar(),
-            'uniforms': ctk.StringVar(),
-            'bod_mtg': ctk.StringVar(),
-            'general_assembly': ctk.StringVar(),
-            'cash_deposit': ctk.StringVar(),
-            'withholding_tax': ctk.StringVar(),
-            'refund': ctk.StringVar(),
-            'outflows_others': ctk.StringVar(),
-            'ending_cash': ctk.StringVar(),
-            'ending_cash_bank': ctk.StringVar(),
-            'ending_cash_hand': ctk.StringVar()
+            'recipient_emails_var': tk.StringVar(),
+            'title_var': tk.StringVar(value="Statement Of Cash Flows"),
+            'date_var': tk.StringVar(value=datetime.datetime.now().strftime("%m/%d/%Y")),
+            'display_date': tk.StringVar(value=datetime.datetime.now().strftime("%b %d, %Y")),
+            'prepared_by_var': tk.StringVar(),
+            'noted_by_var_1': tk.StringVar(),
+            'noted_by_var_2': tk.StringVar(),
+            'checked_by_var': tk.StringVar(),
+            'cash_bank_beg': tk.StringVar(),
+            'cash_hand_beg': tk.StringVar(),
+            'monthly_dues': tk.StringVar(),
+            'certifications': tk.StringVar(),
+            'membership_fee': tk.StringVar(),
+            'vehicle_stickers': tk.StringVar(),
+            'rentals': tk.StringVar(),
+            'solicitations': tk.StringVar(),
+            'interest_income': tk.StringVar(),
+            'livelihood_fee': tk.StringVar(),
+            'inflows_others': tk.StringVar(),
+            'total_receipts': tk.StringVar(),
+            'cash_outflows': tk.StringVar(),
+            'snacks_meals': tk.StringVar(),
+            'transportation': tk.StringVar(),
+            'office_supplies': tk.StringVar(),
+            'printing': tk.StringVar(),
+            'labor': tk.StringVar(),
+            'billboard': tk.StringVar(),
+            'cleaning': tk.StringVar(),
+            'misc_expenses': tk.StringVar(),
+            'federation_fee': tk.StringVar(),
+            'uniforms': tk.StringVar(),
+            'bod_mtg': tk.StringVar(),
+            'general_assembly': tk.StringVar(),
+            'cash_deposit': tk.StringVar(),
+            'withholding_tax': tk.StringVar(),
+            'refund': tk.StringVar(),
+            'outflows_others': tk.StringVar(),
+            'ending_cash': tk.StringVar(),
+            'ending_cash_bank': tk.StringVar(),
+            'ending_cash_hand': tk.StringVar()
         }
 
         # Initialize components

@@ -1,17 +1,35 @@
+# -*- coding: utf-8 -*-
 import customtkinter as ctk
 from tkinter import messagebox
 import datetime
 import time
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Note: Replace with actual HoverCalendar import if available
 try:
-    from hover_calendar import HoverCalendar
+    # from tkcalendar import Calendar # Example using tkcalendar if HoverCalendar unavailable
+    # logging.info("tkcalendar imported as fallback.")
+    from hover_calendar import HoverCalendar # Keep trying HoverCalendar first
+    logging.info("HoverCalendar imported successfully.")
 except ImportError:
-    HoverCalendar = None
-    print("Warning: HoverCalendar not found. Calendar functionality will be disabled.")
+    HoverCalendar = None # Set to None if neither is found or preferred
+    logging.warning("HoverCalendar (or fallback) not found. Calendar functionality will be disabled.")
+
 
 class GUIComponents:
+    """
+    Manages the creation and layout of GUI elements for the HOA Cash Flow application,
+    with a fixed horizontal layout for the main data sections.
+    (Address field removed).
+    """
     def __init__(self, root, variables, title_var, date_var, display_date, calculator, file_handler, email_sender):
+        """
+        Initializes the GUIComponents class with fixed horizontal data sections.
+        (Args documentation remains the same as before)
+        """
         self.root = root
         self.variables = variables
         self.title_var = title_var
@@ -20,523 +38,521 @@ class GUIComponents:
         self.calculator = calculator
         self.file_handler = file_handler
         self.email_sender = email_sender
-        
-        # Initialize missing variables
-        required_vars = [
-            'address_var', 'recipient_emails_var', 'prepared_by_var', 'noted_by_var_1', 
-            'noted_by_var_2', 'checked_by_var', 'cash_bank_beg', 'cash_hand_beg', 
-            'monthly_dues', 'certifications', 'membership_fee', 'vehicle_stickers', 
-            'rentals', 'solicitations', 'interest_income', 'livelihood_fee', 
-            'inflows_others', 'snacks_meals', 'transportation', 'office_supplies', 
-            'printing', 'labor', 'billboard', 'cleaning', 'misc_expenses', 
-            'federation_fee', 'uniforms', 'bod_mtg', 'general_assembly', 
-            'cash_deposit', 'withholding_tax', 'refund', 'outflows_others', 
-            'ending_cash_bank', 'ending_cash_hand', 'total_receipts', 
+
+        # --- Removed 'address_var' from required_vars ---
+        self.required_vars = [
+             'recipient_emails_var', 'prepared_by_var', 'noted_by_var_1',
+            'noted_by_var_2', 'checked_by_var', 'cash_bank_beg', 'cash_hand_beg',
+            'monthly_dues', 'certifications', 'membership_fee', 'vehicle_stickers',
+            'rentals', 'solicitations', 'interest_income', 'livelihood_fee',
+            'inflows_others', 'snacks_meals', 'transportation', 'office_supplies',
+            'printing', 'labor', 'billboard', 'cleaning', 'misc_expenses',
+            'federation_fee', 'uniforms', 'bod_mtg', 'general_assembly',
+            'cash_deposit', 'withholding_tax', 'refund', 'outflows_others',
+            'ending_cash_bank', 'ending_cash_hand', 'total_receipts',
             'cash_outflows', 'ending_cash'
         ]
-        for var in required_vars:
-            if var not in self.variables:
-                self.variables[var] = ctk.StringVar()
-        
-        # Configure light theme
+        self._initialize_missing_variables()
+
+        # --- Theme and Appearance (Same as before) ---
         ctk.set_appearance_mode("light")
         ctk.set_default_color_theme("blue")
-        
-        # Get screen dimensions
+        self.BG_COLOR = "#F5F5F5"
+        self.FRAME_COLOR = "#FFFFFF"
+        self.BORDER_COLOR = "#E0E0E0"
+        self.TEXT_COLOR = "#333333"
+        self.ENTRY_BG_COLOR = "#FAFAFA"
+        self.ENTRY_BORDER_COLOR = "#B0BEC5"
+        self.DISABLED_BG_COLOR = "#ECEFF1"
+        self.BUTTON_FG_COLOR = "#2196F3"
+        self.BUTTON_HOVER_COLOR = "#1976D2"
+        self.BUTTON_TEXT_COLOR = "#FFFFFF"
+        self.TOOLTIP_BG = "#E0E0E0"
+        self.TOOLTIP_TEXT = "#333333"
+        self.DATE_BTN_FG = "#E3F2FD"
+        self.DATE_BTN_HOVER = "#BBDEFB"
+        self.DATE_BTN_TEXT = "#0D47A1"
+
+        # --- Screen Dimensions and Adaptive Sizing (Mostly same, but some related to column wrapping removed/unused) ---
+        self.root.update_idletasks()
         self.screen_width = self.root.winfo_screenwidth()
         self.screen_height = self.root.winfo_screenheight()
-        
-        # Layout optimization
-        self.last_layout_update = 0
-        self.last_num_columns = None
-        self.layout_debounce_delay = 0.05
-        self.debounce_id = None
-        
-        # Size constraints
-        self.min_column_width = 250
-        self.max_column_width = 400
-        self.min_input_width = 150
+        logging.info(f"Screen dimensions: {self.screen_width}x{self.screen_height}")
+        self.base_font_size = max(9, min(16, int(self.screen_height / 65)))
+        self.title_font_size = int(self.base_font_size * 1.2)
+        self.button_font_size = self.base_font_size
+        self.label_font_size = self.base_font_size
+        self.entry_font_size = self.base_font_size
+        self.tooltip_font_size = max(8, int(self.base_font_size * 0.9))
+        self.base_pad_x = int(self.base_font_size * 0.6)
+        self.base_pad_y = int(self.base_font_size * 0.3)
+        self.section_pad_x = self.base_pad_x * 2
+        self.section_pad_y = self.base_pad_y * 2
+        # These column width/threshold values are less critical now for section layout
+        # self.min_column_width = 280 # Kept for potential future use or other elements
+        # self.max_column_width = 500
+        # self.column_layout_threshold_multiplier = 1.7 # No longer used for section wrapping
+        self.min_input_width = 120
         self.max_input_width = 300
-        
+        # self.last_num_columns = None # No longer needed for section layout
+        self.layout_debounce_delay_ms = 100
+        self.debounce_id = None
+
+        # --- Initialization ---
         self.create_widgets()
         self.setup_keyboard_shortcuts()
-        self.date_var.trace('w', self.update_display_date)
+        self.date_var.trace_add('write', self._update_display_date)
+        self._update_display_date()
+        # Initial layout update might still be needed for canvas size adjustment
+        self.root.after(150, self.update_layout) # Keep this to set initial canvas size
 
-    def update_display_date(self, *args):
+    # --- Methods _initialize_missing_variables, _update_display_date, setup_keyboard_shortcuts, _safe_call, create_tooltip, show_calendar remain unchanged ---
+
+    def _initialize_missing_variables(self):
+        """Ensures all required StringVars exist in the variables dictionary."""
+        initialized_count = 0
+        missing_vars = []
+        for var_key in self.required_vars:
+            if var_key not in self.variables:
+                self.variables[var_key] = ctk.StringVar()
+                initialized_count += 1
+                missing_vars.append(var_key)
+        if 'address_var' in self.variables:
+            logging.warning("'address_var' found in input variables dictionary but is no longer used.")
+        if initialized_count > 0:
+            logging.warning(f"Initialized {initialized_count} missing StringVars: {missing_vars}")
+        elif not self.variables:
+             logging.error("Variables dictionary is empty!")
+
+    def _update_display_date(self, *args):
+        """Updates the display date string when date_var changes."""
         raw_date = self.date_var.get()
         try:
             date_obj = datetime.datetime.strptime(raw_date, "%m/%d/%Y")
             self.display_date.set(date_obj.strftime("%b %d, %Y"))
         except ValueError:
-            pass
+            if raw_date:
+                 logging.warning(f"Invalid date format entered: {raw_date}. Expected MM/DD/YYYY.")
+            self.display_date.set("Select Date")
 
     def setup_keyboard_shortcuts(self):
-        self.root.bind('<Control-s>', lambda e: messagebox.showinfo("Not Implemented", "Save to CSV not implemented yet"))
-        self.root.bind('<Control-e>', lambda e: self.file_handler.export_to_pdf())
-        self.root.bind('<Control-l>', lambda e: self.file_handler.load_from_documentpdf())
-        self.root.bind('<Control-g>', lambda e: self.email_sender.send_email())
-        self.root.bind('<Control-w>', lambda e: self.file_handler.save_to_docx())
+        """Binds keyboard shortcuts to specific actions."""
+        self.root.bind('<Control-l>', lambda event: self._safe_call(self.file_handler.load_from_documentpdf, "Load"))
+        self.root.bind('<Control-e>', lambda event: self._safe_call(self.file_handler.export_to_pdf, "Export to PDF"))
+        self.root.bind('<Control-w>', lambda event: self._safe_call(self.file_handler.save_to_docx, "Save to Word"))
+        self.root.bind('<Control-g>', lambda event: self._safe_call(self.email_sender.send_email, "Send Email"))
+        self.root.bind('<Control-s>', lambda e: messagebox.showinfo("Not Implemented", "Save functionality (Ctrl+S) is not yet implemented."))
+        self.root.bind('<Control-q>', lambda e: self.root.quit())
+        logging.info("Keyboard shortcuts set up.")
+
+    def _safe_call(self, func, action_name):
+        """Safely calls a function and shows an error message if it fails."""
+        try:
+            func()
+            logging.info(f"Action '{action_name}' executed successfully.")
+        except AttributeError:
+             logging.error(f"Action '{action_name}' failed: Method not found.")
+             messagebox.showerror("Error", f"Could not perform '{action_name}'. Feature might be misconfigured.")
+        except Exception as e:
+            logging.exception(f"Error during '{action_name}' action.")
+            messagebox.showerror("Error", f"An unexpected error occurred during {action_name}:\n{e}")
 
     def create_tooltip(self, widget, text):
-        tooltip = ctk.CTkToplevel(widget)
-        tooltip.wm_overrideredirect(True)
-        tooltip.wm_geometry("+1000+1000")
-        font_size = max(9, int(self.screen_height / 80))
-        label = ctk.CTkLabel(
-            tooltip,
-            text=text,
-            corner_radius=6,
-            fg_color="#E0E0E0",
-            text_color="#333333",
-            font=("Roboto", font_size)
-        )
-        label.pack(padx=5, pady=5)
-
-        def show(event):
-            x = widget.winfo_rootx() + 20
-            y = widget.winfo_rooty() + 20
-            tooltip.wm_geometry(f"+{x}+{y}")
-            tooltip.deiconify()
-
-        def hide(event):
+        """Creates a simple adaptive tooltip for a given widget."""
+        tooltip = None
+        def _create_tooltip_window():
+            nonlocal tooltip
+            if tooltip is not None and tooltip.winfo_exists():
+                tooltip.destroy()
+            tooltip = ctk.CTkToplevel(self.root)
+            tooltip.wm_overrideredirect(True)
+            tooltip.wm_geometry("+9999+9999")
+            label = ctk.CTkLabel(
+                tooltip, text=text, corner_radius=6, fg_color=self.TOOLTIP_BG,
+                text_color=self.TOOLTIP_TEXT, font=("Roboto", self.tooltip_font_size),
+                wraplength=max(200, self.screen_width // 4)
+            )
+            label.pack(padx=self.base_pad_x // 2, pady=self.base_pad_y // 2)
             tooltip.withdraw()
-
-        widget.bind("<Enter>", show)
-        widget.bind("<Leave>", hide)
-        tooltip.withdraw()
+        def show(event):
+            if tooltip is None or not tooltip.winfo_exists():
+                 _create_tooltip_window()
+            if tooltip and tooltip.state() == 'withdrawn':
+                 widget.update_idletasks()
+                 x = widget.winfo_rootx() + self.base_pad_x
+                 y = widget.winfo_rooty() + widget.winfo_height() + self.base_pad_y // 2
+                 tooltip.wm_geometry(f"+{x}+{y}")
+                 tooltip.deiconify()
+        def hide(event):
+             if tooltip and tooltip.winfo_exists():
+                 tooltip.withdraw()
+        widget.bind("<Enter>", show, add="+")
+        widget.bind("<Leave>", hide, add="+")
 
     def show_calendar(self):
+        """Displays an adaptively sized calendar popup to select a date."""
         if not HoverCalendar:
-            messagebox.showerror("Error", "Calendar functionality is not available.")
+            logging.warning("Attempted to open calendar, but HoverCalendar is not available.")
+            messagebox.showerror("Error", "Calendar functionality is not available (HoverCalendar library missing).")
             return
-        
         popup = ctk.CTkToplevel(self.root)
         popup.title("Select Date")
-        
-        popup_width = min(max(300, int(self.screen_width * 0.25)), 600)
-        popup_height = min(max(300, int(self.screen_height * 0.25)), 600)
-        popup.geometry(f"{popup_width}x{popup_height}")
-        popup.transient(self.root)
-        popup.grab_set()
-        popup.withdraw()
-
-        popup.update_idletasks()
+        popup_width = min(max(350, int(self.screen_width * 0.25)), 550)
+        popup_height = min(max(380, int(self.screen_height * 0.35)), 600)
+        self.root.update_idletasks()
         main_width = self.root.winfo_width()
         main_height = self.root.winfo_height()
         main_x = self.root.winfo_x()
         main_y = self.root.winfo_y()
-
         x = main_x + (main_width - popup_width) // 2
         y = main_y + (main_height - popup_height) // 2
         popup.geometry(f"{popup_width}x{popup_height}+{x}+{y}")
-
-        font_size = max(10, int(self.screen_height / 60))
-        cal = HoverCalendar(
-            popup,
-            font=("Roboto", font_size)
-        )
-        cal.pack(padx=20, pady=20, fill="both", expand=True)
-
+        popup.transient(self.root)
+        popup.grab_set()
+        popup.attributes("-topmost", True)
         try:
-            current_date = datetime.datetime.strptime(self.date_var.get(), "%m/%d/%Y")
-            cal.selection_set(current_date)
-        except ValueError:
-            pass
+            cal_font_size = max(10, int(self.base_font_size * 1.1))
+            cal = HoverCalendar(popup, font=("Roboto", cal_font_size))
+            cal.pack(padx=self.section_pad_x, pady=self.section_pad_y, fill="both", expand=True)
+            try:
+                current_date_str = self.date_var.get()
+                if current_date_str:
+                    current_date = datetime.datetime.strptime(current_date_str, "%m/%d/%Y")
+                    cal.selection_set(current_date)
+            except ValueError:
+                 logging.warning(f"Could not pre-select date '{current_date_str}' in calendar.")
+            def on_date_select():
+                selected_date = cal.selection_get()
+                if selected_date:
+                    self.date_var.set(selected_date.strftime("%m/%d/%Y"))
+                    logging.info(f"Date selected from calendar: {self.date_var.get()}")
+                else:
+                     logging.warning("Calendar closed without selection.")
+                popup.destroy()
+            confirm_button_width = min(max(100, int(popup_width * 0.3)), 160)
+            confirm_button = ctk.CTkButton(
+                popup, text="Confirm", command=on_date_select, font=("Roboto", self.button_font_size),
+                width=confirm_button_width, corner_radius=8, fg_color=self.BUTTON_FG_COLOR,
+                hover_color=self.BUTTON_HOVER_COLOR, text_color=self.BUTTON_TEXT_COLOR,
+            )
+            confirm_button.pack(pady=(0, self.section_pad_y))
+            popup.protocol("WM_DELETE_WINDOW", popup.destroy)
+        except Exception as e:
+             logging.exception("Failed to create or display the calendar popup.")
+             messagebox.showerror("Calendar Error", f"Could not open the calendar: {e}")
+             if popup and popup.winfo_exists():
+                 popup.destroy()
 
-        def on_date_select():
-            selected_date = cal.selection_get()
-            if selected_date:
-                self.date_var.set(selected_date.strftime("%m/%d/%Y"))
-            popup.destroy()
-
-        confirm_button = ctk.CTkButton(
-            popup,
-            text="Confirm",
-            command=on_date_select,
-            font=("Roboto", font_size),
-            width=min(max(100, int(self.screen_width * 0.1)), 150),
-            corner_radius=8,
-            fg_color="#2196F3",
-            hover_color="#1976D2"
-        )
-        confirm_button.pack(pady=20)
-
-        popup.deiconify()
-        popup.protocol("WM_DELETE_WINDOW", popup.destroy)
-
+    # --- MODIFIED create_widgets ---
     def create_widgets(self):
-        self.main_frame = ctk.CTkFrame(self.root, corner_radius=0, fg_color="#F5F5F5")
+        """Creates and arranges all the main widgets with fixed horizontal data columns."""
+        # --- Main Scrolling Area (Same as before) ---
+        self.main_frame = ctk.CTkFrame(self.root, corner_radius=0, fg_color=self.BG_COLOR)
         self.main_frame.pack(fill="both", expand=True)
         self.main_frame.grid_rowconfigure(0, weight=1)
         self.main_frame.grid_columnconfigure(0, weight=1)
-
-        self.canvas = ctk.CTkCanvas(self.main_frame, highlightthickness=0, bg="#F5F5F5")
+        self.canvas = ctk.CTkCanvas(self.main_frame, highlightthickness=0, bg=self.BG_COLOR)
         self.scrollbar = ctk.CTkScrollbar(self.main_frame, orientation="vertical", command=self.canvas.yview)
-        self.scrollable_frame = ctk.CTkFrame(self.canvas, corner_radius=0, fg_color="#F5F5F5")
-
+        self.scrollable_frame = ctk.CTkFrame(self.canvas, corner_radius=0, fg_color=self.BG_COLOR)
         self.scrollable_frame.bind(
-            "<Configure>",
-            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+            "<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         )
-
         self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
+        self.canvas.grid(row=0, column=0, sticky="nsew")
+        self.scrollbar.grid(row=0, column=1, sticky="ns")
+        self.scrollable_frame.grid_columnconfigure(0, weight=1) # Let content define width, scrollbar adjusts
+        def _scroll_canvas(event):
+            if event.num == 5 or event.delta < 0: self.canvas.yview_scroll(1, "units")
+            elif event.num == 4 or event.delta > 0: self.canvas.yview_scroll(-1, "units")
+        self.canvas.bind("<MouseWheel>", _scroll_canvas)
+        self.canvas.bind("<Button-4>", _scroll_canvas)
+        self.canvas.bind("<Button-5>", _scroll_canvas)
 
-        # Cross-platform scrolling
-        def scroll_canvas(event):
-            if event.num == 4 or event.delta > 0:
-                self.canvas.yview_scroll(-1, "units")
-            elif event.num == 5 or event.delta < 0:
-                self.canvas.yview_scroll(1, "units")
-        self.canvas.bind_all("<MouseWheel>", scroll_canvas)
-        self.canvas.bind_all("<Button-4>", scroll_canvas)
-        self.canvas.bind_all("<Button-5>", scroll_canvas)
+        # --- Content within Scrollable Frame ---
 
-        self.canvas.pack(side="left", fill="both", expand=True)
-        self.scrollbar.pack(side="right", fill="y")
-
-        self.scrollable_frame.grid_columnconfigure(0, weight=1)
-        self.scrollable_frame.grid_rowconfigure(4, weight=1)
-
-        base_font_size = max(10, int(self.screen_height / 60))
-
-        header_frame = ctk.CTkFrame(self.scrollable_frame, corner_radius=8, fg_color="#FFFFFF", border_width=1, border_color="#E0E0E0")
-        header_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
-        header_frame.grid_columnconfigure(0, weight=1)
-
-        date_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
-        date_frame.pack(side="right", padx=10, anchor="e")
-        ctk.CTkLabel(date_frame, text="Date:", font=("Roboto", base_font_size), text_color="#333333").pack(side="left")
+        # --- Date Frame (Same as before, placed in row 0) ---
+        date_container_frame = ctk.CTkFrame(self.scrollable_frame, fg_color="transparent")
+        date_container_frame.grid(row=0, column=0, sticky="ew", padx=self.section_pad_x, pady=(self.section_pad_y, self.base_pad_y))
+        date_container_frame.grid_columnconfigure(0, weight=1) # Empty expanding column
+        date_container_frame.grid_columnconfigure(1, weight=0) # Date content column
+        date_frame = ctk.CTkFrame(date_container_frame, fg_color="transparent")
+        date_frame.grid(row=0, column=1, sticky="e", pady=self.base_pad_y)
+        ctk.CTkLabel(date_frame, text="Date:", font=("Roboto", self.label_font_size), text_color=self.TEXT_COLOR).pack(side="left", padx=(0, self.base_pad_x // 2))
+        date_button_width = min(max(120, int(self.screen_width * 0.08)), 180)
         date_button = ctk.CTkButton(
-            date_frame,
-            textvariable=self.display_date,
-            font=("Roboto", base_font_size),
-            command=self.show_calendar,
-            corner_radius=6,
-            fg_color="#E3F2FD",
-            hover_color="#BBDEFB",
-            text_color="#0D47A1",
-            width=min(max(120, int(self.screen_width * 0.1)), 200)
+            date_frame, textvariable=self.display_date, font=("Roboto", self.button_font_size),
+            command=self.show_calendar, corner_radius=6, fg_color=self.DATE_BTN_FG,
+            hover_color=self.DATE_BTN_HOVER, text_color=self.DATE_BTN_TEXT, width=date_button_width
         )
-        date_button.pack(side="left", padx=5)
-        self.create_tooltip(date_button, "Click to select a date from the calendar")
+        date_button.pack(side="left")
+        self.create_tooltip(date_button, "Click to select the report date")
 
-        address_frame = ctk.CTkFrame(self.scrollable_frame, corner_radius=8, fg_color="#FFFFFF", border_width=1, border_color="#E0E0E0")
-        address_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=10)
-        
-        input_width = min(max(self.min_input_width, int(self.screen_width * 0.2)), self.max_input_width)
-        
-        ctk.CTkLabel(address_frame, text="Address:", font=("Roboto", base_font_size), text_color="#333333").pack(side="left", padx=10)
-        address_entry = ctk.CTkEntry(
-            address_frame,
-            textvariable=self.variables['address_var'],
-            width=input_width * 2,
-            font=("Roboto", base_font_size),
-            corner_radius=6,
-            fg_color="#FAFAFA",
-            text_color="#333333",
-            border_color="#B0BEC5"
-        )
-        address_entry.pack(side="left", fill="x", expand=True, padx=10, pady=5)
-
+        # --- Button Bar Frame (Same as before, placed in row 1) ---
         button_frame = ctk.CTkFrame(self.scrollable_frame, fg_color="transparent")
-        button_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=10)
-        button_frame.grid_columnconfigure(tuple(range(5)), weight=1)
-
-        buttons = [
-            ("Load from Docx/Pdf (Ctrl+L)", self.file_handler.load_from_documentpdf),
-            ("Clear All Fields", self.clear_fields),
-            ("Export to PDF (Ctrl+E)", self.file_handler.export_to_pdf),
-            ("Save to Word (Ctrl+W)", self.file_handler.save_to_docx),
-            ("Send via Email (Ctrl+G)", self.email_sender.send_email),
+        button_frame.grid(row=1, column=0, sticky="ew", padx=self.section_pad_x, pady=(self.base_pad_y, self.section_pad_y))
+        buttons_data = [
+            ("Load (Ctrl+L)", self.file_handler.load_from_documentpdf, "Load data from DOCX/PDF"),
+            ("Clear Fields", self.clear_fields, "Clear all input fields"),
+            ("Export PDF (Ctrl+E)", self.file_handler.export_to_pdf, "Export as PDF"),
+            ("Save Word (Ctrl+W)", self.file_handler.save_to_docx, "Save as DOCX"),
+            ("Email (Ctrl+G)", self.email_sender.send_email, "Send via email"),
         ]
-        for col, (text, command) in enumerate(buttons):
+        num_buttons = len(buttons_data)
+        button_frame.grid_columnconfigure(tuple(range(num_buttons)), weight=1, uniform="button_group")
+        for i, (text, command, tooltip_text) in enumerate(buttons_data):
             btn = ctk.CTkButton(
-                button_frame,
-                text=text,
-                command=command,
-                font=("Roboto", base_font_size),
-                corner_radius=8,
-                fg_color="#2196F3",
-                hover_color="#1976D2",
-                text_color="#FFFFFF",
-                height=35
+                button_frame, text=text,
+                command=lambda cmd=command, txt=text: self._safe_call(cmd, txt),
+                font=("Roboto", self.button_font_size), corner_radius=8,
+                fg_color=self.BUTTON_FG_COLOR, hover_color=self.BUTTON_HOVER_COLOR,
+                text_color=self.BUTTON_TEXT_COLOR, height=int(self.base_font_size * 2.5)
             )
-            btn.grid(row=0, column=col, sticky="ew", padx=5, pady=5)
+            btn.grid(row=0, column=i, sticky="ew", padx=self.base_pad_x // 2, pady=self.base_pad_y)
+            self.create_tooltip(btn, tooltip_text)
 
+        # --- Main Data Columns Container (Placed in row 2) ---
         self.columns_frame = ctk.CTkFrame(self.scrollable_frame, fg_color="transparent")
-        self.columns_frame.grid(row=3, column=0, sticky="nsew", padx=10, pady=10)
-        self.columns_frame.grid_columnconfigure(0, weight=1)
-        self.columns_frame.grid_rowconfigure(0, weight=1)
+        self.columns_frame.grid(row=2, column=0, sticky="nsew", padx=self.section_pad_x / 2, pady=0)
 
-        self.beg_frame = ctk.CTkFrame(self.columns_frame, corner_radius=8, fg_color="#FFFFFF", border_width=1, border_color="#E0E0E0")
-        ctk.CTkLabel(self.beg_frame, text="Beginning Cash Balances", font=("Roboto", int(base_font_size + 2), "bold"), text_color="#333333").pack(anchor="w", padx=10, pady=10)
+        # --- MODIFICATION: Configure columns_frame for fixed 5 horizontal columns ---
+        num_data_cols = 5
+        for i in range(num_data_cols):
+            self.columns_frame.grid_columnconfigure(i, weight=1, uniform="data_cols", minsize=int(self.min_input_width*1.3)) # Added minsize
+        self.columns_frame.grid_rowconfigure(0, weight=1) # Only one row needed for sections
 
-        self.inflow_frame = ctk.CTkFrame(self.columns_frame, corner_radius=8, fg_color="#FFFFFF", border_width=1, border_color="#E0E0E0")
-        ctk.CTkLabel(self.inflow_frame, text="Cash Inflows", font=("Roboto", int(base_font_size + 2), "bold"), text_color="#333333").pack(anchor="w", padx=10, pady=10)
+        # --- Create section frames (as children of columns_frame) ---
+        self.beg_frame = self._create_section_frame("Beginning Cash Balances")
+        self.inflow_frame = self._create_section_frame("Cash Inflows")
+        self.outflow_frame = self._create_section_frame("Cash Outflows")
+        self.end_frame = self._create_section_frame("Ending Cash Balances (Calculated)")
+        self.totals_frame = self._create_section_frame("Totals (Calculated)")
+        # No longer need self.column_frames list for layout logic
 
-        self.outflow_frame = ctk.CTkFrame(self.columns_frame, corner_radius=8, fg_color="#FFFFFF", border_width=1, border_color="#E0E0E0")
-        ctk.CTkLabel(self.outflow_frame, text="Cash Outflows", font=("Roboto", int(base_font_size + 2), "bold"), text_color="#333333").pack(anchor="w", padx=10, pady=10)
+        # --- MODIFICATION: Place section frames directly into the grid ---
+        self.beg_frame.grid(row=0, column=0, sticky="nsew", padx=self.base_pad_x//2, pady=self.base_pad_y)
+        self.inflow_frame.grid(row=0, column=1, sticky="nsew", padx=self.base_pad_x//2, pady=self.base_pad_y)
+        self.outflow_frame.grid(row=0, column=2, sticky="nsew", padx=self.base_pad_x//2, pady=self.base_pad_y)
+        self.end_frame.grid(row=0, column=3, sticky="nsew", padx=self.base_pad_x//2, pady=self.base_pad_y)
+        self.totals_frame.grid(row=0, column=4, sticky="nsew", padx=self.base_pad_x//2, pady=self.base_pad_y)
 
-        self.end_frame = ctk.CTkFrame(self.columns_frame, corner_radius=8, fg_color="#FFFFFF", border_width=1, border_color="#E0E0E0")
-        ctk.CTkLabel(self.end_frame, text="Ending Cash Balances", font=("Roboto", int(base_font_size + 2), "bold"), text_color="#333333").pack(anchor="w", padx=10, pady=10)
-
-        self.totals_frame = ctk.CTkFrame(self.columns_frame, corner_radius=8, fg_color="#FFFFFF", border_width=1, border_color="#E0E0E0")
-        ctk.CTkLabel(self.totals_frame, text="Totals", font=("Roboto", int(base_font_size + 2), "bold"), text_color="#333333").pack(anchor="w", padx=10, pady=10)
-
-        self.column_frames = [
-            self.beg_frame,
-            self.inflow_frame,
-            self.outflow_frame,
-            self.end_frame,
-            self.totals_frame
-        ]
-
-        names_frame = ctk.CTkFrame(self.scrollable_frame, corner_radius=8, fg_color="#FFFFFF", border_width=1, border_color="#E0E0E0")
-        names_frame.grid(row=4, column=0, sticky="ew", padx=10, pady=10)
-        names_frame.grid_columnconfigure(tuple(range(5)), weight=1)
-
-        name_fields = [
-            ("Recipients (comma-separated):", self.variables['recipient_emails_var']),
-            ("Prepared by (HOA Treasurer):", self.variables['prepared_by_var']),
-            ("Noted by (HOA President):", self.variables['noted_by_var_1']),
-            ("Noted by (CHUDD HCD-CORDS):", self.variables['noted_by_var_2']),
-            ("Checked by (HOA Auditor):", self.variables['checked_by_var'])
-        ]
-
-        for col, (label, var) in enumerate(name_fields):
-            frame = ctk.CTkFrame(names_frame, fg_color="transparent")
-            frame.grid(row=0, column=col, sticky="ew", padx=10, pady=10)
-            ctk.CTkLabel(
-                frame,
-                text=label,
-                font=("Roboto", base_font_size),
-                text_color="#333333"
-            ).pack(side="top", anchor="w")
-            entry = ctk.CTkEntry(
-                frame,
-                textvariable=var,
-                width=input_width,
-                font=("Roboto", base_font_size),
-                corner_radius=6,
-                fg_color="#FAFAFA",
-                text_color="#333333",
-                border_color="#B0BEC5"
-            )
-            entry.pack(side="top", fill="x", expand=True)
-
+        # --- Populate the section frames (content remains the same) ---
         self.populate_columns()
-        self.root.bind("<Configure>", self.debounce_layout)
+
+        # --- Names/Signatories Frame (Same as before, placed in row 3) ---
+        names_frame = ctk.CTkFrame(self.scrollable_frame, corner_radius=8, fg_color=self.FRAME_COLOR, border_width=1, border_color=self.BORDER_COLOR)
+        names_frame.grid(row=3, column=0, sticky="ew", padx=self.section_pad_x, pady=(self.section_pad_y, self.section_pad_y))
+        name_fields_data = [
+            ("Recipients (comma-separated):", 'recipient_emails_var', "Enter recipient emails, comma-separated"),
+            ("Prepared by (Treasurer):", 'prepared_by_var', "Name of HOA Treasurer"),
+            ("Noted by (President):", 'noted_by_var_1', "Name of HOA President"),
+            ("Noted by (CHUDD HCD-CORDS):", 'noted_by_var_2', "Name of CHUDD HCD-CORDS rep"),
+            ("Checked by (Auditor):", 'checked_by_var', "Name of HOA Auditor")
+        ]
+        num_name_fields = len(name_fields_data)
+        names_frame.grid_columnconfigure(tuple(range(num_name_fields)), weight=1, uniform="name_group")
+        for i, (label_text, var_key, tooltip_text) in enumerate(name_fields_data):
+            frame = ctk.CTkFrame(names_frame, fg_color="transparent")
+            frame.grid(row=0, column=i, sticky="nsew", padx=self.base_pad_x, pady=self.base_pad_y)
+            frame.grid_columnconfigure(0, weight=1)
+            ctk.CTkLabel(
+                frame, text=label_text, font=("Roboto", self.label_font_size),
+                text_color=self.TEXT_COLOR, anchor="w"
+            ).grid(row=0, column=0, sticky="ew", pady=(0, self.base_pad_y // 2))
+            entry = ctk.CTkEntry(
+                frame, textvariable=self.variables[var_key], font=("Roboto", self.entry_font_size),
+                corner_radius=6, fg_color=self.ENTRY_BG_COLOR, text_color=self.TEXT_COLOR,
+                border_color=self.ENTRY_BORDER_COLOR
+            )
+            entry.grid(row=1, column=0, sticky="ew")
+            self.create_tooltip(entry, tooltip_text)
+
+        # --- Resize Binding (Remains the same, calls debounce_layout) ---
+        self.main_frame.bind("<Configure>", self.debounce_layout, add="+")
+
+    # --- _create_section_frame, _create_entry_pair, populate_columns remain unchanged ---
+
+    def _create_section_frame(self, title):
+        """Helper to create a consistent section frame."""
+        # NOTE: This frame is now placed using .grid() in create_widgets, not pack()
+        frame = ctk.CTkFrame(self.columns_frame, corner_radius=8, fg_color=self.FRAME_COLOR, border_width=1, border_color=self.BORDER_COLOR)
+        # Content uses pack within this frame
+        ctk.CTkLabel(
+            frame, text=title, font=("Roboto", self.title_font_size, "bold"),
+            text_color=self.TEXT_COLOR, anchor="w"
+        ).pack(fill="x", padx=self.base_pad_x * 1.5, pady=(self.base_pad_y * 1.5, self.base_pad_y))
+        content_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        content_frame.pack(fill="both", expand=True, padx=self.base_pad_x, pady=(0, self.base_pad_y * 1.5))
+        return frame # Return the main frame for gridding
+
+    def _create_entry_pair(self, parent_frame, label_text, var, is_disabled=False, tooltip_text=None):
+        """Helper to create an adaptive label-entry pair."""
+        item_frame = ctk.CTkFrame(parent_frame, fg_color="transparent")
+        item_frame.pack(fill="x", padx=self.base_pad_x // 2, pady=self.base_pad_y // 2)
+        ctk.CTkLabel(
+            item_frame, text=label_text, font=("Roboto", self.label_font_size),
+            text_color=self.TEXT_COLOR, anchor="w"
+        ).pack(side="left", fill="x", expand=True, padx=(0, self.base_pad_x))
+        # Adaptive width calculation for the entry itself is still useful
+        input_width = min(max(self.min_input_width, int(self.screen_width * 0.07)), self.max_input_width)
+        entry = ctk.CTkEntry(
+            item_frame, textvariable=var, width=input_width,
+            font=("Roboto", self.entry_font_size), corner_radius=6,
+            fg_color=self.DISABLED_BG_COLOR if is_disabled else self.ENTRY_BG_COLOR,
+            text_color=self.TEXT_COLOR, border_color=self.ENTRY_BORDER_COLOR,
+            state="disabled" if is_disabled else "normal"
+        )
+        entry.pack(side="right")
+        if not is_disabled:
+             try:
+                 # Ensure calculator and format_entry exist before calling
+                 if hasattr(self.calculator, 'format_entry'):
+                     self.calculator.format_entry(var, entry)
+                 else:
+                     logging.warning("Calculator object missing 'format_entry' method.")
+                 tooltip = tooltip_text if tooltip_text else "Enter amount (numeric)"
+                 self.create_tooltip(entry, tooltip)
+             except Exception as e: logging.exception(f"Error applying format_entry or tooltip to {label_text}: {e}")
+        elif tooltip_text: self.create_tooltip(entry, tooltip_text)
 
     def populate_columns(self):
-        base_font_size = max(10, int(self.screen_height / 60))
-        input_width = min(max(self.min_input_width, int(self.screen_width * 0.15)), self.max_input_width)
+        """Populates the section frames with their respective entries."""
+        # Get the 'content_frame' which is the second child created by _create_section_frame
+        beg_content = self.beg_frame.winfo_children()[1]
+        beg_items = [("Cash in Bank:", 'cash_bank_beg', "Starting bank balance"), ("Cash on Hand:", 'cash_hand_beg', "Starting physical cash")]
+        for label, var_key, tooltip in beg_items: self._create_entry_pair(beg_content, label, self.variables[var_key], tooltip_text=tooltip)
 
-        beg_inner = ctk.CTkFrame(self.beg_frame, fg_color="transparent")
-        beg_inner.pack(fill="both", expand=True, padx=10, pady=10)
-        beg_items = [
-            ("Cash in Bank (beginning):", self.variables['cash_bank_beg']),
-            ("Cash on Hand (beginning):", self.variables['cash_hand_beg'])
-        ]
-        for label, var in beg_items:
-            item_frame = ctk.CTkFrame(beg_inner, fg_color="transparent")
-            item_frame.pack(fill="x", padx=5, pady=5)
-            ctk.CTkLabel(
-                item_frame,
-                text=label,
-                font=("Roboto", base_font_size),
-                text_color="#333333",
-                anchor="w"
-            ).pack(side="left", fill="x", expand=True)
-            entry = ctk.CTkEntry(
-                item_frame,
-                textvariable=var,
-                width=input_width,
-                font=("Roboto", base_font_size),
-                corner_radius=6,
-                fg_color="#FAFAFA",
-                text_color="#333333",
-                border_color="#B0BEC5"
-            )
-            entry.pack(side="right", padx=10)
-            self.calculator.format_entry(var, entry)
-
-        inflow_inner = ctk.CTkFrame(self.inflow_frame, fg_color="transparent")
-        inflow_inner.pack(fill="both", expand=True, padx=10, pady=10)
+        inflow_content = self.inflow_frame.winfo_children()[1]
         inflow_items = [
-            ("Monthly dues collected:", self.variables['monthly_dues']),
-            ("Certifications issued:", self.variables['certifications']),
-            ("Membership fee:", self.variables['membership_fee']),
-            ("Vehicle stickers:", self.variables['vehicle_stickers']),
-            ("Rentals:", self.variables['rentals']),
-            ("Solicitations/Donations:", self.variables['solicitations']),
-            ("Interest Income:", self.variables['interest_income']),
-            ("Livelihood Management Fee:", self.variables['livelihood_fee']),
-            ("Others:", self.variables['inflows_others'])
-        ]
-        for label, var in inflow_items:
-            item_frame = ctk.CTkFrame(inflow_inner, fg_color="transparent")
-            item_frame.pack(fill="x", padx=5, pady=5)
-            ctk.CTkLabel(
-                item_frame,
-                text=label,
-                font=("Roboto", base_font_size),
-                text_color="#333333",
-                anchor="w"
-            ).pack(side="left", fill="x", expand=True)
-            entry = ctk.CTkEntry(
-                item_frame,
-                textvariable=var,
-                width=input_width,
-                font=("Roboto", base_font_size),
-                corner_radius=6,
-                fg_color="#FAFAFA",
-                text_color="#333333",
-                border_color="#B0BEC5"
-            )
-            entry.pack(side="right", padx=10)
-            self.calculator.format_entry(var, entry)
+            ("Monthly dues collected:", 'monthly_dues'), ("Certifications issued:", 'certifications'),
+            ("Membership fee:", 'membership_fee'), ("Vehicle stickers:", 'vehicle_stickers'),
+            ("Rentals:", 'rentals'), ("Solicitations/Donations:", 'solicitations'),
+            ("Interest Income:", 'interest_income'), ("Livelihood Fee:", 'livelihood_fee'),
+            ("Others:", 'inflows_others', "Other income sources")]
+        for label, var_key, *tooltip in inflow_items: self._create_entry_pair(inflow_content, label, self.variables[var_key], tooltip_text=tooltip[0] if tooltip else None)
 
-        outflow_inner = ctk.CTkFrame(self.outflow_frame, fg_color="transparent")
-        outflow_inner.pack(fill="both", expand=True, padx=10, pady=10)
+        outflow_content = self.outflow_frame.winfo_children()[1]
         outflow_items = [
-            ("Snacks/Meals for visitors:", self.variables['snacks_meals']),
-            ("Transportation expenses:", self.variables['transportation']),
-            ("Office supplies expense:", self.variables['office_supplies']),
-            ("Printing and photocopy:", self.variables['printing']),
-            ("Labor:", self.variables['labor']),
-            ("Billboard expense:", self.variables['billboard']),
-            ("Clearing/cleaning charges:", self.variables['cleaning']),
-            ("Miscellaneous expenses:", self.variables['misc_expenses']),
-            ("Federation fee:", self.variables['federation_fee']),
-            ("HOA-BOD Uniforms:", self.variables['uniforms']),
-            ("BOD Mtg:", self.variables['bod_mtg']),
-            ("General Assembly:", self.variables['general_assembly']),
-            ("Cash Deposit to bank:", self.variables['cash_deposit']),
-            ("Withholding tax:", self.variables['withholding_tax']),
-            ("Refund:", self.variables['refund']),
-            ("Others:", self.variables['outflows_others'])
-        ]
-        for label, var in outflow_items:
-            item_frame = ctk.CTkFrame(outflow_inner, fg_color="transparent")
-            item_frame.pack(fill="x", padx=5, pady=5)
-            ctk.CTkLabel(
-                item_frame,
-                text=label,
-                font=("Roboto", base_font_size),
-                text_color="#333333",
-                anchor="w"
-            ).pack(side="left", fill="x", expand=True)
-            entry = ctk.CTkEntry(
-                item_frame,
-                textvariable=var,
-                width=input_width,
-                font=("Roboto", base_font_size),
-                corner_radius=6,
-                fg_color="#FAFAFA",
-                text_color="#333333",
-                border_color="#B0BEC5"
-            )
-            entry.pack(side="right", padx=10)
-            self.calculator.format_entry(var, entry)
+            ("Snacks/Meals:", 'snacks_meals'), ("Transportation:", 'transportation'),
+            ("Office supplies:", 'office_supplies'), ("Printing/Photocopy:", 'printing'),
+            ("Labor:", 'labor'), ("Billboard expense:", 'billboard'),
+            ("Cleaning charges:", 'cleaning'), ("Misc expenses:", 'misc_expenses'),
+            ("Federation fee:", 'federation_fee'), ("Uniforms:", 'uniforms'),
+            ("BOD Mtg:", 'bod_mtg', "Board meeting expenses"),
+            ("General Assembly:", 'general_assembly', "Assembly expenses"),
+            ("Cash Deposit:", 'cash_deposit', "Cash moved hand to bank"),
+            ("Withholding tax:", 'withholding_tax'), ("Refund:", 'refund'),
+            ("Others:", 'outflows_others', "Other expenses")]
+        for label, var_key, *tooltip in outflow_items: self._create_entry_pair(outflow_content, label, self.variables[var_key], tooltip_text=tooltip[0] if tooltip else None)
 
-        end_inner = ctk.CTkFrame(self.end_frame, fg_color="transparent")
-        end_inner.pack(fill="both", expand=True, padx=10, pady=10)
-        end_items = [
-            ("Cash in Bank:", self.variables['ending_cash_bank']),
-            ("Cash on Hand:", self.variables['ending_cash_hand'])
-        ]
-        for label, var in end_items:
-            item_frame = ctk.CTkFrame(end_inner, fg_color="transparent")
-            item_frame.pack(fill="x", padx=5, pady=5)
-            ctk.CTkLabel(
-                item_frame,
-                text=label,
-                font=("Roboto", base_font_size),
-                text_color="#333333",
-                anchor="w"
-            ).pack(side="left", fill="x", expand=True)
-            entry = ctk.CTkEntry(
-                item_frame,
-                textvariable=var,
-                width=input_width,
-                font=("Roboto", base_font_size),
-                state="disabled",
-                corner_radius=6,
-                fg_color="#ECEFF1",
-                text_color="#333333",
-                border_color="#B0BEC5"
-            )
-            entry.pack(side="right", padx=10)
+        end_content = self.end_frame.winfo_children()[1]
+        end_items = [("Cash in Bank:", 'ending_cash_bank', "Calculated ending bank balance"), ("Cash on Hand:", 'ending_cash_hand', "Calculated ending cash on hand")]
+        for label, var_key, tooltip in end_items: self._create_entry_pair(end_content, label, self.variables[var_key], is_disabled=True, tooltip_text=tooltip)
 
-        total_inner = ctk.CTkFrame(self.totals_frame, fg_color="transparent")
-        total_inner.pack(fill="both", expand=True, padx=10, pady=10)
-        total_items = [
-            ("Total Cash Receipts:", self.variables['total_receipts']),
-            ("Cash Outflows:", self.variables['cash_outflows']),
-            ("Ending Cash Balance:", self.variables['ending_cash'])
-        ]
-        for label, var in total_items:
-            item_frame = ctk.CTkFrame(total_inner, fg_color="transparent")
-            item_frame.pack(fill="x", padx=5, pady=5)
-            ctk.CTkLabel(
-                item_frame,
-                text=label,
-                font=("Roboto", base_font_size),
-                text_color="#333333",
-                anchor="w"
-            ).pack(side="left", fill="x", expand=True)
-            entry = ctk.CTkEntry(
-                item_frame,
-                textvariable=var,
-                width=input_width,
-                font=("Roboto", base_font_size),
-                state="disabled",
-                corner_radius=6,
-                fg_color="#ECEFF1",
-                text_color="#333333",
-                border_color="#B0BEC5"
-            )
-            entry.pack(side="right", padx=10)
+        total_content = self.totals_frame.winfo_children()[1]
+        total_items = [("Total Receipts:", 'total_receipts', "Calculated total inflows"), ("Total Outflows:", 'cash_outflows', "Calculated total outflows"), ("Ending Balance:", 'ending_cash', "Calculated total ending cash")]
+        for label, var_key, tooltip in total_items: self._create_entry_pair(total_content, label, self.variables[var_key], is_disabled=True, tooltip_text=tooltip)
+        logging.info("GUI columns populated into fixed horizontal layout.")
 
+
+    # --- debounce_layout remains the same ---
     def debounce_layout(self, event=None):
-        if self.debounce_id:
-            self.root.after_cancel(self.debounce_id)
-        self.debounce_id = self.root.after(int(self.layout_debounce_delay * 1000), self.update_layout)
+        """Debounces the layout update function call on window resize."""
+        # Only trigger if the main_frame itself resizes
+        if event and event.widget != self.main_frame:
+             # print(f"Ignoring configure event from {event.widget}") # Debugging line
+             return
+        # print(f"Debouncing layout update due to configure event on {event.widget if event else 'timer'}") # Debugging line
+        if self.debounce_id: self.root.after_cancel(self.debounce_id)
+        self.debounce_id = self.root.after(self.layout_debounce_delay_ms, self.update_layout)
 
+    # --- MODIFIED update_layout ---
     def update_layout(self):
-        window_width = self.main_frame.winfo_width()
-        window_height = self.main_frame.winfo_height()
+        """Adjusts the canvas size to fit the content width."""
+        # No longer needs to rearrange the data columns (beg, inflow, etc.)
+        # as they are fixed in the horizontal layout in create_widgets.
+        # This function now primarily ensures the canvas scrollregion is correct
+        # and the window drawn on the canvas matches the available width.
 
-        num_columns = max(1, window_width // self.min_column_width)
-        num_columns = min(num_columns, len(self.column_frames))
+        self.main_frame.update_idletasks() # Ensure dimensions are current
+        container_width = self.main_frame.winfo_width()
+        if self.scrollbar.winfo_ismapped():
+             container_width -= self.scrollbar.winfo_width()
 
-        if window_width < self.min_column_width * 1.5:
-            num_columns = 1
-
-        if self.last_num_columns == num_columns:
-            return
-
-        self.last_num_columns = num_columns
-
-        for frame in self.column_frames:
-            frame.grid_forget()
-
-        column_width = min(max(self.min_column_width, window_width // num_columns), self.max_column_width)
-
-        for i, frame in enumerate(self.column_frames):
-            row = i // num_columns
-            col = i % num_columns
-            frame.grid(row=row, column=col, sticky="nsew", padx=10, pady=10)
-            frame.configure(width=column_width)
-
-        self.columns_frame.grid_columnconfigure(tuple(range(num_columns)), weight=1, uniform="column")
-        self.columns_frame.grid_rowconfigure(tuple(range((len(self.column_frames) + num_columns - 1) // num_columns)), weight=1)
-
-        self.canvas.itemconfig(self.canvas_window, width=window_width)
+        # Only need to update the width of the window object within the canvas
+        # and the canvas scroll region.
+        self.canvas.itemconfig(self.canvas_window, width=max(container_width, self.scrollable_frame.winfo_reqwidth())) # Use requested width if larger
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        logging.debug(f"Updating canvas window width to {max(container_width, self.scrollable_frame.winfo_reqwidth())}px and scrollregion.")
+        self.debounce_id = None # Reset debounce ID
 
+
+    # --- clear_fields remains unchanged ---
     def clear_fields(self):
-        for var in self.variables.values():
-            var.set("")
-        messagebox.showinfo("Success", "All fields have been cleared")
+        """Clears all data entry fields and resets calculated fields."""
+        if not self.variables:
+            logging.error("Cannot clear fields: variables dictionary missing.")
+            messagebox.showerror("Error", "Internal error: Cannot access data fields.")
+            return
+        if not messagebox.askyesno("Confirm Clear", "Clear all input and calculated fields?"):
+            return
+        cleared_count = 0
+        for key, var in self.variables.items():
+             # Check if it's a StringVar before setting
+            if isinstance(var, ctk.StringVar):
+                var.set("")
+                cleared_count += 1
+            # else: # Optional: log unexpected types
+            #     logging.warning(f"Item '{key}' in variables is not a StringVar ({type(var)}).")
+
+        # self.date_var.set("") # Keep date or clear it? User preference. Let's keep it for now.
+        # self._update_display_date() # Update display if date was cleared
+
+        logging.info(f"Cleared {cleared_count} StringVar fields.")
+        messagebox.showinfo("Success", "All data fields have been cleared.")
+
+        # Trigger recalculation after clearing
+        try:
+            if hasattr(self.calculator, 'calculate_totals'):
+                self.calculator.calculate_totals()
+            else:
+                 logging.warning("Calculator has no 'calculate_totals' method to call after clearing.")
+        except Exception as e:
+            logging.exception("Error recalculating totals after clearing fields.")
+
+# Example Usage (requires placeholder classes/functions if run standalone)
+if __name__ == '__main__':
+
+    # --- Placeholder classes/functions for testing ---
+    class MockCalculator:
+        def format_entry(self, var, entry): pass # Does nothing
+        def calculate_totals(self): print("Mock calculate_totals called")
+
+    class MockFileHandler:
+        def load_from_documentpdf(self): messagebox.showinfo("Mock", "Load called")
+        def export_to_pdf(self): messagebox.showinfo("Mock", "Export PDF called")
+        def save_to_docx(self): messagebox.showinfo("Mock", "Save Word called")
+
+    class MockEmailSender:
+        def send_email(self): messagebox.showinfo("Mock", "Send Email called")
+    # --- End Placeholders ---
+
+    root = ctk.CTk()
+    root.title("HOA Cash Flow (Fixed Horizontal Layout)")
+    root.geometry("1200x750") # Start with a reasonably wide size
+
+    # Initialize necessary variables
+    variables = {} # Let _initialize_missing_variables handle creation
+    title_var = ctk.StringVar(value="HOA Cash Flow Statement")
+    date_var = ctk.StringVar(value=datetime.date.today().strftime("%m/%d/%Y")) # Default to today
+    display_date = ctk.StringVar()
+
+    # Create mock instances
+    calculator = MockCalculator()
+    file_handler = MockFileHandler()
+    email_sender = MockEmailSender()
+
+    # Create the GUI
+    gui = GUIComponents(root, variables, title_var, date_var, display_date, calculator, file_handler, email_sender)
+
+    root.mainloop()
