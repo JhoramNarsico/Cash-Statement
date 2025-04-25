@@ -87,7 +87,7 @@ The application uses Gmail (smtp.gmail.com) to send emails.
 
 1.  **Run the Application:** Open your terminal or command prompt, navigate to the project directory, and run:
     ```bash
-    python cash_flow_app.py
+    main.py
     ```
 
 2.  **Select Date:** Click the "Select Date" button at the top right to choose the reporting period end date.
