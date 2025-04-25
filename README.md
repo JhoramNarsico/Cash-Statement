@@ -1,7 +1,138 @@
-install first before running main.py:
+# HOA Cash Flow Statement Generator
 
-pip install customtkinter tkcalendar pdfplumber python-docx reportlab pyinstaller
+A desktop application built with Python and CustomTkinter to help Homeowners Associations (HOAs) generate standardized cash flow statements. It allows for data entry, calculation, loading data from existing documents (DOCX/PDF), exporting to PDF and DOCX formats, and emailing the generated reports.
 
-installer:
+![Screenshot Placeholder](docs/screenshot.png)
+*(Replace `docs/screenshot.png` with the actual path to a screenshot of your application)*
 
-pyinstaller --noconsole --add-data "logo.png;." main.py
+## Features
+
+*   **Graphical User Interface:** Easy-to-use interface built with CustomTkinter for a modern look and feel.
+*   **Data Entry:** Input fields for beginning balances, cash inflows, and cash outflows specific to HOA activities.
+*   **Automatic Calculations:** Automatically calculates total receipts, total outflows, and ending cash balances (including breakdown).
+*   **Data Formatting:** Input fields automatically format numbers with commas and two decimal places.
+*   **Date Selection:** Includes a calendar popup (using `tkcalendar`) for easy date selection.
+*   **Load from Document:** Import data from previously generated DOCX or PDF statements (attempts to parse based on expected labels).
+*   **Export Reports:**
+    *   Export the cash flow statement to a professionally formatted PDF file (Folio size: 8.5" x 13").
+    *   Save the cash flow statement as a Microsoft Word document (DOCX) with similar formatting.
+*   **Email Functionality:** Send the generated PDF and DOCX files as email attachments directly from the application using a Gmail account.
+*   **Tooltips:** Helpful hints appear when hovering over buttons and input fields.
+*   **Keyboard Shortcuts:** Common actions like Load, Export, Save, and Email have keyboard shortcuts.
+*   **Clear Fields:** Option to easily clear all input data.
+
+## Requirements
+
+*   **Python:** 3.7 or higher recommended.
+*   **Python Libraries:**
+    *   `customtkinter`
+    *   `tkcalendar` (Optional, but required for the calendar popup feature)
+    *   `pdfplumber` (For reading data from PDF files)
+    *   `python-docx` (For reading/writing DOCX files)
+    *   `reportlab` (For generating PDF files)
+
+## Installation
+
+1.  **Clone or Download:** Get the project files onto your local machine.
+    ```bash
+    git clone <your-repository-url> # If using Git
+    cd <repository-directory>
+    ```
+    Or download the ZIP file and extract it.
+
+2.  **Create Virtual Environment (Recommended):**
+    ```bash
+    python -m venv venv
+    ```
+    *   On Windows: `.\venv\Scripts\activate`
+    *   On macOS/Linux: `source venv/bin/activate`
+
+3.  **Install Dependencies:** Create a `requirements.txt` file with the following content:
+    ```plaintext
+    # requirements.txt
+    customtkinter
+    tkcalendar
+    pdfplumber
+    python-docx
+    reportlab
+    ```
+    Then run:
+    ```bash
+    pip install -r requirements.txt
+    ```
+    *If you don't need the calendar popup, you can omit `tkcalendar` from `requirements.txt` and installation.*
+
+## Configuration (Email)
+
+The application uses Gmail (smtp.gmail.com) to send emails.
+
+1.  **Gmail Account:** You need a Gmail account to use as the sender.
+2.  **App Password:** **IMPORTANT:** For security reasons, Gmail requires you to use an "App Password" instead of your regular account password when logging in from applications like this.
+    *   You need 2-Step Verification enabled on your Google Account.
+    *   Go to your Google Account settings -> Security -> App passwords.
+    *   Generate a new App Password (select "Mail" and "Other (Custom name)" - e.g., "HOA Cash Flow App").
+    *   Google will provide a 16-character password. **Copy this password immediately** (you won't see it again).
+3.  **Update Credentials in Code:**
+    *   Open the `cash_flow_app.py` file (or potentially `email_sender.py` if refactored).
+    *   Locate the `EmailSender` initialization section (around line 610 in `cash_flow_app.py` based on the provided code).
+    *   **Replace the placeholder email and password:**
+        ```python
+        # WARNING: Hardcoded credentials - replace in production!
+        sender_email = "your_sender_email@gmail.com" # <<< REPLACE THIS
+        sender_app_password = "your_16_character_app_password" # <<< REPLACE THIS
+        self.email_sender = EmailSender(...)
+        ```
+    *   **Security Note:** Hardcoding credentials directly in the code is **not recommended** for security. Consider using environment variables or a configuration file in a real-world scenario.
+
+## Usage
+
+1.  **Run the Application:**
+    ```bash
+    python cash_flow_app.py
+    ```
+    *(Make sure your virtual environment is activated if you created one)*
+
+2.  **Select Date:** Click the "Select Date" button at the top right to choose the reporting period end date.
+3.  **Enter Data:** Fill in the beginning balances, cash inflow amounts, and cash outflow amounts in the respective sections. Amounts will be formatted automatically.
+4.  **Names & Recipients:** Enter the recipient email addresses (comma-separated) and the names for "Prepared by", "Noted by" (x2), and "Checked by".
+5.  **Load Data (Optional):** Click "Load Doc" to select a previously saved DOCX or PDF statement. The application will attempt to parse and fill the fields. *Note: Parsing depends heavily on the document's structure matching the expected format.*
+6.  **Review Calculations:** The "Ending Balances" and "Totals" sections update automatically as you enter data.
+7.  **Export/Save:**
+    *   Click "Export PDF" to save the statement as a PDF file.
+    *   Click "Save Word" to save the statement as a DOCX file.
+8.  **Email:** Click "Email Report" to send the generated PDF and DOCX files to the specified recipients using the configured Gmail account.
+9.  **Clear:** Click "Clear Fields" to reset all input fields and names (confirmation required).
+
+## File Formats
+
+*   **Input:** The "Load Doc" feature expects DOCX or PDF files that generally follow the label structure used within the application. Parsing accuracy may vary based on the source document's formatting.
+*   **Output:**
+    *   PDF: Formatted for Folio paper size (8.5" x 13").
+    *   DOCX: Formatted Word document, also set up for Folio size.
+
+## Keyboard Shortcuts
+
+*   `Ctrl + L`: Load Document (PDF/DOCX)
+*   `Ctrl + E`: Export to PDF
+*   `Ctrl + W` / `Ctrl + S`: Save to Word (DOCX)
+*   `Ctrl + G`: Send Email
+*   `Ctrl + Q`: Quit Application
+
+## Known Issues / Limitations
+
+*   **Email Credentials:** Currently hardcoded in the source file (`cash_flow_app.py`). This is insecure. Use environment variables or a config file for better security.
+*   **Document Parsing:** Loading data from DOCX/PDF is sensitive to the structure and exact labeling within the source documents. It might not work perfectly for all files.
+*   **Ending Balance Calculation:** The breakdown of ending cash between "Bank" and "Hand" is based on a simplified calculation within the provided code. It might need adjustment based on specific HOA accounting practices.
+*   **tkcalendar Dependency:** The calendar popup requires the `tkcalendar` library. If not installed, this feature will be unavailable, and an error message will appear upon clicking the date button.
+
+## Future Improvements
+
+*   Implement secure credential management (environment variables, config file, or secure storage).
+*   Improve robustness of DOCX/PDF parsing.
+*   Allow customization of report templates/layout.
+*   Add functionality to save/load the application's current state (all field values).
+*   Implement unit tests.
+
+## License
+
+*(Specify your license here, e.g., MIT License, or state if it's proprietary)*
