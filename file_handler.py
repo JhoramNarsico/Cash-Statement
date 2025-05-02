@@ -10,6 +10,7 @@ from tkinter import filedialog, messagebox
 
 # PDF Imports
 import pdfplumber
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer, Image # Added Image
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
@@ -22,6 +23,13 @@ from docx.enum.text import WD_LINE_SPACING
 from docx.enum.section import WD_SECTION
 from docx.shared import Inches, Pt
 from docx.oxml.ns import qn # Import qn for column settings
+from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT  # Add import at the top of the file
+from docx import Document
+from docx.shared import Inches, Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_TABLE_ALIGNMENT, WD_CELL_VERTICAL_ALIGNMENT
+from docx.oxml.ns import qn  # For column settings
 
 # Configure logging if not already done elsewhere
 # logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -286,6 +294,327 @@ class FileHandler:
             messagebox.showerror("Error", f"Error loading PDF:\n{str(e)}")
             return False
 
+    # --- MODIFIED save_to_docx ---
+    def save_to_docx(self):
+        """Save data to a Word document with logo, address, and two Noted by fields in the footer."""
+        try:
+            def format_amount(value): # Inner function for formatting
+                if value:
+                    try:
+                        str_value = str(value).replace(',', '')
+                        if not str_value: return ""
+                        amount = Decimal(str_value)
+                        return f"{amount:,.2f}"
+                    except Exception as e:
+                        logging.warning(f"Could not format amount '{value}' for Word: {e}")
+                        return str(value)
+                return ""
+
+            default_filename = f"cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".docx",
+                filetypes=[("Word documents", "*.docx")],
+                initialfile=default_filename,
+                title="Save Word Document As"
+            )
+            if not filename:
+                return None
+
+            doc = Document()
+
+            # --- Page Setup (Folio 8.5 x 13) ---
+            section = doc.sections[0]
+            section.page_width = Inches(8.5)
+            section.page_height = Inches(13)
+            section.top_margin = Inches(0.5)
+            section.bottom_margin = Inches(0.7) # Slightly more space for footer if needed
+            section.left_margin = Inches(0.5)
+            section.right_margin = Inches(0.5)
+
+            # --- Header Section ---
+            header = section.header
+            header.is_linked_to_previous = False  # Ensure header is unique to this section
+# Clear existing default paragraph in header
+            if header.paragraphs:
+                ht = header.paragraphs[0]._element
+                ht.getparent().remove(ht)
+
+# Get logo path and address
+            logo_path = self.logo_path_var.get()
+            address_text = self.address_var.get() or " "
+
+# Create a 1x2 table in the header
+            header_table = header.add_table(rows=1, cols=2, width=Inches(6.08))  # Width = Page Width - Margins
+            header_table.autofit = False
+            header_table.allow_autofit = False
+            header_table.alignment = WD_TABLE_ALIGNMENT.LEFT
+
+# Set column widths
+            header_table.columns[0].width = Inches(1.58)  # Width for logo
+            header_table.columns[1].width = Inches(4.5)   # Width for text
+
+# Set cell widths explicitly
+            logo_cell = header_table.cell(0, 0)
+            text_cell = header_table.cell(0, 1)
+            logo_cell.width = Inches(1.58)
+            text_cell.width = Inches(4.5)
+
+# Set vertical alignment
+            logo_cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+            text_cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+
+# Left Cell (Logo)
+# Remove default paragraph in cell
+            if logo_cell.paragraphs:
+                p = logo_cell.paragraphs[0]._element
+                p.getparent().remove(p)
+# Add logo if path exists
+            logo_para = logo_cell.add_paragraph()
+            logo_para.alignment = 1  # Center logo in its cell
+            if logo_path and os.path.exists(logo_path):
+                try:
+                    logo_run = logo_para.add_run()
+                    # Scale logo to fit within 1.58-inch column, preserving aspect ratio
+                    logo_run.add_picture(logo_path, width=Inches(1.18))  # Slightly less than column width
+                    logging.info(f"Included logo in Word header: {logo_path}, scaled to width 1.5 inches")
+                except Exception as e:
+                    logging.warning(f"Could not add logo picture to Word: {e}")
+                    logo_para.add_run("[Logo Error]").italic = True
+            elif logo_path:
+                logging.warning(f"Logo path specified but not found for Word: {logo_path}")
+                logo_para.add_run("[Logo N/A]").italic = True
+# Else: leave the cell empty
+
+# Right Cell (Text)
+# Remove default paragraph
+            if text_cell.paragraphs:
+                p = text_cell.paragraphs[0]._element
+                p.getparent().remove(p)
+
+# Add Header Text Lines
+            p = text_cell.add_paragraph()
+            run = p.add_run(address_text)  # Add address
+            run.font.name = 'Helvetica'
+            run.font.size = Pt(10)
+            p.alignment = 1  # Center
+  # Small spacer
+            p.add_run("\n")
+            run = p.add_run("\nCASH FLOW STATEMENT")
+            run.font.name = 'Helvetica'
+            run.bold = True
+            run.font.size = Pt(12)
+            p.alignment = 1  # Center
+
+            p = text_cell.add_paragraph()
+            run = p.add_run(f"For the Month of {self.format_date_for_display(self.date_var.get())}")
+            run.font.name = 'Helvetica'
+            run.font.size = Pt(8)
+            p.alignment = 1  # Center
+
+            # --- Body Content (Tables) ---
+            # Helper to set cell font and alignment
+            def set_cell_style(cell, text, size=8, bold=False, align='left', font='Helvetica'):
+                para = cell.paragraphs[0]
+                # Clear existing runs if needed, or just set text on the first paragraph
+                if not para.runs:
+                    para.add_run(text)
+                else:
+                    para.text = text # Overwrite if text exists
+
+                # Ensure there's at least one run after setting text
+                if not para.runs:
+                     para.add_run(text) # Add run again if setting para.text cleared it
+
+                run = para.runs[0]
+                run.font.name = font
+                run.font.size = Pt(size)
+                run.bold = bold
+                # Alignment: 0=left, 1=center, 2=right
+                if align == 'right': para.alignment = 2
+                elif align == 'center': para.alignment = 1
+                else: para.alignment = 0
+                # Optional: Adjust cell margins?
+                # cell.margin_left = Inches(0.05)
+                # cell.margin_right = Inches(0.05)
+
+
+            # Add a spacer paragraph after header content (in main body)
+
+            # Beginning Cash Balances
+            p = doc.add_paragraph()
+            run = p.add_run("Beginning Cash Balances")
+            run.font.name = 'Helvetica'
+            run.bold = True
+            run.font.size = Pt(10)
+            table = doc.add_table(rows=2, cols=2)
+            table.style = 'Table Grid'
+            table.autofit = False # Use manual widths
+            table.columns[0].width = Inches(6.0) # Adjust widths based on 7.5" content area
+            table.columns[1].width = Inches(1.5)
+            set_cell_style(table.cell(0, 0), "Cash in Bank-beg")
+            set_cell_style(table.cell(0, 1), format_amount(self.variables['cash_bank_beg'].get()), align='right')
+            set_cell_style(table.cell(1, 0), "Cash on Hand-beg")
+            set_cell_style(table.cell(1, 1), format_amount(self.variables['cash_hand_beg'].get()), align='right')
+            
+
+            # Cash Inflows
+            p = doc.add_paragraph()
+            run = p.add_run("\nCash Inflows")
+            run.font.name = 'Helvetica'
+            run.bold = True
+            run.font.size = Pt(10)
+            inflow_items = [
+                ("Monthly Dues Collected", self.variables['monthly_dues']),
+                ("Certifications Issued", self.variables['certifications']),
+                ("Membership Fee", self.variables['membership_fee']),
+                ("Vehicle Stickers", self.variables['vehicle_stickers']),
+                ("Rentals", self.variables['rentals']),
+                ("Solicitations/Donations", self.variables['solicitations']),
+                ("Interest Income on Bank Deposits", self.variables['interest_income']),
+                ("Livelihood Management Fee", self.variables['livelihood_fee']),
+                ("Others (Inflow)", self.variables['inflows_others']),
+                ("Total Cash Receipts", self.variables['total_receipts'])
+            ]
+            table = doc.add_table(rows=len(inflow_items), cols=2)
+            table.style = 'Table Grid'
+            table.autofit = False
+            table.columns[0].width = Inches(6.0)
+            table.columns[1].width = Inches(1.5)
+            for i, (label, var) in enumerate(inflow_items):
+                 is_total = (i == len(inflow_items) - 1)
+                 set_cell_style(table.cell(i, 0), label, bold=is_total)
+                 set_cell_style(table.cell(i, 1), format_amount(var.get()), align='right', bold=is_total)
+            
+
+            # Cash Outflows
+            p = doc.add_paragraph()
+            run = p.add_run("\nLess: Cash Outflows")
+            run.font.name = 'Helvetica'
+            run.bold = True
+            run.font.size = Pt(10)
+            outflow_items = [
+                ("Snacks/Meals for Visitors", self.variables['snacks_meals']),
+                ("Transportation Expenses", self.variables['transportation']),
+                ("Office Supplies Expense", self.variables['office_supplies']),
+                ("Printing and Photocopy", self.variables['printing']),
+                ("Labor", self.variables['labor']),
+                ("Billboard Expense", self.variables['billboard']),
+                ("Clearing/Cleaning Charges", self.variables['cleaning']),
+                ("Miscellaneous Expenses", self.variables['misc_expenses']),
+                ("Federation Fee", self.variables['federation_fee']),
+                ("HOA-BOD Uniforms", self.variables['uniforms']),
+                ("BOD Meeting", self.variables['bod_mtg']),
+                ("General Assembly", self.variables['general_assembly']),
+                ("Cash Deposit to Bank", self.variables['cash_deposit']),
+                ("Withholding Tax on Bank Deposit", self.variables['withholding_tax']),
+                ("Refund", self.variables['refund']),
+                ("Others (Outflow)", self.variables['outflows_others']),
+                ("Cash Outflows/Disbursements", self.variables['cash_outflows'])
+            ]
+            table = doc.add_table(rows=len(outflow_items), cols=2)
+            table.style = 'Table Grid'
+            table.autofit = False
+            table.columns[0].width = Inches(6.0)
+            table.columns[1].width = Inches(1.5)
+            for i, (label, var) in enumerate(outflow_items):
+                 is_total = (i == len(outflow_items) - 1)
+                 set_cell_style(table.cell(i, 0), label, bold=is_total)
+                 set_cell_style(table.cell(i, 1), format_amount(var.get()), align='right', bold=is_total)
+
+            # Ending Cash Balance
+            p = doc.add_paragraph()
+            run = p.add_run("\nEnding Cash Balance")
+            run.font.name = 'Helvetica'
+            run.bold = True
+            run.font.size = Pt(10)
+            table = doc.add_table(rows=1, cols=2)
+            table.style = 'Table Grid'
+            table.autofit = False
+            table.columns[0].width = Inches(6.0)
+            table.columns[1].width = Inches(1.5)
+            set_cell_style(table.cell(0, 0), "Ending Cash Balance", bold=True)
+            set_cell_style(table.cell(0, 1), format_amount(self.variables['ending_cash'].get()), align='right', bold=True)
+
+            # Breakdown of Cash
+            p = doc.add_paragraph()
+            run = p.add_run("\nBreakdown of Cash")
+            run.font.name = 'Helvetica'
+            run.bold = True
+            run.font.size = Pt(10)
+            table = doc.add_table(rows=2, cols=2)
+            table.style = 'Table Grid'
+            table.autofit = False
+            table.columns[0].width = Inches(6.0)
+            table.columns[1].width = Inches(1.5)
+            set_cell_style(table.cell(0, 0), "Cash in Bank")
+            set_cell_style(table.cell(0, 1), format_amount(self.variables['ending_cash_bank'].get()), align='right')
+            set_cell_style(table.cell(1, 0), "Cash on Hand")
+            set_cell_style(table.cell(1, 1), format_amount(self.variables['ending_cash_hand'].get()), align='right')
+            doc.add_paragraph() # Spacer before footer section
+
+            # --- Footer / Signatories ---
+             # --- Footer / Signatories ---
+            # (Using section breaks and column changes as before)
+            prepared_name = self.prepared_by_var.get() or "_______________________"
+            noted_name_1 = self.noted_by_var_1.get() or "_______________________"
+            noted_name_2 = self.noted_by_var_2.get() or "_______________________"
+            checked_name = self.checked_by_var.get() or "_______________________"
+
+            # Helper for signatory paragraph
+            def add_signatory_para(text, size=8, alignment=1, space_after=2):
+                p = doc.add_paragraph()
+                run = p.add_run(text)
+                run.font.name = 'Helvetica'
+                run.font.size = Pt(size)
+                p.alignment = alignment
+                p.paragraph_format.space_after = Pt(space_after) # Add small space after
+
+            footertable1 = doc.add_table(rows=3, cols=2)
+            footertable1.autofit = False # Use manual widths
+            set_cell_style(footertable1.cell(0, 0), "Prepared by:", align = 'center')
+            set_cell_style(footertable1.cell(0, 1), "Checked by:", align = 'center')
+            set_cell_style(footertable1.cell(1, 0), prepared_name, align = 'center')
+            set_cell_style(footertable1.cell(1, 1), checked_name, align= 'center')
+            set_cell_style(footertable1.cell(2, 0), "HOA Treasurer", align = 'center')
+            set_cell_style(footertable1.cell(2, 1), "HOA Auditor", align= 'center')
+
+            # Switch back to single column for "Noted by:" title
+            doc.add_section(WD_SECTION.CONTINUOUS)
+            noted_section = doc.sections[-1]
+            sectPr = noted_section._sectPr
+            cols = sectPr.xpath("./w:cols")[0]
+            cols.set(qn("w:num"), "1")
+            # Adjust margins/spacing for this single-column section if needed
+            # noted_section.top_margin = Inches(0.1) # Example: reduce top margin
+            # noted_section.bottom_margin = Inches(0.1)
+
+            # Add "Noted by:" title centrally
+            p7 = doc.add_paragraph()
+            p7.add_run("Noted by:")
+            p7.alignment = 1 # Center
+            p7.runs[0].font.name = 'Helvetica'
+            p7.runs[0].font.size = Pt(8)
+            p7.paragraph_format.space_before = Pt(10) # Add space before
+            p7.paragraph_format.space_after = Pt(5)   # Add space after
+
+            # Noted by - HOA President (left column)
+            footertable = doc.add_table(rows=2, cols=2)
+            footertable.autofit = False # Use manual widths
+            set_cell_style(footertable.cell(0, 0), noted_name_1, align = 'center')
+            set_cell_style(footertable.cell(0, 1), noted_name_2, align = 'center')
+            set_cell_style(footertable.cell(1, 0), "HOA President", align = 'center')
+            set_cell_style(footertable.cell(1, 1), "CHUDD HCD-CORDS", align= 'center')
+
+            # --- Save Document ---
+            doc.save(filename)
+            logging.info(f"Word document successfully saved to {filename}")
+            messagebox.showinfo("Success", f"Word document saved to {filename}")
+            return filename
+        except Exception as e:
+            logging.exception("Error saving to Word") # Log full traceback
+            messagebox.showerror("Error", f"Error saving to Word: {str(e)}\n\nMake sure you have python-docx installed.")
+            return None
+
     # --- MODIFIED export_to_pdf ---
     def export_to_pdf(self):
         """Export data to a single-page PDF matching the Word document format, including logo and address."""
@@ -335,44 +664,13 @@ class FileHandler:
             header_style.fontName = 'Helvetica'
 
             # Title Style (CASH FLOW STATEMENT)
-            title_style = styles['Normal']
-            title_style.alignment = 1
-            title_style.fontSize = 12
-            title_style.leading = 14
-            title_style.fontName = 'Helvetica-Bold'
-
-            # Date Style
-            date_style = styles['Normal']
-            date_style.alignment = 1
-            date_style.fontSize = 8
-            date_style.leading = 10
-            date_style.fontName = 'Helvetica'
-
-            # Table Body Text Style
-            table_style = styles['Normal']
-            table_style.fontSize = 8
-            table_style.leading = 10
-            table_style.fontName = 'Helvetica'
-
-            # Table Bold Text Style
-            table_bold_style = styles['Normal']
-            table_bold_style.fontSize = 8
-            table_bold_style.leading = 10
-            table_bold_style.fontName = 'Helvetica-Bold'
-
-            # Footer Text Style
-            footer_style = styles['Normal']
-            footer_style.fontSize = 8
-            footer_style.leading = 10
-            footer_style.fontName = 'Helvetica'
-            footer_style.alignment = 1 # Center for names/titles
-
-            # Noted By Title Style
-            noted_style = styles['Normal']
-            noted_style.fontSize = 8
-            noted_style.leading = 12 # Adjust spacing if needed
-            noted_style.fontName = 'Helvetica'
-            noted_style.alignment = 1 # Center
+            addressStyle = ParagraphStyle(name = ' normal', fontName = 'Helvetica', fontSize = 10, leading = 14, alignment =1)
+            titleStyle = ParagraphStyle(name = ' normal', fontName = 'Helvetica-Bold', fontSize = 12, leading = 14, alignment =1)
+            dateStyle = ParagraphStyle(name = ' normal', fontName = 'Helvetica', fontSize = 8, leading = 10, alignment =1, spaceBefore=6)  
+            tablestyle = ParagraphStyle(name = ' normal', fontName = 'Helvetica', fontSize = 8, leading = 10)
+            tableboldStyle = ParagraphStyle(name = ' normal', fontName = 'Helvetica-Bold', fontSize = 10, leading = 10, spaceAfter=10, spaceBefore=4)
+            footerStyle = ParagraphStyle(name = ' normal', fontName = 'Helvetica', fontSize = 8, leading = 10, alignment =1)
+            notedStyle = ParagraphStyle(name = ' normal', fontName = 'Helvetica', fontSize = 8, leading = 12, alignment =1)
 
             # --- Header with Logo and Address ---
             logo_path = self.logo_path_var.get()
@@ -386,8 +684,8 @@ class FileHandler:
                     # --- OPTIMIZED LOGO SIZE ---
                     # Set target 2x2 inch size. ReportLab will scale proportionally
                     # to fit *within* this box, preserving aspect ratio. It won't distort.
-                    target_w = 2.0 * inch
-                    target_h = 2.0 * inch
+                    target_w = 1.18 * inch
+                    target_h = 1.18 * inch
                     logo_img = Image(logo_path, width=target_w, height=target_h)
                     logo_img.hAlign = 'CENTER' # Align within its cell
                     logo_img.vAlign = 'MIDDLE'
@@ -406,33 +704,33 @@ class FileHandler:
                 logo_cell_content = Paragraph(logo_placeholder_text, styles['Italic'])
             else:
                 logo_cell_content = logo_img
-
+    
             # Assemble header text elements (HOA Name removed)
             header_text_elements = [
                 # Paragraph(hoa_name, header_style), # ** REMOVED **
-                Paragraph(address_text, header_style), # Add the address
-                Spacer(1, 4), # Small space
-                Paragraph("CASH FLOW STATEMENT", title_style),
-                Paragraph(f"For the Month of {self.format_date_for_display(self.date_var.get())}", date_style)
+                Paragraph(address_text, addressStyle), # Add the address
+                Spacer(1, 12), # Small space
+                Paragraph("CASH FLOW STATEMENT", titleStyle),
+                Paragraph(f"For the Month of {self.format_date_for_display(self.date_var.get())}", dateStyle)
             ]
 
             # Use a table for layout: Logo | Text
             # Calculate available width for text column
             page_width = folio_size[0] - doc.leftMargin - doc.rightMargin
             # --- OPTIMIZED COLUMN WIDTHS ---
-            logo_col_width = 2.0 * inch # Assign 2 inches for logo column
-            text_col_width = page_width - logo_col_width # Remaining width for text
+            logo_col_width = 1.58 * inch # Assign 2 inches for logo column
+            text_col_width = 4.5 * inch # Remaining width for text
 
             header_table_data = [[logo_cell_content, header_text_elements]]
-            header_table = Table(header_table_data, colWidths=[logo_col_width, text_col_width])
+            header_table = Table(header_table_data, colWidths=[logo_col_width, text_col_width], hAlign = 'LEFT', vAlign = 'LEFT')
             header_table.setStyle(TableStyle([
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'), # Align content to top
-                ('LEFTPADDING', (0, 0), (-1,-1), 0),
-                ('RIGHTPADDING', (0, 0), (-1,-1), 0),
-                ('BOTTOMPADDING', (0, 0), (-1,-1), 0),
-                ('TOPPADDING', (0, 0), (-1,-1), 0),
-                # Optional: add border for debugging layout
-                # ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0)
+                #('GRID', (0, 0), (-1, -1), 0.5, colors.grey),  # Add border
             ]))
 
             elements.append(header_table)
@@ -445,7 +743,7 @@ class FileHandler:
             data_value_width = page_width * 0.35 # Approx 35% for amount
 
             # Beginning Cash Balances
-            elements.append(Paragraph("Beginning Cash Balances", table_bold_style)) # Use bold style for section titles
+            elements.append(Paragraph("Beginning Cash Balances", tableboldStyle)) # Use bold style for section titles
             beg_data = [
                 ["Cash in Bank-beg", format_amount(self.variables['cash_bank_beg'].get())],
                 ["Cash on Hand-beg", format_amount(self.variables['cash_hand_beg'].get())]
@@ -464,7 +762,7 @@ class FileHandler:
             elements.append(Spacer(1, 6))
 
             # Cash Inflows
-            elements.append(Paragraph("Cash Inflows", table_bold_style))
+            elements.append(Paragraph("Cash Inflows", tableboldStyle))
             inflows_data = [
                 ["Monthly Dues Collected", format_amount(self.variables['monthly_dues'].get())],
                 ["Certifications Issued", format_amount(self.variables['certifications'].get())],
@@ -475,7 +773,7 @@ class FileHandler:
                 ["Interest Income on Bank Deposits", format_amount(self.variables['interest_income'].get())],
                 ["Livelihood Management Fee", format_amount(self.variables['livelihood_fee'].get())],
                 ["Others (Inflow)", format_amount(self.variables['inflows_others'].get())],
-                [Paragraph("Total Cash Receipts", table_bold_style), Paragraph(format_amount(self.variables['total_receipts'].get()), table_bold_style)] # Bold total row
+                ["Total Cash Receipts", format_amount(self.variables['total_receipts'].get())] # Bold total row
             ]
             inflows_table = Table(inflows_data, colWidths=[data_label_width, data_value_width], rowHeights=[14]*len(inflows_data))
             inflows_table.setStyle(TableStyle([
@@ -491,7 +789,7 @@ class FileHandler:
             elements.append(Spacer(1, 6))
 
             # Cash Outflows
-            elements.append(Paragraph("Less: Cash Outflows", table_bold_style))
+            elements.append(Paragraph("Less: Cash Outflows", tableboldStyle))
             outflows_data = [
                 ["Snacks/Meals for Visitors", format_amount(self.variables['snacks_meals'].get())],
                 ["Transportation Expenses", format_amount(self.variables['transportation'].get())],
@@ -509,7 +807,7 @@ class FileHandler:
                 ["Withholding Tax on Bank Deposit", format_amount(self.variables['withholding_tax'].get())],
                 ["Refund", format_amount(self.variables['refund'].get())],
                 ["Others (Outflow)", format_amount(self.variables['outflows_others'].get())],
-                 [Paragraph("Cash Outflows/Disbursements", table_bold_style), Paragraph(format_amount(self.variables['cash_outflows'].get()), table_bold_style)] # Bold total row
+                ["Cash Outflows/Disbursements", format_amount(self.variables['cash_outflows'].get())] # Bold total row
             ]
             outflows_table = Table(outflows_data, colWidths=[data_label_width, data_value_width], rowHeights=[14]*len(outflows_data))
             outflows_table.setStyle(TableStyle([
@@ -525,9 +823,9 @@ class FileHandler:
             elements.append(Spacer(1, 6))
 
             # Ending Cash Balance
-            elements.append(Paragraph("Ending Cash Balance", table_bold_style))
+            elements.append(Paragraph("Ending Cash Balance", tableboldStyle))
             ending_data = [
-                 [Paragraph("Ending Cash Balance", table_bold_style), Paragraph(format_amount(self.variables['ending_cash'].get()), table_bold_style)]
+                 [Paragraph("Ending Cash Balance", tablestyle), Paragraph(format_amount(self.variables['ending_cash'].get()), tableboldStyle)]
             ]
             ending_table = Table(ending_data, colWidths=[data_label_width, data_value_width], rowHeights=[14])
             ending_table.setStyle(TableStyle([
@@ -543,7 +841,7 @@ class FileHandler:
             elements.append(Spacer(1, 6))
 
             # Breakdown of Cash
-            elements.append(Paragraph("Breakdown of Cash", table_bold_style))
+            elements.append(Paragraph("Breakdown of Cash", tableboldStyle))
             breakdown_data = [
                 ["Cash in Bank", format_amount(self.variables['ending_cash_bank'].get())],
                 ["Cash on Hand", format_amount(self.variables['ending_cash_hand'].get())]
@@ -573,8 +871,8 @@ class FileHandler:
 
             # Prepared by / Checked by row
             prep_check_data = [
-                [Paragraph(f"Prepared by:<br/>{prepared_name}<br/>HOA Treasurer", footer_style)],
-                [Paragraph(f"Checked by:<br/>{checked_name}<br/>HOA Auditor", footer_style)]
+                [Paragraph(f"Prepared by:<br/>{prepared_name}<br/>HOA Treasurer", footerStyle)],
+                [Paragraph(f"Checked by:<br/>{checked_name}<br/>HOA Auditor", footerStyle)]
             ]
             prep_check_table = Table([prep_check_data[0] + prep_check_data[1]], colWidths=[col_width, col_width]) # Combine into one row
             prep_check_table.setStyle(TableStyle([
@@ -587,13 +885,13 @@ class FileHandler:
             elements.append(Spacer(1, 12))
 
             # Noted by Title
-            elements.append(Paragraph("Noted by:", noted_style))
+            elements.append(Paragraph("Noted by:", notedStyle))
             elements.append(Spacer(1, 6))
 
             # Noted by Names row
             noted_data = [
-                 [Paragraph(f"{noted_name_1}<br/>HOA President", footer_style)],
-                 [Paragraph(f"{noted_name_2}<br/>CHUDD HCD-CORDS", footer_style)]
+                 [Paragraph(f"{noted_name_1}<br/>HOA President", footerStyle)],
+                 [Paragraph(f"{noted_name_2}<br/>CHUDD HCD-CORDS", footerStyle)]
             ]
             noted_table = Table([noted_data[0] + noted_data[1]], colWidths=[col_width, col_width])
             noted_table.setStyle(TableStyle([
@@ -614,349 +912,8 @@ class FileHandler:
             logging.exception("Error exporting to PDF") # Log full traceback
             messagebox.showerror("Error", f"Error exporting to PDF: {str(e)}\n\nMake sure you have ReportLab installed.")
             return None
-
-    # --- MODIFIED save_to_docx ---
-    def save_to_docx(self):
-        """Save data to a Word document with logo, address, and two Noted by fields in the footer."""
-        try:
-            def format_amount(value): # Inner function for formatting
-                if value:
-                    try:
-                        str_value = str(value).replace(',', '')
-                        if not str_value: return ""
-                        amount = Decimal(str_value)
-                        return f"{amount:,.2f}"
-                    except Exception as e:
-                        logging.warning(f"Could not format amount '{value}' for Word: {e}")
-                        return str(value)
-                return ""
-
-            default_filename = f"cash_flow_statement_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
-            filename = filedialog.asksaveasfilename(
-                defaultextension=".docx",
-                filetypes=[("Word documents", "*.docx")],
-                initialfile=default_filename,
-                title="Save Word Document As"
-            )
-            if not filename:
-                return None
-
-            doc = Document()
-
-            # --- Page Setup (Folio 8.5 x 13) ---
-            section = doc.sections[0]
-            section.page_width = Inches(8.5)
-            section.page_height = Inches(13)
-            section.top_margin = Inches(0.5)
-            section.bottom_margin = Inches(0.7) # Slightly more space for footer if needed
-            section.left_margin = Inches(0.5)
-            section.right_margin = Inches(0.5)
-
-            # --- Header Section ---
-            header = section.header
-            header.is_linked_to_previous = False # Ensure header is unique to this section
-            # Clear existing default paragraph in header
-            if header.paragraphs:
-                ht = header.paragraphs[0]._element
-                ht.getparent().remove(ht)
-
-            # Get logo path and address
-            logo_path = self.logo_path_var.get()
-            address_text = self.address_var.get() or " "
-            # hoa_name = "Buena Oro Homeowners Association Inc." # ** REMOVED **
-
-            # Create a 1x2 table in the header
-            header_table = header.add_table(rows=1, cols=2, width=Inches(7.5)) # Width = Page Width - Margins
-            header_table.autofit = False # Allow manual column width setting
-            # --- OPTIMIZED COLUMN WIDTHS ---
-            header_table.columns[0].width = Inches(2.0) # Width for 2x2 logo
-            header_table.columns[1].width = Inches(5.5) # Width for text (7.5 - 2.0)
-
-            # Left Cell (Logo)
-            logo_cell = header_table.cell(0, 0)
-            logo_cell.vertical_alignment = 1 # Middle alignment if possible
-            # Remove default paragraph in cell
-            if logo_cell.paragraphs:
-                p = logo_cell.paragraphs[0]._element
-                p.getparent().remove(p)
-            # Add logo if path exists
-            logo_para = logo_cell.add_paragraph()
-            logo_para.alignment = 1 # Center logo in its cell
-            if logo_path and os.path.exists(logo_path):
-                try:
-                    logo_run = logo_para.add_run()
-                    # --- OPTIMIZED LOGO SIZE ---
-                    # Force logo into 2x2 inches, potentially distorting it
-                    logo_run.add_picture(logo_path, width=Inches(2), height=Inches(2))
-                    logging.info(f"Included logo in Word header: {logo_path}, forced to 2x2 inches")
-                except Exception as e:
-                    logging.warning(f"Could not add logo picture to Word: {e}")
-                    logo_para.add_run("[Logo Error]").italic = True
-            elif logo_path:
-                 logging.warning(f"Logo path specified but not found for Word: {logo_path}")
-                 logo_para.add_run("[Logo N/A]").italic = True
-            # Else: leave the cell empty
-
-            # Right Cell (Text)
-            text_cell = header_table.cell(0, 1)
-            text_cell.vertical_alignment = 1 # Middle
-             # Remove default paragraph
-            if text_cell.paragraphs:
-                p = text_cell.paragraphs[0]._element
-                p.getparent().remove(p)
-
-            # Add Header Text Lines (HOA Name removed)
-            # p = text_cell.add_paragraph() # ** REMOVED **
-            # run = p.add_run(hoa_name)     # ** REMOVED **
-            # run.font.name = 'Helvetica'   # ** REMOVED **
-            # run.font.size = Pt(10)        # ** REMOVED **
-            # p.alignment = 1 # Center      # ** REMOVED **
-
-            p = text_cell.add_paragraph()
-            run = p.add_run(address_text) # Add address
-            run.font.name = 'Helvetica'
-            run.font.size = Pt(10)
-            p.alignment = 1 # Center
-
-            p = text_cell.add_paragraph() # Add space paragraph if needed
-            p.add_run().font.size = Pt(4) # Small spacer
-
-            p = text_cell.add_paragraph()
-            run = p.add_run("CASH FLOW STATEMENT")
-            run.font.name = 'Helvetica'
-            run.bold = True
-            run.font.size = Pt(12)
-            p.alignment = 1 # Center
-
-            p = text_cell.add_paragraph()
-            run = p.add_run(f"For the Month of {self.format_date_for_display(self.date_var.get())}")
-            run.font.name = 'Helvetica'
-            run.font.size = Pt(8)
-            p.alignment = 1 # Center
-
-            # --- Body Content (Tables) ---
-            # Helper to set cell font and alignment
-            def set_cell_style(cell, text, size=8, bold=False, align='left', font='Helvetica'):
-                para = cell.paragraphs[0]
-                # Clear existing runs if needed, or just set text on the first paragraph
-                if not para.runs:
-                    para.add_run(text)
-                else:
-                    para.text = text # Overwrite if text exists
-
-                # Ensure there's at least one run after setting text
-                if not para.runs:
-                     para.add_run(text) # Add run again if setting para.text cleared it
-
-                run = para.runs[0]
-                run.font.name = font
-                run.font.size = Pt(size)
-                run.bold = bold
-                # Alignment: 0=left, 1=center, 2=right
-                if align == 'right': para.alignment = 2
-                elif align == 'center': para.alignment = 1
-                else: para.alignment = 0
-                # Optional: Adjust cell margins?
-                # cell.margin_left = Inches(0.05)
-                # cell.margin_right = Inches(0.05)
-
-
-            # Add a spacer paragraph after header content (in main body)
-            doc.add_paragraph()
-
-            # Beginning Cash Balances
-            p = doc.add_paragraph()
-            run = p.add_run("Beginning Cash Balances")
-            run.font.name = 'Helvetica'
-            run.bold = True
-            run.font.size = Pt(10)
-            table = doc.add_table(rows=2, cols=2)
-            table.style = 'Table Grid'
-            table.autofit = False # Use manual widths
-            table.columns[0].width = Inches(6.0) # Adjust widths based on 7.5" content area
-            table.columns[1].width = Inches(1.5)
-            set_cell_style(table.cell(0, 0), "Cash in Bank-beg")
-            set_cell_style(table.cell(0, 1), format_amount(self.variables['cash_bank_beg'].get()), align='right')
-            set_cell_style(table.cell(1, 0), "Cash on Hand-beg")
-            set_cell_style(table.cell(1, 1), format_amount(self.variables['cash_hand_beg'].get()), align='right')
-            doc.add_paragraph() # Spacer
-
-            # Cash Inflows
-            p = doc.add_paragraph()
-            run = p.add_run("Cash Inflows")
-            run.font.name = 'Helvetica'
-            run.bold = True
-            run.font.size = Pt(10)
-            inflow_items = [
-                ("Monthly Dues Collected", self.variables['monthly_dues']),
-                ("Certifications Issued", self.variables['certifications']),
-                ("Membership Fee", self.variables['membership_fee']),
-                ("Vehicle Stickers", self.variables['vehicle_stickers']),
-                ("Rentals", self.variables['rentals']),
-                ("Solicitations/Donations", self.variables['solicitations']),
-                ("Interest Income on Bank Deposits", self.variables['interest_income']),
-                ("Livelihood Management Fee", self.variables['livelihood_fee']),
-                ("Others (Inflow)", self.variables['inflows_others']),
-                ("Total Cash Receipts", self.variables['total_receipts'])
-            ]
-            table = doc.add_table(rows=len(inflow_items), cols=2)
-            table.style = 'Table Grid'
-            table.autofit = False
-            table.columns[0].width = Inches(6.0)
-            table.columns[1].width = Inches(1.5)
-            for i, (label, var) in enumerate(inflow_items):
-                 is_total = (i == len(inflow_items) - 1)
-                 set_cell_style(table.cell(i, 0), label, bold=is_total)
-                 set_cell_style(table.cell(i, 1), format_amount(var.get()), align='right', bold=is_total)
-            doc.add_paragraph() # Spacer
-
-            # Cash Outflows
-            p = doc.add_paragraph()
-            run = p.add_run("Less: Cash Outflows")
-            run.font.name = 'Helvetica'
-            run.bold = True
-            run.font.size = Pt(10)
-            outflow_items = [
-                ("Snacks/Meals for Visitors", self.variables['snacks_meals']),
-                ("Transportation Expenses", self.variables['transportation']),
-                ("Office Supplies Expense", self.variables['office_supplies']),
-                ("Printing and Photocopy", self.variables['printing']),
-                ("Labor", self.variables['labor']),
-                ("Billboard Expense", self.variables['billboard']),
-                ("Clearing/Cleaning Charges", self.variables['cleaning']),
-                ("Miscellaneous Expenses", self.variables['misc_expenses']),
-                ("Federation Fee", self.variables['federation_fee']),
-                ("HOA-BOD Uniforms", self.variables['uniforms']),
-                ("BOD Meeting", self.variables['bod_mtg']),
-                ("General Assembly", self.variables['general_assembly']),
-                ("Cash Deposit to Bank", self.variables['cash_deposit']),
-                ("Withholding Tax on Bank Deposit", self.variables['withholding_tax']),
-                ("Refund", self.variables['refund']),
-                ("Others (Outflow)", self.variables['outflows_others']),
-                ("Cash Outflows/Disbursements", self.variables['cash_outflows'])
-            ]
-            table = doc.add_table(rows=len(outflow_items), cols=2)
-            table.style = 'Table Grid'
-            table.autofit = False
-            table.columns[0].width = Inches(6.0)
-            table.columns[1].width = Inches(1.5)
-            for i, (label, var) in enumerate(outflow_items):
-                 is_total = (i == len(outflow_items) - 1)
-                 set_cell_style(table.cell(i, 0), label, bold=is_total)
-                 set_cell_style(table.cell(i, 1), format_amount(var.get()), align='right', bold=is_total)
-            doc.add_paragraph() # Spacer
-
-            # Ending Cash Balance
-            p = doc.add_paragraph()
-            run = p.add_run("Ending Cash Balance")
-            run.font.name = 'Helvetica'
-            run.bold = True
-            run.font.size = Pt(10)
-            table = doc.add_table(rows=1, cols=2)
-            table.style = 'Table Grid'
-            table.autofit = False
-            table.columns[0].width = Inches(6.0)
-            table.columns[1].width = Inches(1.5)
-            set_cell_style(table.cell(0, 0), "Ending Cash Balance", bold=True)
-            set_cell_style(table.cell(0, 1), format_amount(self.variables['ending_cash'].get()), align='right', bold=True)
-            doc.add_paragraph() # Spacer
-
-            # Breakdown of Cash
-            p = doc.add_paragraph()
-            run = p.add_run("Breakdown of Cash")
-            run.font.name = 'Helvetica'
-            run.bold = True
-            run.font.size = Pt(10)
-            table = doc.add_table(rows=2, cols=2)
-            table.style = 'Table Grid'
-            table.autofit = False
-            table.columns[0].width = Inches(6.0)
-            table.columns[1].width = Inches(1.5)
-            set_cell_style(table.cell(0, 0), "Cash in Bank")
-            set_cell_style(table.cell(0, 1), format_amount(self.variables['ending_cash_bank'].get()), align='right')
-            set_cell_style(table.cell(1, 0), "Cash on Hand")
-            set_cell_style(table.cell(1, 1), format_amount(self.variables['ending_cash_hand'].get()), align='right')
-            doc.add_paragraph() # Spacer before footer section
-
-            # --- Footer / Signatories ---
-            # (Using section breaks and column changes as before)
-            prepared_name = self.prepared_by_var.get() or "_______________________"
-            noted_name_1 = self.noted_by_var_1.get() or "_______________________"
-            noted_name_2 = self.noted_by_var_2.get() or "_______________________"
-            checked_name = self.checked_by_var.get() or "_______________________"
-
-            # Helper for signatory paragraph
-            def add_signatory_para(text, size=8, alignment=1, space_after=2):
-                p = doc.add_paragraph()
-                run = p.add_run(text)
-                run.font.name = 'Helvetica'
-                run.font.size = Pt(size)
-                p.alignment = alignment
-                p.paragraph_format.space_after = Pt(space_after) # Add small space after
-
-             # Add a section break and switch to two-column layout for the signature section
-            doc.add_section(WD_SECTION.CONTINUOUS)
-            signature_section = doc.sections[-1]
-            sectPr = signature_section._sectPr
-            cols = sectPr.xpath("./w:cols")[0]
-            cols.set(qn("w:num"), "2")
-            cols.set(qn("w:space"), "720") # 0.5 inches between columns
-
-            # Prepared by (left column)
-            add_signatory_para("Prepared by:")
-            add_signatory_para(prepared_name)
-            add_signatory_para("HOA Treasurer")
-
-            # Checked by (right column - Word flows automatically)
-            add_signatory_para("Checked by:")
-            add_signatory_para(checked_name)
-            add_signatory_para("HOA Auditor")
-
-            # Switch back to single column for "Noted by:" title
-            doc.add_section(WD_SECTION.CONTINUOUS)
-            noted_section = doc.sections[-1]
-            sectPr = noted_section._sectPr
-            cols = sectPr.xpath("./w:cols")[0]
-            cols.set(qn("w:num"), "1")
-            # Adjust margins/spacing for this single-column section if needed
-            # noted_section.top_margin = Inches(0.1) # Example: reduce top margin
-            # noted_section.bottom_margin = Inches(0.1)
-
-            # Add "Noted by:" title centrally
-            p7 = doc.add_paragraph()
-            p7.add_run("Noted by:")
-            p7.alignment = 1 # Center
-            p7.runs[0].font.name = 'Helvetica'
-            p7.runs[0].font.size = Pt(8)
-            p7.paragraph_format.space_before = Pt(10) # Add space before
-            p7.paragraph_format.space_after = Pt(5)   # Add space after
-
-            # Switch back to two columns for the Noted by signatures
-            doc.add_section(WD_SECTION.CONTINUOUS)
-            noted_signatures_section = doc.sections[-1]
-            sectPr = noted_signatures_section._sectPr
-            cols = sectPr.xpath("./w:cols")[0]
-            cols.set(qn("w:num"), "2")
-            cols.set(qn("w:space"), "720")
-
-            # Noted by - HOA President (left column)
-            add_signatory_para(noted_name_1)
-            add_signatory_para("HOA President")
-
-            # Noted by - CHUDD HCD-CORDS (right column)
-            add_signatory_para(noted_name_2)
-            add_signatory_para("CHUDD HCD-CORDS")
-
-            # --- Save Document ---
-            doc.save(filename)
-            logging.info(f"Word document successfully saved to {filename}")
-            messagebox.showinfo("Success", f"Word document saved to {filename}")
-            return filename
-        except Exception as e:
-            logging.exception("Error saving to Word") # Log full traceback
-            messagebox.showerror("Error", f"Error saving to Word: {str(e)}\n\nMake sure you have python-docx installed.")
-            return None
-
+           
+    
     def load_from_documentpdf(self):
         """Load data from either a Word or PDF document."""
         # (This function remains the same as it doesn't load logo/address)
