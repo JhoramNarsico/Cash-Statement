@@ -1,13 +1,15 @@
-# --- START OF FILE cash_flow_app.py ---
-
 import tkinter as tk
 import datetime
+from setting import SettingsManager
 
 class CashFlowApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Cash Flow Statement Generator with Email")
         self.root.geometry("1920x1080")
+
+        # Initialize settings
+        self.settings_manager = SettingsManager()
 
         # Initialize variables
         self.variables = {
@@ -51,10 +53,8 @@ class CashFlowApp:
             'ending_cash': tk.StringVar(),
             'ending_cash_bank': tk.StringVar(),
             'ending_cash_hand': tk.StringVar(),
-            # --- ADDED VARIABLES ---
             'logo_path_var': tk.StringVar(),
-            'address_var': tk.StringVar(value="Default Address - Change Me"), # Provide a default value
-            # --- END ADDED VARIABLES ---
+            'address_var': tk.StringVar(value="Default Address - Change Me"),
         }
 
         # Initialize components
@@ -68,18 +68,16 @@ class CashFlowApp:
             self.variables,
             self.variables['title_var'],
             self.variables['date_var'],
-            # --- PASS NEW VARIABLES ---
             self.variables['logo_path_var'],
             self.variables['address_var'],
-            # --- END PASS NEW VARIABLES ---
             self.variables['prepared_by_var'],
             self.variables['noted_by_var_1'],
             self.variables['noted_by_var_2'],
             self.variables['checked_by_var']
         )
         self.email_sender = EmailSender(
-            sender_email="chuddcdo@gmail.com",
-            sender_password="jfyb eoog ukxr hhiq", # Consider environment variables for password
+            sender_email=self.settings_manager.get_setting("sender_email"),
+            sender_password=self.settings_manager.get_setting("sender_password"),
             recipient_emails_var=self.variables['recipient_emails_var'],
             file_handler=self.file_handler
         )
@@ -91,6 +89,6 @@ class CashFlowApp:
             self.variables['display_date'],
             self.calculator,
             self.file_handler,
-            self.email_sender
+            self.email_sender,
+            self.settings_manager
         )
-# --- END OF FILE cash_flow_app.py ---

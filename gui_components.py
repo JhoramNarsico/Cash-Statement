@@ -1,41 +1,22 @@
-# --- START OF FILE gui_components.py ---
-
 # -*- coding: utf-8 -*-
 import customtkinter as ctk
-from tkinter import messagebox, filedialog # Added filedialog
+from tkinter import messagebox, filedialog
 import datetime
 import time
 import logging
-import os # Added os for path manipulation
+import os
+from setting import SettingsWindow
+from PIL import Image  # Requires Pillow
 
-from tkinter import HORIZONTAL # Import HORIZONTAL
-
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-# Note: Replace with actual HoverCalendar import if available
 try:
-    # from tkcalendar import Calendar # Example using tkcalendar if HoverCalendar unavailable
-    # logging.info("tkcalendar imported as fallback.")
-    from hover_calendar import HoverCalendar # Keep trying HoverCalendar first
+    from hover_calendar import HoverCalendar
     logging.info("HoverCalendar imported successfully.")
 except ImportError:
-    HoverCalendar = None # Set to None if neither is found or preferred
-    logging.warning("HoverCalendar (or fallback) not found. Calendar functionality will be disabled.")
-
+    HoverCalendar = None
+    logging.warning("HoverCalendar not found. Calendar functionality will be disabled.")
 
 class GUIComponents:
-    """
-    Manages the creation and layout of GUI elements for the HOA Cash Flow application,
-    with a fixed horizontal layout for the main data sections.
-    Includes fields for logo selection and address input.
-    Includes horizontal scrolling for smaller screens.
-    """
-    def __init__(self, root, variables, title_var, date_var, display_date, calculator, file_handler, email_sender):
-        """
-        Initializes the GUIComponents class with fixed horizontal data sections.
-        (Args documentation remains the same as before)
-        """
+    def __init__(self, root, variables, title_var, date_var, display_date, calculator, file_handler, email_sender, settings_manager):
         self.root = root
         self.variables = variables
         self.title_var = title_var
@@ -44,10 +25,10 @@ class GUIComponents:
         self.calculator = calculator
         self.file_handler = file_handler
         self.email_sender = email_sender
+        self.settings_manager = settings_manager
 
-        # --- Added 'logo_path_var', 'address_var' to required_vars ---
         self.required_vars = [
-            'logo_path_var', 'address_var', # Added
+            'logo_path_var', 'address_var',
             'recipient_emails_var', 'prepared_by_var', 'noted_by_var_1',
             'noted_by_var_2', 'checked_by_var', 'cash_bank_beg', 'cash_hand_beg',
             'monthly_dues', 'certifications', 'membership_fee', 'vehicle_stickers',
@@ -59,9 +40,8 @@ class GUIComponents:
             'ending_cash_bank', 'ending_cash_hand', 'total_receipts',
             'cash_outflows', 'ending_cash'
         ]
-        self._initialize_missing_variables() # Call after defining required_vars
+        self._initialize_missing_variables()
 
-        # --- Theme and Appearance (Same as before) ---
         ctk.set_appearance_mode("light")
         ctk.set_default_color_theme("blue")
         self.BG_COLOR = "#F5F5F5"
@@ -79,8 +59,8 @@ class GUIComponents:
         self.DATE_BTN_FG = "#E3F2FD"
         self.DATE_BTN_HOVER = "#BBDEFB"
         self.DATE_BTN_TEXT = "#0D47A1"
+        self.FOOTER_BG = "#192337"  # Solid blue for footer
 
-        # --- Screen Dimensions and Adaptive Sizing (Mostly same) ---
         self.root.update_idletasks()
         self.screen_width = self.root.winfo_screenwidth()
         self.screen_height = self.root.winfo_screenheight()
@@ -97,25 +77,21 @@ class GUIComponents:
         self.section_pad_y = self.base_pad_y * 2
         self.min_input_width = 120
         self.max_input_width = 300
-        self.min_column_width = 280 # Kept for potential future use or other elements
+        self.min_column_width = 200  # Reduced for better responsiveness
         self.layout_debounce_delay_ms = 100
         self.debounce_id = None
 
-        # --- Initialization ---
         self.create_widgets()
         self.setup_keyboard_shortcuts()
         self.date_var.trace_add('write', self._update_display_date)
         self._update_display_date()
-        # Initial layout update might still be needed for canvas size adjustment
-        self.root.after(150, self.update_layout) # Keep this to set initial canvas size
+        self.root.after(150, self.update_layout)
 
     def _initialize_missing_variables(self):
-        """Ensures all required StringVars exist in the variables dictionary."""
         initialized_count = 0
         missing_vars = []
         for var_key in self.required_vars:
             if var_key not in self.variables:
-                # Initialize with default value if known, else empty string
                 default_value = ""
                 if var_key == 'address_var':
                     default_value = "Default Address - Configure Me"
@@ -126,21 +102,19 @@ class GUIComponents:
         if initialized_count > 0:
             logging.warning(f"Initialized {initialized_count} missing StringVars: {missing_vars}")
         elif not self.variables:
-             logging.error("Variables dictionary is empty!")
+            logging.error("Variables dictionary is empty!")
 
     def _update_display_date(self, *args):
-        """Updates the display date string when date_var changes."""
         raw_date = self.date_var.get()
         try:
             date_obj = datetime.datetime.strptime(raw_date, "%m/%d/%Y")
             self.display_date.set(date_obj.strftime("%b %d, %Y"))
         except ValueError:
             if raw_date:
-                 logging.warning(f"Invalid date format entered: {raw_date}. Expected MM/DD/YYYY.")
+                logging.warning(f"Invalid date format entered: {raw_date}. Expected MM/DD/YYYY.")
             self.display_date.set("Select Date")
 
     def setup_keyboard_shortcuts(self):
-        """Binds keyboard shortcuts to specific actions."""
         self.root.bind('<Control-l>', lambda event: self._safe_call(self.file_handler.load_from_documentpdf, "Load"))
         self.root.bind('<Control-e>', lambda event: self._safe_call(self.file_handler.export_to_pdf, "Export to PDF"))
         self.root.bind('<Control-w>', lambda event: self._safe_call(self.file_handler.save_to_docx, "Save to Word"))
@@ -150,13 +124,12 @@ class GUIComponents:
         logging.info("Keyboard shortcuts set up.")
 
     def _safe_call(self, func, action_name):
-        """Safely calls a function and shows an error message if it fails."""
         try:
             func()
             logging.info(f"Action '{action_name}' executed successfully.")
         except AttributeError as e:
-             logging.error(f"Action '{action_name}' failed: Method not found or attribute missing: {e}")
-             messagebox.showerror("Error", f"Could not perform '{action_name}'. Feature might be misconfigured or an object is missing.")
+            logging.error(f"Action '{action_name}' failed: Method not found or attribute missing: {e}")
+            messagebox.showerror("Error", f"Could not perform '{action_name}'. Feature might be misconfigured or an object is missing.")
         except FileNotFoundError as e:
             logging.error(f"Action '{action_name}' failed: File not found: {e}")
             messagebox.showerror("File Error", f"File not found during {action_name}:\n{e}")
@@ -165,9 +138,8 @@ class GUIComponents:
             messagebox.showerror("Error", f"An unexpected error occurred during {action_name}:\n{e}")
 
     def create_tooltip(self, widget, text):
-        """Creates a simple adaptive tooltip for a given widget."""
         tooltip = None
-        tooltip_window = None # Renamed from tooltip to avoid conflict
+        tooltip_window = None
         def _create_tooltip_window():
             nonlocal tooltip_window
             if tooltip_window is not None and tooltip_window.winfo_exists():
@@ -184,21 +156,20 @@ class GUIComponents:
             tooltip_window.withdraw()
         def show(event):
             if tooltip_window is None or not tooltip_window.winfo_exists():
-                 _create_tooltip_window()
+                _create_tooltip_window()
             if tooltip_window and tooltip_window.state() == 'withdrawn':
-                 widget.update_idletasks()
-                 x = widget.winfo_rootx() + self.base_pad_x
-                 y = widget.winfo_rooty() + widget.winfo_height() + self.base_pad_y // 2
-                 tooltip_window.wm_geometry(f"+{x}+{y}")
-                 tooltip_window.deiconify()
+                widget.update_idletasks()
+                x = widget.winfo_rootx() + self.base_pad_x
+                y = widget.winfo_rooty() + widget.winfo_height() + self.base_pad_y // 2
+                tooltip_window.wm_geometry(f"+{x}+{y}")
+                tooltip_window.deiconify()
         def hide(event):
-             if tooltip_window and tooltip_window.winfo_exists():
-                 tooltip_window.withdraw()
+            if tooltip_window and tooltip_window.winfo_exists():
+                tooltip_window.withdraw()
         widget.bind("<Enter>", show, add="+")
         widget.bind("<Leave>", hide, add="+")
 
     def show_calendar(self):
-        """Displays an adaptively sized calendar popup to select a date."""
         if not HoverCalendar:
             logging.warning("Attempted to open calendar, but HoverCalendar is not available.")
             messagebox.showerror("Error", "Calendar functionality is not available (HoverCalendar library missing).")
@@ -228,14 +199,14 @@ class GUIComponents:
                     current_date = datetime.datetime.strptime(current_date_str, "%m/%d/%Y")
                     cal.selection_set(current_date)
             except ValueError:
-                 logging.warning(f"Could not pre-select date '{current_date_str}' in calendar.")
+                logging.warning(f"Could not pre-select date '{current_date_str}' in calendar.")
             def on_date_select():
                 selected_date = cal.selection_get()
                 if selected_date:
                     self.date_var.set(selected_date.strftime("%m/%d/%Y"))
                     logging.info(f"Date selected from calendar: {self.date_var.get()}")
                 else:
-                     logging.warning("Calendar closed without selection.")
+                    logging.warning("Calendar closed without selection.")
                 popup.destroy()
             confirm_button_width = min(max(100, int(popup_width * 0.3)), 160)
             confirm_button = ctk.CTkButton(
@@ -246,24 +217,20 @@ class GUIComponents:
             confirm_button.pack(pady=(0, self.section_pad_y))
             popup.protocol("WM_DELETE_WINDOW", popup.destroy)
         except Exception as e:
-             logging.exception("Failed to create or display the calendar popup.")
-             messagebox.showerror("Calendar Error", f"Could not open the calendar: {e}")
-             if popup and popup.winfo_exists():
-                 popup.destroy()
+            logging.exception("Failed to create or display the calendar popup.")
+            messagebox.showerror("Calendar Error", f"Could not open the calendar: {e}")
+            if popup and popup.winfo_exists():
+                popup.destroy()
 
-    # --- ADDED: Function to handle logo selection ---
     def _select_logo(self):
-        """Opens a file dialog to select a logo image."""
         filetypes = [("Image files", "*.png *.jpg *.jpeg *.gif *.bmp")]
         filepath = filedialog.askopenfilename(
             title="Select Logo Image",
             filetypes=filetypes
         )
         if filepath:
-            # Check if file exists (dialog should ensure this, but double-check)
             if os.path.exists(filepath):
                 self.variables['logo_path_var'].set(filepath)
-                # Update the display label for the logo path
                 filename = os.path.basename(filepath)
                 self.logo_path_display.configure(text=f"Selected: {filename}" if len(filename) < 40 else f"Selected: ...{filename[-37:]}")
                 logging.info(f"Logo selected: {filepath}")
@@ -273,59 +240,100 @@ class GUIComponents:
         else:
             logging.info("Logo selection cancelled.")
 
-    # --- MODIFIED create_widgets ---
+    def show_settings(self):
+        """Open the settings window."""
+        SettingsWindow(self.root, self.settings_manager)
+
     def create_widgets(self):
-        """Creates and arranges all the main widgets with fixed horizontal data columns."""
-        # --- Main Scrolling Area ---
+        # Main frame with footer space
         self.main_frame = ctk.CTkFrame(self.root, corner_radius=0, fg_color=self.BG_COLOR)
         self.main_frame.pack(fill="both", expand=True)
-        self.main_frame.grid_rowconfigure(0, weight=1)
-        self.main_frame.grid_rowconfigure(1, weight=0)
+        self.main_frame.grid_rowconfigure(0, weight=0)  # Content area
+        self.main_frame.grid_rowconfigure(0, weight=1)  # Footer
         self.main_frame.grid_columnconfigure(0, weight=1)
-        self.main_frame.grid_columnconfigure(1, weight=0)
 
-        self.canvas = ctk.CTkCanvas(self.main_frame, highlightthickness=0, bg=self.BG_COLOR)
-        self.v_scrollbar = ctk.CTkScrollbar(self.main_frame, orientation="vertical", command=self.canvas.yview)
-        self.h_scrollbar = ctk.CTkScrollbar(self.main_frame, orientation=HORIZONTAL, command=self.canvas.xview)
+        # Content frame (replacing canvas)
+        self.content_frame = ctk.CTkFrame(self.main_frame, corner_radius=0, fg_color=self.BG_COLOR)
+        self.content_frame.grid(row=0, column=0, sticky="nsew")
+        self.content_frame.grid_columnconfigure(0, weight=1)
 
-        self.scrollable_frame = ctk.CTkFrame(self.canvas, corner_radius=0, fg_color=self.BG_COLOR)
-        self.scrollable_frame.bind("<Configure>", lambda e: self.update_layout())
-        self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-        self.canvas.configure(yscrollcommand=self.v_scrollbar.set, xscrollcommand=self.h_scrollbar.set)
+        # Footer
+        footer_height = 120  # Reduced footer height
+        self.footer_frame = ctk.CTkFrame(self.main_frame, height=footer_height, corner_radius=0, fg_color=self.FOOTER_BG)
+        self.footer_frame.grid(row=1, column=0, sticky="ew")
+        self.footer_frame.grid_propagate(False)  # Prevent resizing
 
-        self.canvas.grid(row=0, column=0, sticky="nsew")
-        self.v_scrollbar.grid(row=0, column=1, sticky="ns")
-        self.h_scrollbar.grid(row=1, column=0, sticky="ew")
+        # Footer label (aligned left)
+                # Footer text container (aligned right)
+        footer_text_frame = ctk.CTkFrame(self.footer_frame, fg_color="transparent")
+        footer_text_frame.pack(side="right", padx=self.base_pad_x, pady=40)
 
-        self.scrollable_frame.grid_columnconfigure(0, weight=1)
+        # First line: compliance text
+        compliance_label = ctk.CTkLabel(
+            footer_text_frame,
+            text="",
+            font=("Roboto", 12, "bold"),
+            text_color="#FFFFFF",
+            justify="left"
+        )
+        compliance_label.pack(anchor="e", padx=(0, 20))
 
-        def _scroll_canvas(event):
-            if event.state & 0x1: # Shift key for horizontal
-                scroll_dir = 1 if (event.num == 5 or event.delta < 0) else -1
-                self.canvas.xview_scroll(scroll_dir, "units")
-            else: # No Shift key for vertical
-                scroll_dir = 1 if (event.num == 5 or event.delta < 0) else -1
-                self.canvas.yview_scroll(scroll_dir, "units")
+       
 
-        # Bind mouse wheel for both canvas and scrollable frame
-        for widget in [self.canvas, self.scrollable_frame]:
-            widget.bind("<MouseWheel>", _scroll_canvas) # Windows/macOS
-            widget.bind("<Button-4>", _scroll_canvas) # Linux scroll up
-            widget.bind("<Button-5>", _scroll_canvas) # Linux scroll down
+            
 
-        # --- Content within Scrollable Frame ---
+        # Footer images (aligned right)
+        image1_size = (70, 70)
+        image2_size = (273, 70)  # Size for footer images
+        try:
+            # Attempt to load images; use placeholder paths or variables
+            # For demonstration, using variables or default paths
+            image1_path = self.variables.get('footer_image1_var', ctk.StringVar(value="itcc42/chud logo.png")).get()
+            image2_path = self.variables.get('footer_image2_var', ctk.StringVar(value="itcc42/xu logo.png")).get()
+
+            # Load and create first image
+            if os.path.exists(image1_path):
+                img1 = Image.open(image1_path)
+                img1 = img1.resize(image1_size, Image.Resampling.LANCZOS)
+                ctk_img1 = ctk.CTkImage(light_image=img1, dark_image=img1, size=image1_size)
+                img1_label = ctk.CTkLabel(self.footer_frame, image=ctk_img1, text="")
+                img1_label.pack(side="left", padx=(20, 10), pady=self.base_pad_y)
+                logging.info(f"Footer image 1 loaded: {image1_path}")
+            else:
+                logging.warning(f"Footer image 1 not found: {image1_path}")
+                img1_label = ctk.CTkLabel(self.footer_frame, text="Image 1 Not Found", font=("Roboto", self.label_font_size), text_color="#FFFFFF")
+                img1_label.pack(side="left", padx=(20, 10), pady=self.base_pad_y)
+
+            # Load and create second image
+            if os.path.exists(image2_path):
+                img2 = Image.open(image2_path)
+                img2 = img2.resize(image2_size, Image.Resampling.LANCZOS)
+                ctk_img2 = ctk.CTkImage(light_image=img2, dark_image=img2, size=image2_size)
+                img2_label = ctk.CTkLabel(self.footer_frame, image=ctk_img2, text="")
+                img2_label.pack(side="left", padx=(10, 20), pady=self.base_pad_y)
+                logging.info(f"Footer image 2 loaded: {image2_path}")
+            else:
+                logging.warning(f"Footer image 2 not found: {image2_path}")
+                img2_label = ctk.CTkLabel(self.footer_frame, text="Image 2 Not Found", font=("Roboto", self.label_font_size), text_color="#FFFFFF")
+                img2_label.pack(side="left", padx=(10, 20), pady=self.base_pad_y)
+
+        except Exception as e:
+            logging.exception("Failed to load footer images.")
+            error_label = ctk.CTkLabel(self.footer_frame, text="Error Loading Images", font=("Roboto", self.label_font_size), text_color="#FFFFFF")
+            error_label.pack(side="right", padx=self.base_pad_x, pady=self.base_pad_y)
+
+        # Layout content
         current_row = 0
 
-        # --- NEW: Header Config Frame (Logo and Address) ---
-        header_config_frame = ctk.CTkFrame(self.scrollable_frame, fg_color="transparent")
+        # Header configuration (Address, Logo, Settings, Date) in a single-row grid
+        header_config_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
         header_config_frame.grid(row=current_row, column=0, sticky="ew", padx=self.section_pad_x, pady=(self.section_pad_y, self.base_pad_y))
         current_row += 1
-        header_config_frame.grid_columnconfigure(0, weight=1) # Address column
-        header_config_frame.grid_columnconfigure(1, weight=1) # Logo column
+        header_config_frame.grid_columnconfigure((0, 1, 2, 3), weight=1, uniform="header_group")  # Four columns of equal width
 
-        # Address Input (Left)
+        # Address
         address_frame = ctk.CTkFrame(header_config_frame, fg_color="transparent")
-        address_frame.grid(row=0, column=0, sticky="ew", padx=(0, self.base_pad_x * 2))
+        address_frame.grid(row=0, column=0, sticky="ew", padx=(0, self.base_pad_x))
         ctk.CTkLabel(address_frame, text="Header Address:", font=("Roboto", self.label_font_size), text_color=self.TEXT_COLOR, anchor="w").pack(side="top", fill="x", pady=(0, self.base_pad_y // 2))
         address_entry = ctk.CTkEntry(
             address_frame, textvariable=self.variables['address_var'], font=("Roboto", self.entry_font_size),
@@ -335,9 +343,9 @@ class GUIComponents:
         address_entry.pack(side="top", fill="x")
         self.create_tooltip(address_entry, "Enter the address to display in the document header")
 
-        # Logo Selection (Right)
+        # Logo
         logo_frame = ctk.CTkFrame(header_config_frame, fg_color="transparent")
-        logo_frame.grid(row=0, column=1, sticky="ew", padx=(self.base_pad_x * 2, 0))
+        logo_frame.grid(row=0, column=1, sticky="ew", padx=(self.base_pad_x, self.base_pad_x))
         ctk.CTkLabel(logo_frame, text="Header Logo:", font=("Roboto", self.label_font_size), text_color=self.TEXT_COLOR, anchor="w").pack(side="top", fill="x", pady=(0, self.base_pad_y // 2))
         logo_button = ctk.CTkButton(
             logo_frame, text="Select Logo Image", font=("Roboto", self.button_font_size),
@@ -347,37 +355,43 @@ class GUIComponents:
         logo_button.pack(side="left", padx=(0, self.base_pad_x))
         self.create_tooltip(logo_button, "Select a logo (PNG, JPG, etc.) for the header")
 
-        # Label to display selected logo path (truncated)
         initial_logo_path = self.variables['logo_path_var'].get()
         initial_logo_text = ""
         if initial_logo_path:
             filename = os.path.basename(initial_logo_path)
             initial_logo_text = f"Selected: {filename}" if len(filename) < 40 else f"Selected: ...{filename[-37:]}"
 
-        self.logo_path_display = ctk.CTkLabel(logo_frame, text=initial_logo_text, font=("Roboto", self.label_font_size-1), text_color=self.TEXT_COLOR, anchor="w", wraplength=250)
+        self.logo_path_display = ctk.CTkLabel(logo_frame, text=initial_logo_text, font=("Roboto", self.label_font_size-1), text_color=self.TEXT_COLOR, anchor="w", wraplength=150)
         self.logo_path_display.pack(side="left", fill="x", expand=True)
 
+        # Settings
+        settings_frame = ctk.CTkFrame(header_config_frame, fg_color="transparent")
+        settings_frame.grid(row=0, column=2, sticky="ew", padx=(self.base_pad_x, self.base_pad_x))
+        ctk.CTkLabel(settings_frame, text="Settings:", font=("Roboto", self.label_font_size), text_color=self.TEXT_COLOR, anchor="w").pack(side="top", fill="x", pady=(0, self.base_pad_y // 2))
+        settings_button_width = min(max(120, int(self.screen_width * 0.08)), 180)
+        settings_button = ctk.CTkButton(
+            settings_frame, text="Manage Settings", font=("Roboto", self.button_font_size),
+            command=self.show_settings, corner_radius=6, fg_color=self.BUTTON_FG_COLOR,
+            hover_color=self.BUTTON_HOVER_COLOR, text_color=self.BUTTON_TEXT_COLOR, width=settings_button_width
+        )
+        settings_button.pack(side="top", anchor="w")
+        self.create_tooltip(settings_button, "Configure application settings (email, login credentials)")
 
-        # --- Date Frame (Adjusted row) ---
-        date_container_frame = ctk.CTkFrame(self.scrollable_frame, fg_color="transparent")
-        date_container_frame.grid(row=current_row, column=0, sticky="ew", padx=self.section_pad_x, pady=(self.base_pad_y, self.base_pad_y))
-        current_row += 1
-        date_container_frame.grid_columnconfigure(0, weight=1) # Empty expanding column
-        date_container_frame.grid_columnconfigure(1, weight=0) # Date content column
-        date_frame = ctk.CTkFrame(date_container_frame, fg_color="transparent")
-        date_frame.grid(row=0, column=1, sticky="e", pady=self.base_pad_y)
-        ctk.CTkLabel(date_frame, text="Report Date:", font=("Roboto", self.label_font_size), text_color=self.TEXT_COLOR).pack(side="left", padx=(0, self.base_pad_x // 2))
+        # Date
+        date_frame = ctk.CTkFrame(header_config_frame, fg_color="transparent")
+        date_frame.grid(row=0, column=3, sticky="ew", padx=(self.base_pad_x, 0))
+        ctk.CTkLabel(date_frame, text="Report Date:", font=("Roboto", self.label_font_size), text_color=self.TEXT_COLOR, anchor="w").pack(side="top", fill="x", pady=(0, self.base_pad_y // 2))
         date_button_width = min(max(120, int(self.screen_width * 0.08)), 180)
         date_button = ctk.CTkButton(
             date_frame, textvariable=self.display_date, font=("Roboto", self.button_font_size),
             command=self.show_calendar, corner_radius=6, fg_color=self.DATE_BTN_FG,
             hover_color=self.DATE_BTN_HOVER, text_color=self.DATE_BTN_TEXT, width=date_button_width
         )
-        date_button.pack(side="left")
+        date_button.pack(side="top", anchor="w")
         self.create_tooltip(date_button, "Click to select the report date")
 
-        # --- Button Bar Frame (Adjusted row) ---
-        button_frame = ctk.CTkFrame(self.scrollable_frame, fg_color="transparent")
+        # Action buttons
+        button_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
         button_frame.grid(row=current_row, column=0, sticky="ew", padx=self.section_pad_x, pady=(self.base_pad_y, self.section_pad_y))
         current_row += 1
         buttons_data = [
@@ -400,39 +414,34 @@ class GUIComponents:
             btn.grid(row=0, column=i, sticky="ew", padx=self.base_pad_x // 2, pady=self.base_pad_y)
             self.create_tooltip(btn, tooltip_text)
 
-        # --- Main Data Columns Container (Adjusted row) ---
-        self.columns_frame = ctk.CTkFrame(self.scrollable_frame, fg_color="transparent")
-        self.columns_frame.grid(row=current_row, column=0, sticky="nsew", padx=self.section_pad_x / 2, pady=0)
+        # Form sections
+        self.columns_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+        self.columns_frame.grid(row=current_row, column=0, sticky="nsew", padx=self.section_pad_x / 2, pady=(0, self.section_pad_y))
         current_row += 1
 
-        # --- Configure columns_frame for fixed 5 horizontal columns ---
         num_data_cols = 5
-        min_col_width = int(self.min_input_width * 1.7) # Minimum width for each data column
+        min_col_width = int(self.min_input_width * 1.7)
         for i in range(num_data_cols):
-            self.columns_frame.grid_columnconfigure(i, weight=1, uniform="data_cols", minsize=min_col_width) # Added minsize
-        self.columns_frame.grid_rowconfigure(0, weight=1) # Only one row needed for sections
+            self.columns_frame.grid_columnconfigure(i, weight=1, uniform="data_cols", minsize=min_col_width)
+        self.columns_frame.grid_rowconfigure(0, weight=1)
 
-        # --- Create section frames (as children of columns_frame) ---
         self.beg_frame = self._create_section_frame("Beginning Cash Balances")
         self.inflow_frame = self._create_section_frame("Cash Inflows")
         self.outflow_frame = self._create_section_frame("Cash Outflows")
         self.end_frame = self._create_section_frame("Ending Cash Balances (Calculated)")
         self.totals_frame = self._create_section_frame("Totals (Calculated)")
 
-        # --- Place section frames directly into the grid ---
         self.beg_frame.grid(row=0, column=0, sticky="nsew", padx=self.base_pad_x//2, pady=self.base_pad_y)
         self.inflow_frame.grid(row=0, column=1, sticky="nsew", padx=self.base_pad_x//2, pady=self.base_pad_y)
         self.outflow_frame.grid(row=0, column=2, sticky="nsew", padx=self.base_pad_x//2, pady=self.base_pad_y)
         self.end_frame.grid(row=0, column=3, sticky="nsew", padx=self.base_pad_x//2, pady=self.base_pad_y)
         self.totals_frame.grid(row=0, column=4, sticky="nsew", padx=self.base_pad_x//2, pady=self.base_pad_y)
 
-        # --- Populate the section frames (content remains the same) ---
         self.populate_columns()
 
-        # --- Names/Signatories Frame (Adjusted row) ---
-        names_frame = ctk.CTkFrame(self.scrollable_frame, corner_radius=8, fg_color=self.FRAME_COLOR, border_width=1, border_color=self.BORDER_COLOR)
+        names_frame = ctk.CTkFrame(self.content_frame, corner_radius=8, fg_color=self.FRAME_COLOR, border_width=1, border_color=self.BORDER_COLOR)
         names_frame.grid(row=current_row, column=0, sticky="ew", padx=self.section_pad_x, pady=(self.section_pad_y, self.section_pad_y))
-        current_row += 1 # Increment row counter
+        current_row += 1
         name_fields_data = [
             ("Recipients (comma-separated):", 'recipient_emails_var', "Enter recipient emails, comma-separated"),
             ("Prepared by (Treasurer):", 'prepared_by_var', "Name of HOA Treasurer"),
@@ -442,7 +451,7 @@ class GUIComponents:
         ]
         num_name_fields = len(name_fields_data)
         min_name_col_width = int(self.min_input_width * 1.5)
-        for i in range(num_name_fields): # Configure columns for name fields
+        for i in range(num_name_fields):
             names_frame.grid_columnconfigure(i, weight=1, uniform="name_group", minsize=min_name_col_width)
 
         for i, (label_text, var_key, tooltip_text) in enumerate(name_fields_data):
@@ -461,13 +470,9 @@ class GUIComponents:
             entry.grid(row=1, column=0, sticky="ew")
             self.create_tooltip(entry, tooltip_text)
 
-        # --- Resize Binding (Remains the same, calls debounce_layout) ---
         self.main_frame.bind("<Configure>", self.debounce_layout, add="+")
 
-    # --- _create_section_frame, _create_entry_pair, populate_columns remain unchanged ---
-
     def _create_section_frame(self, title):
-        """Helper to create a consistent section frame."""
         frame = ctk.CTkFrame(self.columns_frame, corner_radius=8, fg_color=self.FRAME_COLOR, border_width=1, border_color=self.BORDER_COLOR)
         ctk.CTkLabel(
             frame, text=title, font=("Roboto", self.title_font_size, "bold"),
@@ -475,10 +480,9 @@ class GUIComponents:
         ).pack(fill="x", padx=self.base_pad_x * 1.5, pady=(self.base_pad_y * 1.5, self.base_pad_y))
         content_frame = ctk.CTkFrame(frame, fg_color="transparent")
         content_frame.pack(fill="both", expand=True, padx=self.base_pad_x, pady=(0, self.base_pad_y * 1.5))
-        return frame # Return the main frame for gridding
+        return frame
 
     def _create_entry_pair(self, parent_frame, label_text, var, is_disabled=False, tooltip_text=None):
-        """Helper to create an adaptive label-entry pair."""
         item_frame = ctk.CTkFrame(parent_frame, fg_color="transparent")
         item_frame.pack(fill="x", padx=self.base_pad_x // 2, pady=self.base_pad_y // 2)
         ctk.CTkLabel(
@@ -492,31 +496,26 @@ class GUIComponents:
             fg_color=self.DISABLED_BG_COLOR if is_disabled else self.ENTRY_BG_COLOR,
             text_color=self.TEXT_COLOR, border_color=self.ENTRY_BORDER_COLOR,
             state="disabled" if is_disabled else "normal",
-            justify="right" # Right-align numeric entries
+            justify="right"
         )
         entry.pack(side="right")
         if not is_disabled:
-             try:
-                 if hasattr(self.calculator, 'format_entry'):
-                     # Check if variable exists before formatting (might be cleared)
-                     if var.get():
-                         self.calculator.format_entry(var, entry)
-                 else:
-                     logging.warning("Calculator object missing 'format_entry' method.")
-                 tooltip = tooltip_text if tooltip_text else "Enter amount (numeric)"
-                 self.create_tooltip(entry, tooltip)
-             except Exception as e: logging.exception(f"Error applying format_entry or tooltip to {label_text}: {e}")
+            try:
+                if hasattr(self.calculator, 'format_entry'):
+                    if var.get():
+                        self.calculator.format_entry(var, entry)
+                else:
+                    logging.warning("Calculator object missing 'format_entry' method.")
+                tooltip = tooltip_text if tooltip_text else "Enter amount (numeric)"
+                self.create_tooltip(entry, tooltip)
+            except Exception as e: logging.exception(f"Error applying format_entry or tooltip to {label_text}: {e}")
         elif tooltip_text: self.create_tooltip(entry, tooltip_text)
 
-
     def populate_columns(self):
-        """Populates the section frames with their respective entries."""
-        # --- Beginning Cash ---
         beg_content = self.beg_frame.winfo_children()[1]
         beg_items = [("Cash in Bank:", 'cash_bank_beg', "Starting bank balance"), ("Cash on Hand:", 'cash_hand_beg', "Starting physical cash")]
         for label, var_key, tooltip in beg_items: self._create_entry_pair(beg_content, label, self.variables[var_key], tooltip_text=tooltip)
 
-        # --- Inflows ---
         inflow_content = self.inflow_frame.winfo_children()[1]
         inflow_items = [
             ("Monthly dues collected:", 'monthly_dues'), ("Certifications issued:", 'certifications'),
@@ -526,7 +525,6 @@ class GUIComponents:
             ("Others:", 'inflows_others', "Other income sources")]
         for label, var_key, *tooltip in inflow_items: self._create_entry_pair(inflow_content, label, self.variables[var_key], tooltip_text=tooltip[0] if tooltip else None)
 
-        # --- Outflows ---
         outflow_content = self.outflow_frame.winfo_children()[1]
         outflow_items = [
             ("Snacks/Meals:", 'snacks_meals'), ("Transportation:", 'transportation'),
@@ -541,43 +539,29 @@ class GUIComponents:
             ("Others:", 'outflows_others', "Other expenses")]
         for label, var_key, *tooltip in outflow_items: self._create_entry_pair(outflow_content, label, self.variables[var_key], tooltip_text=tooltip[0] if tooltip else None)
 
-        # --- Ending Calculated ---
         end_content = self.end_frame.winfo_children()[1]
         end_items = [("Cash in Bank:", 'ending_cash_bank', "Calculated ending bank balance"), ("Cash on Hand:", 'ending_cash_hand', "Calculated ending cash on hand")]
         for label, var_key, tooltip in end_items: self._create_entry_pair(end_content, label, self.variables[var_key], is_disabled=True, tooltip_text=tooltip)
 
-        # --- Totals Calculated ---
         total_content = self.totals_frame.winfo_children()[1]
         total_items = [("Total Receipts:", 'total_receipts', "Calculated total inflows"), ("Total Outflows:", 'cash_outflows', "Calculated total outflows"), ("Ending Balance:", 'ending_cash', "Calculated total ending cash")]
         for label, var_key, tooltip in total_items: self._create_entry_pair(total_content, label, self.variables[var_key], is_disabled=True, tooltip_text=tooltip)
+
         logging.info("GUI columns populated into fixed horizontal layout.")
 
-
-    # --- debounce_layout remains the same ---
     def debounce_layout(self, event=None):
-        """Debounces the layout update function call on window resize."""
         if event and event.widget != self.main_frame:
-             return
+            return
         if self.debounce_id: self.root.after_cancel(self.debounce_id)
         self.debounce_id = self.root.after(self.layout_debounce_delay_ms, self.update_layout)
 
-    # --- update_layout remains the same ---
     def update_layout(self):
-        """Adjusts the canvas size and scrollregion to fit content."""
         self.main_frame.update_idletasks()
-        self.scrollable_frame.update_idletasks()
-
-        req_width = self.scrollable_frame.winfo_reqwidth()
-        req_height = self.scrollable_frame.winfo_reqheight()
-        self.canvas.itemconfig(self.canvas_window, width=req_width, height=req_height)
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-
-        logging.debug(f"Updating canvas window item size to {req_width}x{req_height}px and scrollregion.")
+        self.content_frame.update_idletasks()
+        logging.debug("Updated static layout.")
         self.debounce_id = None
 
-    # --- clear_fields remains the same ---
     def clear_fields(self):
-        """Clears all data entry fields and resets calculated fields."""
         if not self.variables:
             logging.error("Cannot clear fields: variables dictionary missing.")
             messagebox.showerror("Error", "Internal error: Cannot access data fields.")
@@ -586,7 +570,6 @@ class GUIComponents:
             return
 
         cleared_count = 0
-        # Define fields NOT to clear
         fields_to_keep = {
             'logo_path_var', 'address_var', 'date_var', 'display_date',
             'recipient_emails_var', 'prepared_by_var', 'noted_by_var_1',
@@ -601,22 +584,17 @@ class GUIComponents:
         logging.info(f"Cleared {cleared_count} StringVar fields.")
         messagebox.showinfo("Success", "Cash flow data fields have been cleared.")
 
-        # Trigger recalculation after clearing
         try:
             if hasattr(self.calculator, 'calculate_totals'):
                 self.calculator.calculate_totals()
             else:
-                 logging.warning("Calculator has no 'calculate_totals' method to call after clearing.")
+                logging.warning("Calculator has no 'calculate_totals' method to call after clearing.")
         except Exception as e:
             logging.exception("Error recalculating totals after clearing fields.")
 
-
-# Example Usage (requires placeholder classes/functions if run standalone)
 if __name__ == '__main__':
-
-    # --- Placeholder classes/functions for testing ---
     class MockCalculator:
-        def format_entry(self, var, entry): pass # Does nothing
+        def format_entry(self, var, entry): pass
         def calculate_totals(self): print("Mock calculate_totals called")
 
     class MockFileHandler:
@@ -626,30 +604,29 @@ if __name__ == '__main__':
 
     class MockEmailSender:
         def send_email(self): messagebox.showinfo("Mock", "Send Email called")
-    # --- End Placeholders ---
 
+    from setting import SettingsManager
     root = ctk.CTk()
-    root.title("HOA Cash Flow (Fixed Horizontal + Scroll)")
-    # Start with a size that might require horizontal scrolling on smaller screens
-    # Make it wider initially to show the fixed layout better if space allows
-    root.geometry("1400x850") # Increased height for new inputs
+    root.title("HOA Cash Flow (Fixed Horizontal)")
+    root.geometry("1000x600")  # Smaller initial size
+    root.resizable(True, True)  # Allow resizing and maximize/restore
+    root.minsize(800, 500)  # Set minimum window size
+    root.state("normal")  # Ensure normal state
+    root.attributes("-fullscreen", False)  # Disable fullscreen
+    root.attributes("-toolwindow", False)  # Disable tool window mode
+    print(f"Window state: {root.state()}")  # Debug log
 
-    # Initialize necessary variables
-    variables = {} # Let _initialize_missing_variables handle creation
+    variables = {}
     title_var = ctk.StringVar(value="HOA Cash Flow Statement")
-    date_var = ctk.StringVar(value=datetime.date.today().strftime("%m/%d/%Y")) # Default to today
+    date_var = ctk.StringVar(value=datetime.date.today().strftime("%m/%d/%Y"))
     display_date = ctk.StringVar()
 
-    # Create mock instances
     calculator = MockCalculator()
     file_handler = MockFileHandler()
     email_sender = MockEmailSender()
+    settings_manager = SettingsManager()
 
-    # Create the GUI
-    gui = GUIComponents(root, variables, title_var, date_var, display_date, calculator, file_handler, email_sender)
+    gui = GUIComponents(root, variables, title_var, date_var, display_date, calculator, file_handler, email_sender, settings_manager)
 
-    # Force an initial layout update after a short delay to ensure scrollbars appear if needed
     root.after(200, gui.update_layout)
-
     root.mainloop()
-# --- END OF FILE gui_components.py ---
