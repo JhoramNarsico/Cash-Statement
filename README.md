@@ -1,167 +1,135 @@
 # HOA Cash Flow Statement Generator
 
-A desktop application built with Python and CustomTkinter to help Homeowners Associations (HOAs) generate standardized cash flow statements. It allows for data entry, calculation, loading data from existing documents (DOCX/PDF), exporting to PDF and DOCX formats, and emailing the generated reports.
-
-![Screenshot Placeholder](screenshot.png)
-*(Replace `screenshot.png` with the actual path to a screenshot of your application)*
+This is a desktop application built with Python and `customtkinter` designed to help Homeowners Associations (HOAs) generate, manage, load, save, and email cash flow statements.
 
 ## Features
 
-*   **Graphical User Interface:** Easy-to-use interface built with CustomTkinter for a modern look and feel.
-*   **Data Entry:** Input fields for beginning balances, cash inflows, and cash outflows specific to HOA activities.
-*   **Automatic Calculations:** Automatically calculates total receipts, total outflows, and ending cash balances (including breakdown).
-*   **Data Formatting:** Input fields automatically format numbers with commas and two decimal places.
-*   **Date Selection:** Includes a calendar popup (using `tkcalendar`) for easy date selection.
-*   **Load from Document:** Import data from previously generated DOCX or PDF statements (attempts to parse based on expected labels).
-*   **Export Reports:**
-    *   Export the cash flow statement to a professionally formatted PDF file (Folio size: 8.5" x 13").
-    *   Save the cash flow statement as a Microsoft Word document (DOCX) with similar formatting.
-*   **Email Functionality:** Send the generated PDF and DOCX files as email attachments directly from the application using a Gmail account.
-*   **Tooltips:** Helpful hints appear when hovering over buttons and input fields.
-*   **Keyboard Shortcuts:** Common actions like Load, Export, Save, and Email have keyboard shortcuts.
-*   **Clear Fields:** Option to easily clear all input data.
-*   **Standalone Executable:** Can be packaged into a single executable file using PyInstaller for distribution.
+*   **Graphical User Interface (GUI):** User-friendly interface built with `customtkinter`.
+*   **Data Entry:** Fields for entering beginning balances, cash inflows (dues, fees, rentals, etc.), and cash outflows (expenses, deposits, etc.).
+*   **Automatic Calculations:** Automatically calculates total receipts, total outflows, and ending cash balances (overall, bank, hand).
+*   **Date Selection:** Custom calendar widget (`HoverCalendar`) for easy date selection.
+*   **Header Configuration:** Ability to set a custom header address and select a logo image for reports.
+*   **File Operations:**
+    *   **Load:** Load existing cash flow data from `.docx` (Microsoft Word) or `.pdf` files.
+    *   **Export:** Export the current statement to a `.pdf` file (formatted for Folio 8.5" x 13" paper).
+    *   **Save:** Save the current statement to a `.docx` file (formatted for Folio 8.5" x 13" paper).
+*   **Email Integration:** Send the generated statement (both PDF and DOCX attached) directly via email using Gmail SMTP.
+*   **Signatory Management:** Fields to specify recipients and signatory names (Prepared by, Checked by, Noted by x2) which appear in the exported documents.
+*   **Settings Management:** A separate settings window to configure:
+    *   Sender email address and password (specifically Gmail App Password).
+    *   Application login username and password.
+*   **Login System:** Simple username/password login for basic access control.
+*   **Footer:** Includes predefined footer images (`chud logo.png`, `xu logo.png`).
+
+## Screenshots
+
+*(Optional: You can add screenshots here to showcase the UI)*
+
+*   Login Screen
+*   Main Application Window
+*   Settings Window
+*   Calendar Popup
 
 ## Requirements
 
-*   **Python:** 3.7 or higher recommended.
-*   **Python Libraries:**
-    *   `customtkinter`
-    *   `tkcalendar` (Optional, but required for the calendar popup feature)
-    *   `pdfplumber` (For reading data from PDF files)
-    *   `python-docx` (For reading/writing DOCX files)
-    *   `reportlab` (For generating PDF files)
-    *   `pyinstaller` (Optional, for creating a standalone executable)
+*   Python 3.7+
+*   pip (Python package installer)
 
-## Installation
+## Dependencies
+
+The application relies on the following Python libraries:
+
+*   `customtkinter`: For the modern GUI elements.
+*   `tkcalendar`: Base for the custom calendar widget.
+*   `reportlab`: For generating PDF documents.
+*   `python-docx`: For creating and parsing `.docx` files.
+*   `pdfplumber`: For extracting text and tables from `.pdf` files.
+*   `Pillow`: For handling images (logo loading, footer images).
+
+## Installation & Setup
 
 1.  **Clone or Download:** Get the project files onto your local machine.
     ```bash
-    git clone <your-repository-url> # If using Git
-    cd <repository-directory>
+    git clone <repository_url> # If using Git
+    cd <repository_directory>
     ```
     Or download the ZIP file and extract it.
 
-2.  **Install Dependencies:**
-    *   Navigate to the project directory in your terminal or command prompt.
-    *   Create a `requirements.txt` file in the project directory with the following content:
-        ```plaintext
-        # requirements.txt
-        customtkinter
-        tkcalendar
-        pdfplumber
-        python-docx
-        reportlab
-        pyinstaller
-        ```
-        *(Remove `tkcalendar` if you don't need the popup. Remove `pyinstaller` if you don't need to build an executable).*
-    *   Run the following command to install the required libraries into your Python environment:
-        ```bash
-        pip install -r requirements.txt
-        ```
-        *(Note: This installs packages globally or into your user site-packages if not using a virtual environment. Using a virtual environment is generally recommended for managing project dependencies to avoid conflicts.)*
+2.  **Create a Virtual Environment (Recommended):**
+    ```bash
+    python -m venv venv
+    source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+    ```
 
-## Configuration (Email)
+3.  **Install Dependencies:**
+    ```bash
+    pip install customtkinter tkcalendar reportlab python-docx pdfplumber Pillow
+    ```
 
-The application uses Gmail (smtp.gmail.com) to send emails.
+4.  **Place Footer Images:** Ensure the image files `chud logo.png` and `xu logo.png` are placed inside a folder named `itcc42` within the main project directory. The application looks for them at `itcc42/chud logo.png` and `itcc42/xu logo.png`.
 
-1.  **Gmail Account:** You need a Gmail account to use as the sender.
-2.  **App Password:** **IMPORTANT:** For security reasons, Gmail requires you to use an "App Password" instead of your regular account password when logging in from applications like this.
-    *   You need 2-Step Verification enabled on your Google Account.
-    *   Go to your Google Account settings -> Security -> App passwords.
-    *   Generate a new App Password (select "Mail" and "Other (Custom name)" - e.g., "HOA Cash Flow App").
-    *   Google will provide a 16-character password. **Copy this password immediately** (you won't see it again).
-3.  **Update Credentials in Code:**
-    *   Open the `cash_flow_app.py` file (or potentially `email_sender.py` if refactored).
-    *   Locate the `EmailSender` initialization section (around line 610 in `cash_flow_app.py` based on the provided code).
-    *   **Replace the placeholder email and password:**
-        ```python
-        # WARNING: Hardcoded credentials - replace in production!
-        sender_email = "your_sender_email@gmail.com" # <<< REPLACE THIS
-        sender_app_password = "your_16_character_app_password" # <<< REPLACE THIS
-        self.email_sender = EmailSender(...)
-        ```
-    *   **Security Note:** Hardcoding credentials directly in the code is **not recommended** for security. Consider using environment variables or a configuration file in a real-world scenario.
+5.  **Configure Gmail for Sending (Important):**
+    *   The application uses Gmail's SMTP server (`smtp.gmail.com`).
+    *   You **must** use a **Gmail App Password**, not your regular Google account password. Standard password login is often blocked by Google for security reasons when accessed from apps.
+    *   **How to get an App Password:**
+        *   Go to your Google Account settings.
+        *   Enable 2-Step Verification if you haven't already.
+        *   Navigate to Security -> 2-Step Verification -> App passwords.
+        *   Generate a new App Password (select "Mail" for the app and "Windows Computer" or similar for the device).
+        *   Copy the generated 16-character password.
+    *   You will enter this App Password in the application's Settings window.
+
+6.  **Settings File (`settings.json`):**
+    *   The application uses a `settings.json` file to store email credentials and login details.
+    *   If the file doesn't exist when you first run the app or open settings, it will use the hardcoded defaults from `setting.py`.
+    *   Saving settings via the Settings window will create or update `settings.json`.
 
 ## Usage
 
-1.  **Run the Application:** Open your terminal or command prompt, navigate to the project directory, and run:
+1.  **Run the Application:**
     ```bash
-    main.py
+    python main.py
     ```
 
-2.  **Select Date:** Click the "Select Date" button at the top right to choose the reporting period end date.
-3.  **Enter Data:** Fill in the beginning balances, cash inflow amounts, and cash outflow amounts in the respective sections. Amounts will be formatted automatically.
-4.  **Names & Recipients:** Enter the recipient email addresses (comma-separated) and the names for "Prepared by", "Noted by" (x2), and "Checked by".
-5.  **Load Data (Optional):** Click "Load Doc" to select a previously saved DOCX or PDF statement. The application will attempt to parse and fill the fields. *Note: Parsing depends heavily on the document's structure matching the expected format.*
-6.  **Review Calculations:** The "Ending Balances" and "Totals" sections update automatically as you enter data.
-7.  **Export/Save:**
-    *   Click "Export PDF" to save the statement as a PDF file.
-    *   Click "Save Word" to save the statement as a DOCX file.
-8.  **Email:** Click "Email Report" to send the generated PDF and DOCX files to the specified recipients using the configured Gmail account.
-9.  **Clear:** Click "Clear Fields" to reset all input fields and names (confirmation required).
+2.  **Login:**
+    *   The login window will appear.
+    *   Enter the username and password.
+    *   By default (if `settings.json` doesn't exist or hasn't been changed), the credentials are:
+        *   Username: `user`
+        *   Password: `123`
+    *   These can be changed in the Settings window after logging in.
 
-## Creating a Standalone Executable (using PyInstaller)
+3.  **Main Window:**
+    *   **Header Config:**
+        *   Enter the desired **Header Address**.
+        *   Click **Select Logo Image** to choose a logo file for the reports.
+        *   Click **Manage Settings** to open the settings window (see Configuration below).
+        *   Click the **Date Button** (shows current/selected date) to open the calendar and select the report date.
+    *   **Data Entry:** Fill in the amounts for beginning balances, inflows, and outflows in the respective sections. Fields are automatically formatted as currency. Calculated fields (Totals, Ending Balances) are disabled and update automatically.
+    *   **Signatories/Recipients:** Fill in the recipient emails (comma-separated) and the names for Prepared by, Noted by (x2), and Checked by.
+    *   **Action Buttons:**
+        *   **Load (Ctrl+L):** Open a file dialog to select a `.docx` or `.pdf` file to load data from.
+        *   **Clear Fields:** Clears all cash flow data entry fields (keeps logo, address, date, signatories).
+        *   **Export PDF (Ctrl+E):** Save the current statement as a PDF file.
+        *   **Save Word (Ctrl+W):** Save the current statement as a DOCX file.
+        *   **Email (Ctrl+G):** Send the generated PDF and DOCX files via email to the specified recipients using the configured sender credentials.
+    *   **Footer:** The footer section displays the CHUDD and XU logos.
 
-You can package the application into a single executable file (.exe on Windows, app bundle on macOS) so it can be run without installing Python or the dependencies on other machines.
+4.  **Keyboard Shortcuts:**
+    *   `Ctrl+L`: Load Document
+    *   `Ctrl+E`: Export to PDF
+    *   `Ctrl+W`: Save to Word
+    *   `Ctrl+G`: Send Email
+    *   `Ctrl+Q`: Quit Application
 
-1.  **Install PyInstaller:** Make sure it's installed (it should be if you followed the `requirements.txt` installation). If not:
-    ```bash
-    pip install pyinstaller
-    ```
+## Configuration (Settings Window)
 
-2.  **Run PyInstaller:** Open your terminal or command prompt, navigate to the project directory (where `cash_flow_app.py` is located), and run the following command:
-    ```bash
-    pyinstaller --name "HOACashFlowApp" --windowed --onefile main.py
-    ```
-    *   `--name "HOACashFlowApp"`: Sets the name of the executable and build folders.
-    *   `--windowed`: Prevents a console window from opening when the GUI application runs.
-    *   `--onefile`: Packages everything into a single executable file (can increase startup time). Alternatively, omit this to create a folder with the executable and its dependencies.
-    *   `main.py`: The main script of your application.
+*   Access the Settings window via the **Manage Settings** button on the main screen.
+*   Here you can view and edit:
+    *   **Sender Email:** The Gmail address used to send emails.
+    *   **Sender Password:** The **Gmail App Password** (16 characters).
+    *   **Username:** The username required to log into this application.
+    *   **Password:** The password required to log into this application.
+*   Click **Save** to apply changes (updates `settings.json`). Saved login credentials take effect on the next login.
+*   Click **Cancel** to close without saving.
 
-3.  **Find the Executable:** PyInstaller will create a few folders (`build`, `dist`) and a `.spec` file. The final executable will be located inside the `dist` folder (e.g., `dist/HOACashFlowApp.exe` on Windows).
-
-4.  **Distribution:** You can now distribute the executable file (or the entire `dist` folder if you didn't use `--onefile`) to other users.
-
-**PyInstaller Notes:**
-
-*   **Antivirus:** Sometimes, antivirus software might flag executables created by PyInstaller as suspicious (false positive). You might need to add an exception.
-*   **Hidden Imports:** If the application fails to run after building, PyInstaller might have missed some hidden dependencies. You might need to edit the `.spec` file generated by PyInstaller to explicitly include them using the `hiddenimports=[]` list. For this application, the listed dependencies are usually handled well.
-*   **Data Files:** If your application relied on external data files (like images or templates not included here), you would need to tell PyInstaller to include them using the `--add-data` flag or by modifying the `.spec` file.
-
-## File Formats
-
-*   **Input:** The "Load Doc" feature expects DOCX or PDF files that generally follow the label structure used within the application. Parsing accuracy may vary based on the source document's formatting.
-*   **Output:**
-    *   PDF: Formatted for Folio paper size (8.5" x 13").
-    *   DOCX: Formatted Word document, also set up for Folio size.
-
-## Keyboard Shortcuts
-
-*   `Ctrl + L`: Load Document (PDF/DOCX)
-*   `Ctrl + E`: Export to PDF
-*   `Ctrl + W` / `Ctrl + S`: Save to Word (DOCX)
-*   `Ctrl + G`: Send Email
-*   `Ctrl + Q`: Quit Application
-
-## Known Issues / Limitations
-
-*   **Email Credentials:** Currently hardcoded in the source file (`cash_flow_app.py`). This is insecure. Use environment variables or a config file for better security.
-*   **Document Parsing:** Loading data from DOCX/PDF is sensitive to the structure and exact labeling within the source documents. It might not work perfectly for all files.
-*   **Ending Balance Calculation:** The breakdown of ending cash between "Bank" and "Hand" is based on a simplified calculation within the provided code. It might need adjustment based on specific HOA accounting practices.
-*   **tkcalendar Dependency:** The calendar popup requires the `tkcalendar` library. If not installed, this feature will be unavailable, and an error message will appear upon clicking the date button.
-*   **PyInstaller Build Size:** `--onefile` executables can be relatively large because they bundle Python and all dependencies.
-*   **Global Package Installation:** Without a virtual environment, dependencies are installed globally or in the user site-packages, which can potentially lead to conflicts with other Python projects.
-
-## Future Improvements
-
-*   Implement secure credential management (environment variables, config file, or secure storage).
-*   Improve robustness of DOCX/PDF parsing.
-*   Allow customization of report templates/layout.
-*   Add functionality to save/load the application's current state (all field values).
-*   Implement unit tests.
-*   Optimize PyInstaller build size if necessary.
-
-## License
-
-*(Specify your license here, e.g., MIT License, or state if it's proprietary)*
