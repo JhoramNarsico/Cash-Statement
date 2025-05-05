@@ -265,21 +265,6 @@ class FileHandler:
             with pdfplumber.open(filename) as pdf:
                 # Step 1: Extract address from first page text (primary method)
                 first_page = pdf.pages[0]
-                current_directory = os.getcwd()
-                doc = fitz.open(filename)
-                for page_num in range(len(doc)):
-                    page = doc[page_num]
-                    images = page.get_images(full=True)
-                    for img_index, img in enumerate(images):
-                        xref = img[0]  # Reference to the image
-                        base_image = doc.extract_image(xref)
-                        image_bytes = base_image["image"]
-                        image_ext = base_image["ext"]  # e.g., 'png', 'jpeg'
-                        image_filename = os.path.join(current_directory, f"Logo_{random.random()}.{image_ext}")
-                        with open(image_filename, "wb") as f:
-                            f.write(image_bytes)
-                            print(f"Saved image: {image_filename}")
-                        self.variables['logo_path_var'].set(image_filename)  # Set the logo path variable
 
                 page_text = first_page.extract_text()
                 if page_text:
@@ -367,16 +352,32 @@ class FileHandler:
                             prepared_by = table.df.iloc[3, 1].strip() if len(table.df) > 1 else ""
                             newPrepared = prepared_by.replace("Prepared by:", "").strip()
                             self.prepared_by_var.set(newPrepared)
+                        elif table.df.iloc[4, 1].strip().startswith("Prepared by:"):
+                            prepared_by = table.df.iloc[4,1].strip() if len(table.df) > 1 else ""
+                            newPrepared = prepared_by.replace("Prepared by:", "").strip()
+                            self.prepared_by_var.set(newPrepared)
                         if table.df.iloc[3, 3].strip().startswith("Checked by:"):
                             checked_by = table.df.iloc[3, 3].strip() if len(table.df) > 1 else ""
+                            newChecked = checked_by.replace("Checked by:", "").strip()
+                            self.checked_by_var.set(newChecked)
+                        elif table.df.iloc[4, 3].strip().startswith("Checked by:"):
+                            checked_by = table.df.iloc[4,3].strip() if len(table.df) > 1 else ""
                             newChecked = checked_by.replace("Checked by:", "").strip()
                             self.checked_by_var.set(newChecked)
                         if table.df.iloc[6, 1].strip().endswith("HOA President"):
                             noted_by_1 = table.df.iloc[6, 1].strip() if len(table.df) > 1 else ""
                             newNoted1 = noted_by_1.replace("HOA President", "").strip()
                             self.noted_by_var_1.set(newNoted1)
+                        elif table.df.iloc[7, 1].strip().endswith("HOA President"):
+                            noted_by_1 = table.df.iloc[7,1].strip() if len(table.df) > 1 else ""
+                            newNoted1 = noted_by_1.replace("HOA President", "").strip()
+                            self.noted_by_var_1.set(newNoted1)
                         if table.df.iloc[6, 3].strip().endswith("CHUDD HCD-CORDS"):
-                            noted_by_2 = table.df.iloc[6, 3].strip() if len(table.df) > 1 else ""
+                            noted_by_2 = table.df.iloc[6, 3].strip().strip() if len(table.df) > 1 else ""
+                            newNoted2 = noted_by_2.replace("CHUDD HCD-CORDS", "").strip()
+                            self.noted_by_var_2.set(newNoted2)
+                        elif table.df.iloc[7, 3].strip().endswith("CHUDD HCD-CORDS"):
+                            noted_by_2 = table.df.iloc[7, 3].strip() if len(table.df) > 1 else ""
                             newNoted2 = noted_by_2.replace("CHUDD HCD-CORDS", "").strip()
                             self.noted_by_var_2.set(newNoted2)
                         if not tables:
@@ -405,6 +406,22 @@ class FileHandler:
                         date_found = True
                     except ValueError as e:
                         logging.warning(f"Could not parse date: {date_str}, Error: {e}")
+                
+                current_directory = os.getcwd()
+                doc = fitz.open(filename)
+                for page_num in range(len(doc)):
+                    page = doc[page_num]
+                    images = page.get_images(full=True)
+                    for img_index, img in enumerate(images):
+                        xref = img[0]  # Reference to the image
+                        base_image = doc.extract_image(xref)
+                        image_bytes = base_image["image"]
+                        image_ext = base_image["ext"]  # e.g., 'png', 'jpeg'
+                        image_filename = os.path.join(current_directory, f"Logo_{random.random()}.{image_ext}")
+                        with open(image_filename, "wb") as f:
+                            f.write(image_bytes)
+                            print(f"Saved image: {image_filename}")
+                            self.variables['logo_path_var'].set(image_filename)
 
                 if not date_found:
                     logging.warning("Date not found in PDF.")
