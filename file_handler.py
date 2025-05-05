@@ -17,6 +17,8 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter # Keep for reference, but using custom size
 from reportlab.lib.units import inch # Import inch for easier sizing
 import camelot
+import fitz
+import random
 
 # Word Imports
 from docx import Document
@@ -77,6 +79,19 @@ class FileHandler:
         try:
             logging.info(f"Loading DOCX: {filename}")
             doc = Document(filename)
+            current_directory = os.getcwd()
+            for section in doc.sections:
+                header = section.header
+                for rel in header.part.rels.values():
+                    if "image" in rel.reltype:
+                        image_data = rel.target_part.blob
+                        image_ext = rel.target_part.content_type.split("/")[-1]
+                        image_filename = os.path.join(current_directory, f"Logo_{random.random()}.{image_ext}")
+                        with open(image_filename, "wb") as f:
+                            f.write(image_data)
+                            print(f"Saved header image: {image_filename}")
+                            self.variables['logo_path_var'].set(image_filename)
+            
 
         # Initialize address_var
             self.address_var.set("")
@@ -246,9 +261,26 @@ class FileHandler:
             date_found = False
             names_found = {'prepared': False, 'checked': False, 'noted1': False, 'noted2': False}
 
+            
             with pdfplumber.open(filename) as pdf:
                 # Step 1: Extract address from first page text (primary method)
                 first_page = pdf.pages[0]
+                current_directory = os.getcwd()
+                doc = fitz.open(filename)
+                for page_num in range(len(doc)):
+                    page = doc[page_num]
+                    images = page.get_images(full=True)
+                    for img_index, img in enumerate(images):
+                        xref = img[0]  # Reference to the image
+                        base_image = doc.extract_image(xref)
+                        image_bytes = base_image["image"]
+                        image_ext = base_image["ext"]  # e.g., 'png', 'jpeg'
+                        image_filename = os.path.join(current_directory, f"Logo_{random.random()}.{image_ext}")
+                        with open(image_filename, "wb") as f:
+                            f.write(image_bytes)
+                            print(f"Saved image: {image_filename}")
+                        self.variables['logo_path_var'].set(image_filename)  # Set the logo path variable
+
                 page_text = first_page.extract_text()
                 if page_text:
                     lines = page_text.splitlines()
