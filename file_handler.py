@@ -16,6 +16,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter # Keep for reference, but using custom size
 from reportlab.lib.units import inch # Import inch for easier sizing
+import camelot
 
 # Word Imports
 from docx import Document
@@ -74,13 +75,50 @@ class FileHandler:
         # --- NOTE: This does NOT load logo/address from the docx ---
         # --- It loads cash flow data and signatory names only ---
         try:
-            logging.info(f"Loading DOCX: {filename}") # Use logging
-            # Clear existing fields before loading (optional, depends on desired behavior)
-            # self.clear_fields_before_load() # Consider adding a method to clear specific fields
-
+            logging.info(f"Loading DOCX: {filename}")
             doc = Document(filename)
 
-            # (Keep label_to_var mapping as is)
+        # Initialize address_var
+            self.address_var.set("")
+
+        # Step 1: Extract address from header table
+            address_found = False
+            for section in doc.sections:
+                headers = [
+                section.header,
+                section.first_page_header,
+                section.even_page_header
+            ]
+                for header in headers:
+                    for table in header.tables:
+                        if len(table.rows) > 0 and len(table.rows[0].cells) >= 2:
+                            cell_content = table.rows[0].cells[1].text.strip()
+                            logging.debug(f"Header table cell content: {cell_content}")
+                            lines = cell_content.splitlines()
+                            lines = [line.strip() for line in lines if line.strip()]
+
+                        # Filter out unwanted lines
+                        # Use a static date pattern since self.date_var may not be set yet
+                            unwanted_patterns = [
+                            r"CASH FLOW STATEMENT",
+                            r"For the Month of \w+\s+\d{1,2},\s+\d{4}"  # Matches "For the Month of May 05, 2025"
+                        ]
+                            address_lines = [
+                            line for line in lines
+                            if not any(re.search(pattern, line, re.IGNORECASE) for pattern in unwanted_patterns)
+                        ]
+                            if address_lines:
+                                self.address_var.set(address_lines[0])  # e.g., "Default Address - Change Me"
+                                address_found = True
+                                logging.info(f"Extracted address from header: {self.address_var.get()}")
+                                break  # Stop after finding the first valid address
+                    if address_found:
+                        break
+                if address_found:
+                    break
+
+            if not address_found:
+                logging.warning("No address found in any header table.")
             label_to_var = {
                 "Cash in Bank-beg": self.variables['cash_bank_beg'],
                 "Cash on Hand-beg": self.variables['cash_hand_beg'],
@@ -122,6 +160,8 @@ class FileHandler:
                         # logging.debug(f"Extracted Label: '{label}', Value: '{value}'") # Debugging
                         if label.lower().startswith("for the month of"): # Adjusted keyword
                             try:
+                                lines = value.splitlines()
+                                lines = [line.strip() for line in lines if line.strip()]
                                 # Extract date string after "For the Month of "
                                 date_str_part = label.split("For the Month of", 1)[1].strip()
                                 date_obj = datetime.datetime.strptime(date_str_part, "%B %d, %Y")
@@ -135,39 +175,22 @@ class FileHandler:
                                     self.date_var.set(date_obj.strftime("%m/%d/%Y"))
                                     logging.info(f"Loaded date from value: {self.date_var.get()}")
                                 except: pass # Ignore if value also fails
+                        if label.lower().startswith("prepared by:"): # Adjusted keyword
+                            treasurer = table.rows[1].cells[0].text.strip()
+                            auditor = table.rows[1].cells[1].text.strip()
+                            self.prepared_by_var.set(treasurer)
+                            self.checked_by_var.set(auditor)
 
+                        if label.lower().startswith("hoa president"): # Adjusted keyword
+                            president = table.rows[0].cells[0].text.strip()
+                            Chords = table.rows[0].cells[1].text.strip()
+                            self.noted_by_var_1.set(president)
+                            self.noted_by_var_2.set(Chords)
                         if label in label_to_var:
                             parsed_value = self.parse_amount(value)
                             label_to_var[label].set(parsed_value)
                             # logging.debug(f"Set {label} to {parsed_value}") # Debugging
-
-            # Extract footer names
-            try:
-                footer = doc.sections[0].footer
-                footer_text = "\n".join([para.text for para in footer.paragraphs])
-                # Reset noted_by fields before loading from footer
-                self.noted_by_var_1.set("")
-                self.noted_by_var_2.set("")
-                for line in footer_text.split("\n"):
-                    line = line.strip()
-                    if line.startswith("Prepared by:"):
-                        self.prepared_by_var.set(line.replace("Prepared by:", "").strip())
-                    elif line.startswith("Noted by:"):
-                        # Fill noted_by_1 first, then noted_by_2
-                        noted_name = line.replace("Noted by:", "").strip()
-                        if not self.noted_by_var_1.get():
-                            self.noted_by_var_1.set(noted_name)
-                        elif not self.noted_by_var_2.get(): # Only fill if var2 is empty
-                            self.noted_by_var_2.set(noted_name)
-                    elif line.startswith("Checked by:"):
-                        self.checked_by_var.set(line.replace("Checked by:", "").strip())
-                logging.info("Loaded signatory names from footer.")
-            except IndexError:
-                logging.warning("Could not access document footer to load names.")
-            except Exception as e:
-                 logging.error(f"Error loading names from footer: {e}")
-
-
+                
             messagebox.showinfo("Success", "DOCX data loaded successfully")
             return True
 
@@ -178,13 +201,16 @@ class FileHandler:
 
     def load_from_pdf(self, filename):
         """Load data from a PDF document into the application variables."""
-        # --- NOTE: This does NOT load logo/address from the PDF ---
-        # --- It loads cash flow data and signatory names only ---
         try:
             logging.info(f"Attempting to load PDF: {filename}")
-            # self.clear_fields_before_load() # Consider clearing fields
+            # Initialize variables
+            self.address_var.set("")
+            self.prepared_by_var.set("")
+            self.checked_by_var.set("")
+            self.noted_by_var_1.set("")
+            self.noted_by_var_2.set("")
 
-            label_to_var = { # Same mapping as DOCX load
+            label_to_var = {
                 "Cash in Bank-beg": self.variables['cash_bank_beg'],
                 "Cash on Hand-beg": self.variables['cash_hand_beg'],
                 "Monthly Dues Collected": self.variables['monthly_dues'],
@@ -196,8 +222,8 @@ class FileHandler:
                 "Interest Income on Bank Deposits": self.variables['interest_income'],
                 "Livelihood Management Fee": self.variables['livelihood_fee'],
                 "Others (Inflow)": self.variables['inflows_others'],
-                "Total Cash Receipts": self.variables['total_receipts'], # This might be calculated, loading could override
-                "Cash Outflows/Disbursements": self.variables['cash_outflows'], # Calculated, loading could override
+                "Total Cash Receipts": self.variables['total_receipts'],
+                "Cash Outflows/Disbursements": self.variables['cash_outflows'],
                 "Snacks/Meals for Visitors": self.variables['snacks_meals'],
                 "Transportation Expenses": self.variables['transportation'],
                 "Office Supplies Expense": self.variables['office_supplies'],
@@ -214,86 +240,155 @@ class FileHandler:
                 "Withholding Tax on Bank Deposit": self.variables['withholding_tax'],
                 "Refund": self.variables['refund'],
                 "Others (Outflow)": self.variables['outflows_others']
-                # Ending balances are usually calculated, don't map them here unless necessary
             }
 
+            address_found = False
             date_found = False
-            names_found = {'prepared': False, 'noted1': False, 'noted2': False, 'checked': False}
-            self.noted_by_var_1.set("") # Reset noted by fields
-            self.noted_by_var_2.set("")
+            names_found = {'prepared': False, 'checked': False, 'noted1': False, 'noted2': False}
 
             with pdfplumber.open(filename) as pdf:
-                full_text = ""
-                for page_num, page in enumerate(pdf.pages):
-                    # Extract table data first
-                    try:
-                        tables = page.extract_tables()
-                        for table in tables:
-                            if not table: continue
-                            for row in table:
-                                if not row or len(row) < 2 or not row[0]: continue
-                                label = str(row[0]).replace('\n', ' ').strip() if row[0] else ""
-                                value = str(row[1]).replace('\n', ' ').strip() if row[1] else ""
-                                # logging.debug(f"PDF Table Extracted: Label='{label}', Value='{value}'") # Debugging
-                                if label in label_to_var:
-                                    try:
-                                        parsed_value = self.parse_amount(value)
-                                        # logging.debug(f"Setting {label} to {parsed_value}") # Debugging
-                                        label_to_var[label].set(parsed_value)
-                                    except Exception as e:
-                                        logging.warning(f"Error setting {label} from PDF table: {e}")
-                    except Exception as e:
-                        logging.warning(f"Error extracting tables from PDF page {page_num + 1}: {e}")
+                # Step 1: Extract address from first page text (primary method)
+                first_page = pdf.pages[0]
+                page_text = first_page.extract_text()
+                if page_text:
+                    lines = page_text.splitlines()
+                    lines = [line.strip() for line in lines if line.strip()]
+                    logging.debug(f"First page text lines: {lines}")
+                    for i, line in enumerate(lines):
+                        if re.search(r"CASH FLOW STATEMENT", line, re.IGNORECASE):
+                            # Look for the address in the line(s) before "CASH FLOW STATEMENT"
+                            for j in range(i - 1, -1, -1):
+                                if lines[j] and not re.search(r"^\[Logo", lines[j]) and not re.search(r"For the Month of", lines[j], re.IGNORECASE):
+                                    self.address_var.set(lines[j])
+                                    address_found = True
+                                    logging.info(f"Extracted address from text: {self.address_var.get()}")
+                                    break
+                            break
 
-                    # Extract text for date and names (more robust)
+                # Step 2: Fallback to table extraction for address
+                if not address_found:
+                    tables = first_page.extract_tables()
+                    logging.debug(f"First page tables: {tables}")
+                    for table in tables:
+                        if not table or len(table) == 0 or len(table[0]) < 2:
+                            continue
+                        cell_content = str(table[0][1]).strip()
+                        logging.debug(f"Table cell content: {cell_content}")
+                        lines = cell_content.splitlines()
+                        lines = [line.strip() for line in lines if line.strip()]
+                        unwanted_patterns = [
+                            r"CASH FLOW STATEMENT",
+                            r"For the Month of \w+\s+\d{1,2},\s+\d{4}"
+                        ]
+                        address_lines = [
+                            line for line in lines
+                            if not any(re.search(pattern, line, re.IGNORECASE) for pattern in unwanted_patterns)
+                        ]
+                        if address_lines:
+                            self.address_var.set(address_lines[0])
+                            address_found = True
+                            logging.info(f"Extracted address from table: {self.address_var.get()}")
+                            break
+
+                if not address_found:
+                    logging.warning("No address found in PDF. Setting default.")
+                    self.address_var.set("Default Address - Change Me")
+
+                # Step 3: Extract cash flow data from tables
+                for page in pdf.pages:
+                    tables = page.extract_tables()
+                    for table in tables:
+                        if not table:
+                            continue
+                        for row in table:
+                            if not row or len(row) < 2 or not row[0]:
+                                continue
+                            label = str(row[0]).replace('\n', ' ').strip() if row[0] else ""
+                            value = str(row[1]).replace('\n', ' ').strip() if row[1] else ""
+                            logging.debug(f"Table row: Label='{label}', Value='{value}'")
+                            if label in label_to_var:
+                                try:
+                                    parsed_value = self.parse_amount(value)
+                                    label_to_var[label].set(parsed_value)
+                                    logging.debug(f"Set {label} to {parsed_value}")
+                                except Exception as e:
+                                    logging.warning(f"Error setting {label}: {e}")
+                #signatories
+                try:
+    # Assume 8.5x11 page (612x792 points), footer in bottom 200 points
+                    tables = camelot.read_pdf(
+        filename,
+        flavor="stream",
+        pages="all",
+        table_areas=["0,300,612,0"],  # Adjust y1 to include all footer text
+        split_text=True,  # Handle multi-line cells
+        strip_text='\n',  # Remove newlines
+        row_tol=15,  # Loose row grouping
+        column_tol=15  # Loose column grouping
+    )
+                    for table in tables:
+                        print("Footer table found:")
+                        print(table.df)
+        # Check for "Prepared by:"
+                        print(table.df.iloc[3, 3].strip())
+                        if table.df.iloc[3, 1].strip().startswith("Prepared by:"):
+                            prepared_by = table.df.iloc[3, 1].strip() if len(table.df) > 1 else ""
+                            newPrepared = prepared_by.replace("Prepared by:", "").strip()
+                            self.prepared_by_var.set(newPrepared)
+                        if table.df.iloc[3, 3].strip().startswith("Checked by:"):
+                            checked_by = table.df.iloc[3, 3].strip() if len(table.df) > 1 else ""
+                            newChecked = checked_by.replace("Checked by:", "").strip()
+                            self.checked_by_var.set(newChecked)
+                        if table.df.iloc[6, 1].strip().endswith("HOA President"):
+                            noted_by_1 = table.df.iloc[6, 1].strip() if len(table.df) > 1 else ""
+                            newNoted1 = noted_by_1.replace("HOA President", "").strip()
+                            self.noted_by_var_1.set(newNoted1)
+                        if table.df.iloc[6, 3].strip().endswith("CHUDD HCD-CORDS"):
+                            noted_by_2 = table.df.iloc[6, 3].strip() if len(table.df) > 1 else ""
+                            newNoted2 = noted_by_2.replace("CHUDD HCD-CORDS", "").strip()
+                            self.noted_by_var_2.set(newNoted2)
+                        if not tables:
+                            print("No footer tables detected with Camelot.")
+                except Exception as e:
+                    print(f"Camelot error: {str(e)}")
+                    if not any(names_found.values()):
+                        logging.debug("Signatory table not found. Falling back to text extraction.")
+                    
+                full_text = ""
+                for page in pdf.pages:
                     page_text = page.extract_text()
                     if page_text:
                         full_text += page_text + "\n"
+                    #
+                    #print(full_text)  # Debugging: Print full text for analysis
+                
+                # Step 6: Extract date
+                date_match = re.search(r"For the Month of\s+(\w+\s+\d{1,2},\s+\d{4})", full_text, re.IGNORECASE)
+                if date_match:
+                    try:
+                        date_str = date_match.group(1).strip()
+                        date_obj = datetime.datetime.strptime(date_str, "%B %d, %Y")
+                        self.date_var.set(date_obj.strftime("%m/%d/%Y"))
+                        logging.info(f"Extracted date: {self.date_var.get()}")
+                        date_found = True
+                    except ValueError as e:
+                        logging.warning(f"Could not parse date: {date_str}, Error: {e}")
 
-                # Process full text for date and names after tables
-                for line in full_text.split('\n'):
-                    line = line.strip()
-                    if not date_found and ("For the Month of" in line or "For the year month" in line): # Check both patterns
-                        try:
-                            # Extract date part after the phrase
-                            date_str_part = re.split(r"For the (?:Month|year month) of", line, maxsplit=1, flags=re.IGNORECASE)[1].strip()
-                            date_obj = datetime.datetime.strptime(date_str_part, "%B %d, %Y")
-                            self.date_var.set(date_obj.strftime("%m/%d/%Y"))
-                            logging.info(f"Loaded date from PDF text: {self.date_var.get()}")
-                            date_found = True
-                        except (IndexError, ValueError, TypeError) as e:
-                            logging.warning(f"Could not parse date from PDF line: '{line}', Error: {e}")
-                    elif not names_found['prepared'] and line.startswith("Prepared by:"):
-                        self.prepared_by_var.set(line.replace("Prepared by:", "").strip())
-                        names_found['prepared'] = True
-                    elif line.startswith("Noted by:"):
-                        noted_name = line.replace("Noted by:", "").strip()
-                        if not names_found['noted1']:
-                            self.noted_by_var_1.set(noted_name)
-                            names_found['noted1'] = True
-                        elif not names_found['noted2']:
-                            self.noted_by_var_2.set(noted_name)
-                            names_found['noted2'] = True
-                    elif not names_found['checked'] and line.startswith("Checked by:"):
-                        self.checked_by_var.set(line.replace("Checked by:", "").strip())
-                        names_found['checked'] = True
-
-            if not date_found:
-                logging.warning("Date information not found in the PDF.")
-            if not any(names_found.values()):
-                logging.warning("Signatory names not found in the PDF.")
+                if not date_found:
+                    logging.warning("Date not found in PDF.")
+                if not any(names_found.values()):
+                    logging.warning("No signatory names found in PDF.")
 
             messagebox.showinfo("Success", "PDF data loaded successfully!")
-            # Trigger calculation after loading to update totals/ending balances
-            if hasattr(self.variables.get('calculator'), 'calculate_totals'): # Access calculator via variables if needed
+            if hasattr(self.variables.get('calculator'), 'calculate_totals'):
                 self.variables['calculator'].calculate_totals()
             return True
 
         except Exception as e:
-            logging.exception(f"Error loading PDF: {filename}") # Log full traceback
+            logging.exception(f"Error loading PDF: {filename}")
             messagebox.showerror("Error", f"Error loading PDF:\n{str(e)}")
             return False
-
+        
     # --- MODIFIED save_to_docx ---
     def save_to_docx(self):
         """Save data to a Word document with logo, address, and two Noted by fields in the footer."""
@@ -825,12 +920,12 @@ class FileHandler:
             # Ending Cash Balance
             elements.append(Paragraph("Ending Cash Balance", tableboldStyle))
             ending_data = [
-                 [Paragraph("Ending Cash Balance", tablestyle), Paragraph(format_amount(self.variables['ending_cash'].get()), tableboldStyle)]
+                 ["Ending Cash Balance", format_amount(self.variables['ending_cash'].get())]
             ]
             ending_table = Table(ending_data, colWidths=[data_label_width, data_value_width], rowHeights=[14])
             ending_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'), # Already bold via Paragraph
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'), # Already bold via Paragraph
                 ('FONTSIZE', (0, 0), (-1, -1), 8),
                 ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
