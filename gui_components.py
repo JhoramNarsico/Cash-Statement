@@ -245,28 +245,29 @@ class GUIComponents:
         SettingsWindow(self.root, self.settings_manager)
 
     def create_widgets(self):
+
         # Main frame with footer space
         self.main_frame = ctk.CTkFrame(self.root, corner_radius=0, fg_color=self.BG_COLOR)
         self.main_frame.pack(fill="both", expand=True)
-        self.main_frame.grid_rowconfigure(0, weight=0)  # Content area
-        self.main_frame.grid_rowconfigure(0, weight=1)  # Footer
+        self.main_frame.grid_rowconfigure(0, weight=15)  # Increased weight for content area
+        self.main_frame.grid_rowconfigure(1, weight=0)  # Spacer between content and footer
+        self.main_frame.grid_rowconfigure(2, weight=1)  # Footer
         self.main_frame.grid_columnconfigure(0, weight=1)
 
-        # Content frame (replacing canvas)
+        # Content frame (container for all content including header, form, and buttons)
         self.content_frame = ctk.CTkFrame(self.main_frame, corner_radius=0, fg_color=self.BG_COLOR)
-        self.content_frame.grid(row=0, column=0, sticky="nsew")
+        self.content_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=(0, 10))  # Increased top padding for better spacing
         self.content_frame.grid_columnconfigure(0, weight=1)
 
         # Footer
-        footer_height = 120  # Reduced footer height
+        footer_height = 80  # Keep footer height fixed
         self.footer_frame = ctk.CTkFrame(self.main_frame, height=footer_height, corner_radius=0, fg_color=self.FOOTER_BG)
-        self.footer_frame.grid(row=1, column=0, sticky="ew")
+        self.footer_frame.grid(row=2, column=0, sticky="ew")
         self.footer_frame.grid_propagate(False)  # Prevent resizing
 
-        # Footer label (aligned left)
-                # Footer text container (aligned right)
+        # Footer text container (aligned right)
         footer_text_frame = ctk.CTkFrame(self.footer_frame, fg_color="transparent")
-        footer_text_frame.pack(side="right", padx=self.base_pad_x, pady=40)
+        footer_text_frame.pack(side="right", padx=self.base_pad_x)  # Removed pady=40
 
         # First line: compliance text
         compliance_label = ctk.CTkLabel(
@@ -278,20 +279,13 @@ class GUIComponents:
         )
         compliance_label.pack(anchor="e", padx=(0, 20))
 
-       
-
-            
-
         # Footer images (aligned right)
         image1_size = (70, 70)
         image2_size = (273, 70)  # Size for footer images
         try:
-            # Attempt to load images; use placeholder paths or variables
-            # For demonstration, using variables or default paths
-            image1_path = self.variables.get('footer_image1_var', ctk.StringVar(value="itcc42/chud logo.png")).get()
-            image2_path = self.variables.get('footer_image2_var', ctk.StringVar(value="itcc42/xu logo.png")).get()
+            image1_path = self.variables.get('footer_image1_var', ctk.StringVar(value="chud logo.png")).get()
+            image2_path = self.variables.get('footer_image2_var', ctk.StringVar(value="xu logo.png")).get()
 
-            # Load and create first image
             if os.path.exists(image1_path):
                 img1 = Image.open(image1_path)
                 img1 = img1.resize(image1_size, Image.Resampling.LANCZOS)
@@ -304,7 +298,6 @@ class GUIComponents:
                 img1_label = ctk.CTkLabel(self.footer_frame, text="Image 1 Not Found", font=("Roboto", self.label_font_size), text_color="#FFFFFF")
                 img1_label.pack(side="left", padx=(20, 10), pady=self.base_pad_y)
 
-            # Load and create second image
             if os.path.exists(image2_path):
                 img2 = Image.open(image2_path)
                 img2 = img2.resize(image2_size, Image.Resampling.LANCZOS)
@@ -322,24 +315,30 @@ class GUIComponents:
             error_label = ctk.CTkLabel(self.footer_frame, text="Error Loading Images", font=("Roboto", self.label_font_size), text_color="#FFFFFF")
             error_label.pack(side="right", padx=self.base_pad_x, pady=self.base_pad_y)
 
-        # Layout content
-        current_row = 0
+        # Subdivide content frame
+        self.content_frame.grid_rowconfigure(0, weight=1)  # Header
+        self.content_frame.grid_rowconfigure(1, weight=6)  # Table
+        self.content_frame.grid_rowconfigure(2, weight=1)  # Action Buttons
 
-        # Header configuration (Address, Logo, Settings, Date) in a single-row grid
-        header_config_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
-        header_config_frame.grid(row=current_row, column=0, sticky="ew", padx=self.section_pad_x, pady=(self.section_pad_y, self.base_pad_y))
-        current_row += 1
-        header_config_frame.grid_columnconfigure((0, 1, 2, 3), weight=1, uniform="header_group")  # Four columns of equal width
+        # Header configuration (Address, Logo, Settings, Date)
+        header_config_frame = ctk.CTkFrame(
+            self.content_frame,
+            fg_color="transparent"
+        )
+        header_config_frame.grid(
+            row=0,
+            column=0,
+            sticky="ew",
+            padx=self.section_pad_x,
+            pady=(0, 0)  # ⬅️ Bottom padding increased to 30px to separate from tables
+        )
+        header_config_frame.grid_columnconfigure((0, 1, 2, 3), weight=1, uniform="header_group")
 
         # Address
         address_frame = ctk.CTkFrame(header_config_frame, fg_color="transparent")
         address_frame.grid(row=0, column=0, sticky="ew", padx=(0, self.base_pad_x))
         ctk.CTkLabel(address_frame, text="Header Address:", font=("Roboto", self.label_font_size), text_color=self.TEXT_COLOR, anchor="w").pack(side="top", fill="x", pady=(0, self.base_pad_y // 2))
-        address_entry = ctk.CTkEntry(
-            address_frame, textvariable=self.variables['address_var'], font=("Roboto", self.entry_font_size),
-            corner_radius=6, fg_color=self.ENTRY_BG_COLOR, text_color=self.TEXT_COLOR,
-            border_color=self.ENTRY_BORDER_COLOR
-        )
+        address_entry = ctk.CTkEntry(address_frame, textvariable=self.variables['address_var'], font=("Roboto", self.entry_font_size), corner_radius=6, fg_color=self.ENTRY_BG_COLOR, text_color=self.TEXT_COLOR, border_color=self.ENTRY_BORDER_COLOR)
         address_entry.pack(side="top", fill="x")
         self.create_tooltip(address_entry, "Enter the address to display in the document header")
 
@@ -347,20 +346,14 @@ class GUIComponents:
         logo_frame = ctk.CTkFrame(header_config_frame, fg_color="transparent")
         logo_frame.grid(row=0, column=1, sticky="ew", padx=(self.base_pad_x, self.base_pad_x))
         ctk.CTkLabel(logo_frame, text="Header Logo:", font=("Roboto", self.label_font_size), text_color=self.TEXT_COLOR, anchor="w").pack(side="top", fill="x", pady=(0, self.base_pad_y // 2))
-        logo_button = ctk.CTkButton(
-            logo_frame, text="Select Logo Image", font=("Roboto", self.button_font_size),
-            command=self._select_logo, corner_radius=6, fg_color=self.BUTTON_FG_COLOR,
-            hover_color=self.BUTTON_HOVER_COLOR, text_color=self.BUTTON_TEXT_COLOR
-        )
+        logo_button = ctk.CTkButton(logo_frame, text="Select Logo Image", font=("Roboto", self.button_font_size), command=self._select_logo, corner_radius=6, fg_color=self.BUTTON_FG_COLOR, hover_color=self.BUTTON_HOVER_COLOR, text_color=self.BUTTON_TEXT_COLOR)
         logo_button.pack(side="left", padx=(0, self.base_pad_x))
         self.create_tooltip(logo_button, "Select a logo (PNG, JPG, etc.) for the header")
-
         initial_logo_path = self.variables['logo_path_var'].get()
         initial_logo_text = ""
         if initial_logo_path:
             filename = os.path.basename(initial_logo_path)
             initial_logo_text = f"Selected: {filename}" if len(filename) < 40 else f"Selected: ...{filename[-37:]}"
-
         self.logo_path_display = ctk.CTkLabel(logo_frame, text=initial_logo_text, font=("Roboto", self.label_font_size-1), text_color=self.TEXT_COLOR, anchor="w", wraplength=150)
         self.logo_path_display.pack(side="left", fill="x", expand=True)
 
@@ -369,11 +362,7 @@ class GUIComponents:
         settings_frame.grid(row=0, column=2, sticky="ew", padx=(self.base_pad_x, self.base_pad_x))
         ctk.CTkLabel(settings_frame, text="Settings:", font=("Roboto", self.label_font_size), text_color=self.TEXT_COLOR, anchor="w").pack(side="top", fill="x", pady=(0, self.base_pad_y // 2))
         settings_button_width = min(max(120, int(self.screen_width * 0.08)), 180)
-        settings_button = ctk.CTkButton(
-            settings_frame, text="Manage Settings", font=("Roboto", self.button_font_size),
-            command=self.show_settings, corner_radius=6, fg_color=self.BUTTON_FG_COLOR,
-            hover_color=self.BUTTON_HOVER_COLOR, text_color=self.BUTTON_TEXT_COLOR, width=settings_button_width
-        )
+        settings_button = ctk.CTkButton(settings_frame, text="Manage Settings", font=("Roboto", self.button_font_size), command=self.show_settings, corner_radius=6, fg_color=self.BUTTON_FG_COLOR, hover_color=self.BUTTON_HOVER_COLOR, text_color=self.BUTTON_TEXT_COLOR, width=settings_button_width)
         settings_button.pack(side="top", anchor="w")
         self.create_tooltip(settings_button, "Configure application settings (email, login credentials)")
 
@@ -382,18 +371,33 @@ class GUIComponents:
         date_frame.grid(row=0, column=3, sticky="ew", padx=(self.base_pad_x, 0))
         ctk.CTkLabel(date_frame, text="Report Date:", font=("Roboto", self.label_font_size), text_color=self.TEXT_COLOR, anchor="w").pack(side="top", fill="x", pady=(0, self.base_pad_y // 2))
         date_button_width = min(max(120, int(self.screen_width * 0.08)), 180)
-        date_button = ctk.CTkButton(
-            date_frame, textvariable=self.display_date, font=("Roboto", self.button_font_size),
-            command=self.show_calendar, corner_radius=6, fg_color=self.DATE_BTN_FG,
-            hover_color=self.DATE_BTN_HOVER, text_color=self.DATE_BTN_TEXT, width=date_button_width
-        )
+        date_button = ctk.CTkButton(date_frame, textvariable=self.display_date, font=("Roboto", self.button_font_size), command=self.show_calendar, corner_radius=6, fg_color=self.DATE_BTN_FG, hover_color=self.DATE_BTN_HOVER, text_color=self.DATE_BTN_TEXT, width=date_button_width)
         date_button.pack(side="top", anchor="w")
         self.create_tooltip(date_button, "Click to select the report date")
 
-        # Action buttons
+        # Form sections (middle tables)
+        self.columns_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+        self.columns_frame.grid(row=2, column=0, sticky="nsew", padx=self.section_pad_x / 2, pady=(0, self.section_pad_y))
+        num_data_cols = 5
+        min_col_width = int(self.min_input_width * 1.7)
+        for i in range(num_data_cols):
+            self.columns_frame.grid_columnconfigure(i, weight=1, uniform="data_cols", minsize=min_col_width)
+        self.columns_frame.grid_rowconfigure(0, weight=1)
+        self.beg_frame = self._create_section_frame("Beginning Cash Balances")
+        self.inflow_frame = self._create_section_frame("Cash Inflows")
+        self.outflow_frame = self._create_section_frame("Cash Outflows")
+        self.end_frame = self._create_section_frame("Ending Cash Balances (Calculated)")
+        self.totals_frame = self._create_section_frame("Totals (Calculated)")
+        self.beg_frame.grid(row=0, column=0, sticky="nsew", padx=self.base_pad_x//2, pady=self.base_pad_y)
+        self.inflow_frame.grid(row=0, column=1, sticky="nsew", padx=self.base_pad_x//2, pady=self.base_pad_y)
+        self.outflow_frame.grid(row=0, column=2, sticky="nsew", padx=self.base_pad_x//2, pady=self.base_pad_y)
+        self.end_frame.grid(row=0, column=3, sticky="nsew", padx=self.base_pad_x//2, pady=self.base_pad_y)
+        self.totals_frame.grid(row=0, column=4, sticky="nsew", padx=self.base_pad_x//2, pady=self.base_pad_y)
+        self.populate_columns()
+
+        # Action buttons (bottom of content)
         button_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
-        button_frame.grid(row=current_row, column=0, sticky="ew", padx=self.section_pad_x, pady=(self.base_pad_y, self.section_pad_y))
-        current_row += 1
+        button_frame.grid(row=1, column=0, sticky="ew", padx=self.section_pad_x, pady=(self.base_pad_y // 2, self.section_pad_y // 2))
         buttons_data = [
             ("Load (Ctrl+L)", self.file_handler.load_from_documentpdf, "Load data from DOCX/PDF"),
             ("Clear Fields", self.clear_fields, "Clear all input fields"),
@@ -411,37 +415,24 @@ class GUIComponents:
                 fg_color=self.BUTTON_FG_COLOR, hover_color=self.BUTTON_HOVER_COLOR,
                 text_color=self.BUTTON_TEXT_COLOR, height=int(self.base_font_size * 2.5)
             )
-            btn.grid(row=0, column=i, sticky="ew", padx=self.base_pad_x // 2, pady=self.base_pad_y)
+            btn.grid(row=0, column=i, sticky="ew", padx=self.base_pad_x // 4, pady=self.base_pad_y // 4)
             self.create_tooltip(btn, tooltip_text)
 
-        # Form sections
-        self.columns_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
-        self.columns_frame.grid(row=current_row, column=0, sticky="nsew", padx=self.section_pad_x / 2, pady=(0, self.section_pad_y))
-        current_row += 1
-
-        num_data_cols = 5
-        min_col_width = int(self.min_input_width * 1.7)
-        for i in range(num_data_cols):
-            self.columns_frame.grid_columnconfigure(i, weight=1, uniform="data_cols", minsize=min_col_width)
-        self.columns_frame.grid_rowconfigure(0, weight=1)
-
-        self.beg_frame = self._create_section_frame("Beginning Cash Balances")
-        self.inflow_frame = self._create_section_frame("Cash Inflows")
-        self.outflow_frame = self._create_section_frame("Cash Outflows")
-        self.end_frame = self._create_section_frame("Ending Cash Balances (Calculated)")
-        self.totals_frame = self._create_section_frame("Totals (Calculated)")
-
-        self.beg_frame.grid(row=0, column=0, sticky="nsew", padx=self.base_pad_x//2, pady=self.base_pad_y)
-        self.inflow_frame.grid(row=0, column=1, sticky="nsew", padx=self.base_pad_x//2, pady=self.base_pad_y)
-        self.outflow_frame.grid(row=0, column=2, sticky="nsew", padx=self.base_pad_x//2, pady=self.base_pad_y)
-        self.end_frame.grid(row=0, column=3, sticky="nsew", padx=self.base_pad_x//2, pady=self.base_pad_y)
-        self.totals_frame.grid(row=0, column=4, sticky="nsew", padx=self.base_pad_x//2, pady=self.base_pad_y)
-
-        self.populate_columns()
-
-        names_frame = ctk.CTkFrame(self.content_frame, corner_radius=8, fg_color=self.FRAME_COLOR, border_width=1, border_color=self.BORDER_COLOR)
-        names_frame.grid(row=current_row, column=0, sticky="ew", padx=self.section_pad_x, pady=(self.section_pad_y, self.section_pad_y))
-        current_row += 1
+        # Names section
+        names_frame = ctk.CTkFrame(
+            self.content_frame,
+            corner_radius=8,
+            fg_color=self.FRAME_COLOR,
+            border_width=1,
+            border_color=self.BORDER_COLOR,
+        )
+        names_frame.grid(
+            row=3, 
+            column=0,
+            sticky="ew",
+            padx=self.section_pad_x,
+            pady=(0, 0)
+        )
         name_fields_data = [
             ("Recipients (comma-separated):", 'recipient_emails_var', "Enter recipient emails, comma-separated"),
             ("Prepared by (Treasurer):", 'prepared_by_var', "Name of HOA Treasurer"),
@@ -453,7 +444,6 @@ class GUIComponents:
         min_name_col_width = int(self.min_input_width * 1.5)
         for i in range(num_name_fields):
             names_frame.grid_columnconfigure(i, weight=1, uniform="name_group", minsize=min_name_col_width)
-
         for i, (label_text, var_key, tooltip_text) in enumerate(name_fields_data):
             frame = ctk.CTkFrame(names_frame, fg_color="transparent")
             frame.grid(row=0, column=i, sticky="nsew", padx=self.base_pad_x, pady=self.base_pad_y)
@@ -472,6 +462,7 @@ class GUIComponents:
 
         self.main_frame.bind("<Configure>", self.debounce_layout, add="+")
 
+
     def _create_section_frame(self, title):
         frame = ctk.CTkFrame(self.columns_frame, corner_radius=8, fg_color=self.FRAME_COLOR, border_width=1, border_color=self.BORDER_COLOR)
         ctk.CTkLabel(
@@ -482,14 +473,14 @@ class GUIComponents:
         content_frame.pack(fill="both", expand=True, padx=self.base_pad_x, pady=(0, self.base_pad_y * 1.5))
         return frame
 
-    def _create_entry_pair(self, parent_frame, label_text, var, is_disabled=False, tooltip_text=None):
+    def _create_entry_pair(self, parent_frame, label_text, var, is_disabled=False, tooltip_text=None, input_width=None):
         item_frame = ctk.CTkFrame(parent_frame, fg_color="transparent")
         item_frame.pack(fill="x", padx=self.base_pad_x // 2, pady=self.base_pad_y // 2)
         ctk.CTkLabel(
             item_frame, text=label_text, font=("Roboto", self.label_font_size),
             text_color=self.TEXT_COLOR, anchor="w"
         ).pack(side="left", fill="x", expand=True, padx=(0, self.base_pad_x))
-        input_width = min(max(self.min_input_width, int(self.screen_width * 0.07)), self.max_input_width)
+        input_width = input_width or min(max(self.min_input_width, int(self.screen_width * 0.07)), self.max_input_width)
         entry = ctk.CTkEntry(
             item_frame, textvariable=var, width=input_width,
             font=("Roboto", self.entry_font_size), corner_radius=6,
@@ -508,8 +499,10 @@ class GUIComponents:
                     logging.warning("Calculator object missing 'format_entry' method.")
                 tooltip = tooltip_text if tooltip_text else "Enter amount (numeric)"
                 self.create_tooltip(entry, tooltip)
-            except Exception as e: logging.exception(f"Error applying format_entry or tooltip to {label_text}: {e}")
-        elif tooltip_text: self.create_tooltip(entry, tooltip_text)
+            except Exception as e:
+                logging.exception(f"Error applying format_entry or tooltip to {label_text}: {e}")
+        elif tooltip_text:
+            self.create_tooltip(entry, tooltip_text)
 
     def populate_columns(self):
         beg_content = self.beg_frame.winfo_children()[1]
@@ -523,7 +516,13 @@ class GUIComponents:
             ("Rentals:", 'rentals'), ("Solicitations/Donations:", 'solicitations'),
             ("Interest Income:", 'interest_income'), ("Livelihood Fee:", 'livelihood_fee'),
             ("Others:", 'inflows_others', "Other income sources")]
-        for label, var_key, *tooltip in inflow_items: self._create_entry_pair(inflow_content, label, self.variables[var_key], tooltip_text=tooltip[0] if tooltip else None)
+        for label, var_key, *tooltip in inflow_items: self._create_entry_pair(
+            inflow_content, 
+            label, 
+            self.variables[var_key], 
+            tooltip_text=tooltip[0] if tooltip else None,
+            input_width=self.min_input_width // 1.5
+            )
 
         outflow_content = self.outflow_frame.winfo_children()[1]
         outflow_items = [
