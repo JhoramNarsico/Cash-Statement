@@ -250,7 +250,7 @@ class GUIComponents:
         self.main_frame = ctk.CTkFrame(self.root, corner_radius=0, fg_color=self.BG_COLOR)
         self.main_frame.pack(fill="both", expand=True)
         self.main_frame.grid_rowconfigure(0, weight=15)  # Increased weight for content area
-        self.main_frame.grid_rowconfigure(1, weight=0)  # Spacer between content and footer
+        self.main_frame.grid_rowconfigure(1, weight=0)  
         self.main_frame.grid_rowconfigure(2, weight=1)  # Footer
         self.main_frame.grid_columnconfigure(0, weight=1)
 
@@ -267,7 +267,7 @@ class GUIComponents:
 
         # Footer text container (aligned right)
         footer_text_frame = ctk.CTkFrame(self.footer_frame, fg_color="transparent")
-        footer_text_frame.pack(side="right", padx=self.base_pad_x)  # Removed pady=40
+        footer_text_frame.pack(side="right", padx=self.base_pad_x) 
 
         # First line: compliance text
         compliance_label = ctk.CTkLabel(
@@ -330,7 +330,7 @@ class GUIComponents:
             column=0,
             sticky="ew",
             padx=self.section_pad_x,
-            pady=(0, 0)  # ⬅️ Bottom padding increased to 30px to separate from tables
+            pady=(0, 0) 
         )
         header_config_frame.grid_columnconfigure((0, 1, 2, 3), weight=1, uniform="header_group")
 
