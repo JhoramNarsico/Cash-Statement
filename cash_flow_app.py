@@ -107,4 +107,4 @@ class CashFlowApp:
 
     def populate_content(self):
         """Add widgets to the content frame."""
-        ctk.CTkLabel(self.content_frame, text="Welcome to the Cash Flow App!", font=("Roboto", 16)).pack(pady=20)
+        ctk.CTkLabel(self.content_frame, text="© 2025 All Rights Reserved", font=("Roboto", 16)).pack(pady=20)
