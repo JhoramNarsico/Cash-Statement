@@ -1,4 +1,5 @@
 import tkinter as tk
+import customtkinter as ctk
 import datetime
 from setting import SettingsManager
 
@@ -92,3 +93,18 @@ class CashFlowApp:
             self.email_sender,
             self.settings_manager
         )
+
+         # Create main frame
+        self.main_frame = ctk.CTkFrame(self.root, corner_radius=0)
+        self.main_frame.pack(fill="both", expand=True)
+
+        # Create content frame
+        self.content_frame = ctk.CTkFrame(self.main_frame, corner_radius=0)
+        self.content_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Populate content frame
+        self.populate_content()
+
+    def populate_content(self):
+        """Add widgets to the content frame."""
+        ctk.CTkLabel(self.content_frame, text="Welcome to the Cash Flow App!", font=("Roboto", 16)).pack(pady=20)
