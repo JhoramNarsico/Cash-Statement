@@ -6,14 +6,10 @@ import time
 import logging
 import os
 from setting import SettingsWindow
+from customtkinter import CTkFont
 from PIL import Image  # Requires Pillow
 
-try:
-    from hover_calendar import HoverCalendar
-    logging.info("HoverCalendar imported successfully.")
-except ImportError:
-    HoverCalendar = None
-    logging.warning("HoverCalendar not found. Calendar functionality will be disabled.")
+from hover_calendar import HoverCalendar
 
 class GUIComponents:
     def __init__(self, root, variables, title_var, date_var, display_date, calculator, file_handler, email_sender, settings_manager):
