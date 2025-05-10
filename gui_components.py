@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import customtkinter as ctk
 from tkinter import messagebox, filedialog
 import datetime
@@ -8,6 +7,8 @@ import os
 import sys # Added for resource_path
 from setting import SettingsWindow
 from PIL import Image  # Requires Pillow
+import threading # Added for loading indicator
+import queue     # Added for loading indicator
 
 try:
     from hover_calendar import HoverCalendar
@@ -26,6 +27,50 @@ def resource_path(relative_path):
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
 # --- End helper function ---
+
+class LoadingWindow(ctk.CTkToplevel):
+    def __init__(self, parent, title="Loading..."):
+        super().__init__(parent)
+        self.title(title)
+        # Make sure parent is valid and drawn
+        parent.update_idletasks()
+        self.geometry("300x150")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.grab_set() # Make it modal
+
+        # Center the window relative to the parent
+        parent_x = parent.winfo_x()
+        parent_y = parent.winfo_y()
+        parent_width = parent.winfo_width()
+        parent_height = parent.winfo_height()
+        win_width = 300
+        win_height = 150
+        x = parent_x + (parent_width // 2) - (win_width // 2)
+        y = parent_y + (parent_height // 2) - (win_height // 2)
+        self.geometry(f"{win_width}x{win_height}+{x}+{y}")
+
+        self.protocol("WM_DELETE_WINDOW", lambda: None) # Prevent closing by user
+
+        self.main_frame = ctk.CTkFrame(self, corner_radius=10)
+        self.main_frame.pack(padx=10, pady=10, fill="both", expand=True)
+
+        self.message_label = ctk.CTkLabel(self.main_frame, text="Processing...", font=("Roboto", 12))
+        self.message_label.pack(pady=(20, 10))
+
+        self.progress_bar = ctk.CTkProgressBar(self.main_frame, mode='indeterminate')
+        self.progress_bar.pack(pady=10, padx=20, fill="x")
+        self.progress_bar.start()
+
+    def update_message(self, message):
+        self.message_label.configure(text=message)
+        self.update_idletasks() # Ensure message update is visible
+
+    def close_window(self):
+        if self.winfo_exists(): # Check if window still exists
+            self.progress_bar.stop()
+            self.grab_release()
+            self.destroy()
 
 class GUIComponents:
     def __init__(self, root, variables, title_var, date_var, display_date, calculator, file_handler, email_sender, settings_manager):
@@ -132,20 +177,104 @@ class GUIComponents:
             if raw_date:
                 logging.warning(f"Invalid date format entered: {raw_date}. Expected MM/DD/YYYY.")
             self.display_date.set("Select Date")
+    
+    def _execute_with_loading(self, func, action_name, loading_message, *args, **kwargs):
+        if not self.root.winfo_viewable():
+            logging.warning(f"Root window not viewable when trying to show loading for {action_name}.")
+            # Optionally, try to run synchronously or show an error
+            # For now, let's proceed but this might indicate an issue
+            # return
+
+        loading_window = LoadingWindow(self.root, title=f"{action_name} in Progress")
+        loading_window.update_message(loading_message)
+        self.root.update_idletasks()
+
+        result_queue = queue.Queue()
+
+        def task_wrapper():
+            try:
+                # func is expected to return a dictionary:
+                # {"status": "success", "message": "...", "filename": "..." (optional)}
+                # or {"status": "error", "message": "..."}
+                # or {"status": "cancelled"} if user cancels a dialog within func
+                result = func(*args, **kwargs)
+                result_queue.put(result) # Put the whole dictionary
+            except Exception as e:
+                # This catches exceptions *within* the func if it wasn't designed to return a dict
+                logging.exception(f"Unhandled exception in task_wrapper for {action_name}")
+                result_queue.put({"status": "error", "message": f"Unexpected error in {action_name}: {str(e)}"})
+
+        thread = threading.Thread(target=task_wrapper, daemon=True)
+        thread.start()
+
+        def check_queue():
+            try:
+                response = result_queue.get_nowait() # response is the dictionary
+                
+                if not loading_window.winfo_exists(): # Check if window was closed prematurely
+                    logging.warning(f"Loading window for {action_name} closed before task completion.")
+                    return 
+
+                loading_window.close_window()
+
+                if isinstance(response, dict):
+                    status = response.get("status")
+                    message = response.get("message")
+
+                    if status == "success":
+                        if message: # Only show if message is provided
+                            messagebox.showinfo("Success", message)
+                        logging.info(f"Action '{action_name}' completed: {message or 'OK'}")
+                    elif status == "error":
+                        if message:
+                            messagebox.showerror("Error", message)
+                        else: # Generic error if no message from func
+                            messagebox.showerror("Error", f"An error occurred during {action_name}.")
+                        logging.error(f"Action '{action_name}' failed: {message or 'Unknown error'}")
+                    elif status == "cancelled":
+                        logging.info(f"Action '{action_name}' was cancelled by the user.")
+                        # No messagebox needed for user cancellation
+                    else: # Fallback for unexpected response structure
+                        logging.warning(f"Unexpected response structure from {action_name}: {response}")
+                        if message:
+                             messagebox.showinfo("Info", f"{action_name} finished.\nStatus: {status}\nMessage: {message}")
+                        else:
+                             messagebox.showinfo("Info", f"{action_name} finished.\nStatus: {status}")
+
+
+                else: # If func didn't return a dict (legacy or error)
+                    logging.warning(f"Legacy or unexpected return type from {action_name}: {response}")
+                    if response not in [None, False]: # Check if it might be a simple success return
+                         messagebox.showinfo("Completed", f"{action_name} finished successfully.")
+
+
+            except queue.Empty:
+                if loading_window.winfo_exists(): # Continue checking only if window is still up
+                    self.root.after(100, check_queue)
+            except Exception as e:
+                if loading_window.winfo_exists():
+                    loading_window.close_window()
+                logging.exception(f"Error in loading indicator's check_queue for {action_name}: {e}")
+                messagebox.showerror("Error", f"An error occurred while monitoring {action_name}: {e}")
+
+        self.root.after(100, check_queue)
+
 
     def setup_keyboard_shortcuts(self):
         self.root.bind('<Control-l>', lambda event: self._safe_call(self.file_handler.load_from_documentpdf, "Load"))
-        self.root.bind('<Control-e>', lambda event: self._safe_call(self.file_handler.export_to_pdf, "Export to PDF"))
-        self.root.bind('<Control-w>', lambda event: self._safe_call(self.file_handler.save_to_docx, "Save to Word"))
-        self.root.bind('<Control-g>', lambda event: self._safe_call(self.email_sender.send_email, "Send Email"))
+        self.root.bind('<Control-e>', lambda event: self._execute_with_loading(self.file_handler.export_to_pdf, "Export PDF", "Exporting to PDF..."))
+        self.root.bind('<Control-w>', lambda event: self._execute_with_loading(self.file_handler.save_to_docx, "Save Word", "Saving to Word document..."))
+        self.root.bind('<Control-g>', lambda event: self._execute_with_loading(self.email_sender.send_email, "Send Email", "Preparing and sending email..."))
         self.root.bind('<Control-s>', lambda e: messagebox.showinfo("Not Implemented", "Save functionality (Ctrl+S) is not yet implemented."))
         self.root.bind('<Control-q>', lambda e: self.root.quit())
         logging.info("Keyboard shortcuts set up.")
 
     def _safe_call(self, func, action_name):
         try:
-            func()
-            logging.info(f"Action '{action_name}' executed successfully.")
+            # This is for synchronous, quick actions like Load or Clear.
+            # The called function (func) might show its own message boxes.
+            func() 
+            logging.info(f"Action '{action_name}' executed (synchronously).")
         except AttributeError as e:
             logging.error(f"Action '{action_name}' failed: Method not found or attribute missing: {e}")
             messagebox.showerror("Error", f"Could not perform '{action_name}'. Feature might be misconfigured or an object is missing.")
@@ -431,10 +560,20 @@ class GUIComponents:
         ]
         num_buttons = len(buttons_data)
         button_frame.grid_columnconfigure(tuple(range(num_buttons)), weight=1, uniform="button_group")
+        
         for i, (text, command, tooltip_text) in enumerate(buttons_data):
+            action_name_simple = text.split('(')[0].strip() # e.g., "Export PDF"
+            loading_message = f"{action_name_simple}..."
+
+            # Determine if this command needs the loading indicator
+            if command in [self.file_handler.export_to_pdf, self.file_handler.save_to_docx, self.email_sender.send_email]:
+                actual_command = lambda f=command, name=action_name_simple, msg=loading_message: self._execute_with_loading(f, name, msg)
+            else: # For Load, Clear Fields
+                actual_command = lambda cmd=command, name=action_name_simple: self._safe_call(cmd, name)
+            
             btn = ctk.CTkButton(
                 button_frame, text=text,
-                command=lambda cmd=command, txt=text: self._safe_call(cmd, txt),
+                command=actual_command, # Use the determined command
                 font=("Roboto", self.button_font_size), corner_radius=8,
                 fg_color=self.BUTTON_FG_COLOR, hover_color=self.BUTTON_HOVER_COLOR,
                 text_color=self.BUTTON_TEXT_COLOR, height=int(self.base_font_size * 2.5)
@@ -626,11 +765,22 @@ if __name__ == '__main__':
 
     class MockFileHandler:
         def load_from_documentpdf(self): messagebox.showinfo("Mock", "Load called")
-        def export_to_pdf(self): messagebox.showinfo("Mock", "Export PDF called")
-        def save_to_docx(self): messagebox.showinfo("Mock", "Save Word called")
+        def export_to_pdf(self): 
+            time.sleep(3) # Simulate long task
+            messagebox.showinfo("Mock", "Export PDF called")
+            return {"status": "success", "message": "Mock PDF Exported!"}
+        def save_to_docx(self): 
+            time.sleep(3) # Simulate long task
+            messagebox.showinfo("Mock", "Save Word called")
+            return {"status": "success", "message": "Mock Word Saved!"}
+
 
     class MockEmailSender:
-        def send_email(self): messagebox.showinfo("Mock", "Send Email called")
+        def send_email(self): 
+            time.sleep(3) # Simulate long task
+            messagebox.showinfo("Mock", "Send Email called")
+            return {"status": "success", "message": "Mock Email Sent!"}
+
 
     from setting import SettingsManager # Assuming setting.py is in the same directory
     root = ctk.CTk()
