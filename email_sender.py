@@ -4,6 +4,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 from tkinter import messagebox
+import logging # Import logging
 
 class EmailSender:
     def __init__(self, sender_email, sender_password, recipient_emails_var, file_handler):
@@ -12,7 +13,21 @@ class EmailSender:
         self.recipient_emails_var = recipient_emails_var
         self.file_handler = file_handler
 
+    def _safe_remove_file(self, filepath, context=""):
+        """Safely removes a file if it exists."""
+        if filepath and os.path.exists(filepath):
+            try:
+                os.remove(filepath)
+                logging.info(f"Successfully removed {context}file: {filepath}")
+            except Exception as e_remove:
+                logging.error(f"Failed to remove {context}file {filepath}: {e_remove}")
+        elif filepath:
+            logging.warning(f"Attempted to remove {context}file, but it does not exist: {filepath}")
+        # else: filepath is None, nothing to do
+
     def send_email(self):
+        pdf_filename = None  # Initialize to None
+        docx_filename = None # Initialize to None
         try:
             recipient_emails = [email.strip() for email in self.recipient_emails_var.get().split(',') if email.strip()]
 
@@ -22,10 +37,13 @@ class EmailSender:
 
             pdf_filename = self.file_handler.export_to_pdf()
             if not pdf_filename:
+                # export_to_pdf should show its own error, so just return
                 return
+            
             docx_filename = self.file_handler.save_to_docx()
             if not docx_filename:
-                os.remove(pdf_filename)
+                # save_to_docx should show its own error
+                self._safe_remove_file(pdf_filename, "PDF (after DOCX gen failed) ")
                 return
 
             msg = MIMEMultipart()
@@ -53,18 +71,15 @@ class EmailSender:
             server.quit()
 
             messagebox.showinfo("Success", f"Email with PDF and Word files sent to {', '.join(recipient_emails)}!")
-            os.remove(pdf_filename)
-            os.remove(docx_filename)
+            self._safe_remove_file(pdf_filename, "PDF (after success) ")
+            self._safe_remove_file(docx_filename, "DOCX (after success) ")
 
         except smtplib.SMTPAuthenticationError as e:
-            messagebox.showerror("Error", f"Authentication failed: {str(e)}\nCheck your hardcoded email and app password.")
-            if 'pdf_filename' in locals():
-                os.remove(pdf_filename)
-            if 'docx_filename' in locals():
-                os.remove(docx_filename)
+            messagebox.showerror("Error", f"Authentication failed: {str(e)}\nCheck your email and app password in settings.")
+            self._safe_remove_file(pdf_filename, "PDF (on auth error) ")
+            self._safe_remove_file(docx_filename, "DOCX (on auth error) ")
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to send email: {str(e)}\nEnsure your email credentials are correct and you have an internet connection.")
-            if 'pdf_filename' in locals():
-                os.remove(pdf_filename)
-            if 'docx_filename' in locals():
-                os.remove(docx_filename)
+            messagebox.showerror("Error", f"Failed to send email: {str(e)}\nEnsure your email credentials are correct, you have an internet connection, and the generated files are accessible.")
+            logging.exception("Email sending failed") # Log full traceback for this generic error
+            self._safe_remove_file(pdf_filename, "PDF (on general error) ")
+            self._safe_remove_file(docx_filename, "DOCX (on general error) ")
