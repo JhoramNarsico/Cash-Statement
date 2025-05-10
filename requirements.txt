@@ -1,0 +1,11 @@
+customtkinter
+tkcalendar
+reportlab
+python-docx
+pdfplumber
+Pillow
+fitz
+frontend
+tools
+"camelot-py[cv]"
+ghostscript opencv-python
