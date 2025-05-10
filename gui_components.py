@@ -5,6 +5,7 @@ import datetime
 import time
 import logging
 import os
+import sys # Added for resource_path
 from setting import SettingsWindow
 from PIL import Image  # Requires Pillow
 
@@ -14,6 +15,17 @@ try:
 except ImportError:
     HoverCalendar = None
     logging.warning("HoverCalendar not found. Calendar functionality will be disabled.")
+
+# --- Helper function for PyInstaller asset bundling ---
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+# --- End helper function ---
 
 class GUIComponents:
     def __init__(self, root, variables, title_var, date_var, display_date, calculator, file_handler, email_sender, settings_manager):
@@ -38,7 +50,8 @@ class GUIComponents:
             'federation_fee', 'uniforms', 'bod_mtg', 'general_assembly',
             'cash_deposit', 'withholding_tax', 'refund', 'outflows_others',
             'ending_cash_bank', 'ending_cash_hand', 'total_receipts',
-            'cash_outflows', 'ending_cash'
+            'cash_outflows', 'ending_cash',
+            'footer_image1_var', 'footer_image2_var' # Ensure these are in required_vars if used
         ]
         self._initialize_missing_variables()
 
@@ -95,6 +108,12 @@ class GUIComponents:
                 default_value = ""
                 if var_key == 'address_var':
                     default_value = "Default Address - Configure Me"
+                # Special handling for footer images if they need defaults via resource_path
+                elif var_key == 'footer_image1_var':
+                    default_value = resource_path("chud logo.png")
+                elif var_key == 'footer_image2_var':
+                    default_value = resource_path("xu logo.png")
+
                 self.variables[var_key] = ctk.StringVar(value=default_value)
                 initialized_count += 1
                 missing_vars.append(var_key)
@@ -250,7 +269,7 @@ class GUIComponents:
         self.main_frame = ctk.CTkFrame(self.root, corner_radius=0, fg_color=self.BG_COLOR)
         self.main_frame.pack(fill="both", expand=True)
         self.main_frame.grid_rowconfigure(0, weight=15)  # Increased weight for content area
-        self.main_frame.grid_rowconfigure(1, weight=0)  
+        self.main_frame.grid_rowconfigure(1, weight=0)
         self.main_frame.grid_rowconfigure(2, weight=1)  # Footer
         self.main_frame.grid_columnconfigure(0, weight=1)
 
@@ -267,7 +286,7 @@ class GUIComponents:
 
         # Footer text container (aligned right)
         footer_text_frame = ctk.CTkFrame(self.footer_frame, fg_color="transparent")
-        footer_text_frame.pack(side="right", padx=self.base_pad_x) 
+        footer_text_frame.pack(side="right", padx=self.base_pad_x)
 
         # First line: compliance text
         compliance_label = ctk.CTkLabel(
@@ -283,8 +302,13 @@ class GUIComponents:
         image1_size = (70, 70)
         image2_size = (273, 70)  # Size for footer images
         try:
-            image1_path = self.variables.get('footer_image1_var', ctk.StringVar(value="logos/chud logo.png")).get()
-            image2_path = self.variables.get('footer_image2_var', ctk.StringVar(value="logos/xu logo.png")).get()
+            # MODIFIED to use resource_path for defaults if variables not already set elsewhere
+            footer_image1_var = self.variables.setdefault('footer_image1_var', ctk.StringVar(value=resource_path("chud logo.png")))
+            footer_image2_var = self.variables.setdefault('footer_image2_var', ctk.StringVar(value=resource_path("xu logo.png")))
+
+            image1_path = footer_image1_var.get()
+            image2_path = footer_image2_var.get()
+
 
             if os.path.exists(image1_path):
                 img1 = Image.open(image1_path)
@@ -330,7 +354,7 @@ class GUIComponents:
             column=0,
             sticky="ew",
             padx=self.section_pad_x,
-            pady=(0, 0) 
+            pady=(0, 0)
         )
         header_config_frame.grid_columnconfigure((0, 1, 2, 3), weight=1, uniform="header_group")
 
@@ -427,7 +451,7 @@ class GUIComponents:
             border_color=self.BORDER_COLOR,
         )
         names_frame.grid(
-            row=3, 
+            row=3,
             column=0,
             sticky="ew",
             padx=self.section_pad_x,
@@ -493,8 +517,11 @@ class GUIComponents:
         if not is_disabled:
             try:
                 if hasattr(self.calculator, 'format_entry'):
-                    if var.get():
-                        self.calculator.format_entry(var, entry)
+                    if var.get(): # Only call format_entry if there's a value; it's usually triggered on write
+                        pass # The trace_add in calculator handles formatting
+                    # However, for initial load if var already has value, this trace won't fire initially
+                    # For simplicity, rely on user interaction to trigger formatting or format initially if needed.
+                    # self.calculator.format_entry(var, entry) # This line might be redundant if trace_add is sufficient
                 else:
                     logging.warning("Calculator object missing 'format_entry' method.")
                 tooltip = tooltip_text if tooltip_text else "Enter amount (numeric)"
@@ -517,9 +544,9 @@ class GUIComponents:
             ("Interest Income:", 'interest_income'), ("Livelihood Fee:", 'livelihood_fee'),
             ("Others:", 'inflows_others', "Other income sources")]
         for label, var_key, *tooltip in inflow_items: self._create_entry_pair(
-            inflow_content, 
-            label, 
-            self.variables[var_key], 
+            inflow_content,
+            label,
+            self.variables[var_key],
             tooltip_text=tooltip[0] if tooltip else None,
             input_width=self.min_input_width // 1.5
             )
@@ -572,7 +599,8 @@ class GUIComponents:
         fields_to_keep = {
             'logo_path_var', 'address_var', 'date_var', 'display_date',
             'recipient_emails_var', 'prepared_by_var', 'noted_by_var_1',
-            'noted_by_var_2', 'checked_by_var', 'title_var'
+            'noted_by_var_2', 'checked_by_var', 'title_var',
+            'footer_image1_var', 'footer_image2_var' # Keep footer image paths
         }
 
         for key, var in self.variables.items():
@@ -604,24 +632,32 @@ if __name__ == '__main__':
     class MockEmailSender:
         def send_email(self): messagebox.showinfo("Mock", "Send Email called")
 
-    from setting import SettingsManager
+    from setting import SettingsManager # Assuming setting.py is in the same directory
     root = ctk.CTk()
     root.title("HOA Cash Flow (Fixed Horizontal)")
     root.geometry("1000x600")  # Smaller initial size
     root.resizable(True, True)  # Allow resizing and maximize/restore
     root.minsize(800, 500)  # Set minimum window size
-    root.state("normal")  # Ensure normal state
-    root.attributes("-fullscreen", False)  # Disable fullscreen
-    root.attributes("-toolwindow", False)  # Disable tool window mode
-    print(f"Window state: {root.state()}")  # Debug log
+    # root.state("normal")  # Ensure normal state # Often not needed, can cause issues on some systems
+    # root.attributes("-fullscreen", False)  # Disable fullscreen
+    # root.attributes("-toolwindow", False)  # Disable tool window mode
+    # print(f"Window state: {root.state()}")  # Debug log
 
     variables = {}
     title_var = ctk.StringVar(value="HOA Cash Flow Statement")
     date_var = ctk.StringVar(value=datetime.date.today().strftime("%m/%d/%Y"))
     display_date = ctk.StringVar()
 
+    # Ensure logo_path_var and address_var are initialized for the mock example if create_widgets expects them
+    variables['logo_path_var'] = ctk.StringVar(value="")
+    variables['address_var'] = ctk.StringVar(value="Mock Address")
+    # Add footer image vars for the mock example if they are now expected by _initialize_missing_variables
+    variables['footer_image1_var'] = ctk.StringVar(value=resource_path("chud logo.png"))
+    variables['footer_image2_var'] = ctk.StringVar(value=resource_path("xu logo.png"))
+
+
     calculator = MockCalculator()
-    file_handler = MockFileHandler()
+    file_handler = MockFileHandler() # This mock won't have the updated __init__ for logo/address
     email_sender = MockEmailSender()
     settings_manager = SettingsManager()
 
