@@ -283,8 +283,8 @@ class GUIComponents:
         image1_size = (70, 70)
         image2_size = (273, 70)  # Size for footer images
         try:
-            image1_path = self.variables.get('footer_image1_var', ctk.StringVar(value="chud logo.png")).get()
-            image2_path = self.variables.get('footer_image2_var', ctk.StringVar(value="xu logo.png")).get()
+            image1_path = self.variables.get('footer_image1_var', ctk.StringVar(value="logos/chud logo.png")).get()
+            image2_path = self.variables.get('footer_image2_var', ctk.StringVar(value="logos/xu logo.png")).get()
 
             if os.path.exists(image1_path):
                 img1 = Image.open(image1_path)
