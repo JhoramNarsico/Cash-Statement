@@ -7,7 +7,30 @@ class CashFlowApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Cash Flow Statement Generator with Email")
-        self.root.geometry("1920x1080")
+
+        # Get screen dimensions for intelligent sizing and centering
+        try:
+            self.root.update_idletasks() # Ensure winfo methods work correctly
+            screen_width = self.root.winfo_screenwidth()
+            screen_height = self.root.winfo_screenheight()
+
+            # Set initial size to a reasonable portion of the screen, e.g., 80%
+            # or a sensible large default if screen detection is problematic.
+            initial_width = min(1600, int(screen_width * 0.8))
+            initial_height = min(900, int(screen_height * 0.8))
+            
+            # Center the window
+            x_offset = (screen_width - initial_width) // 2
+            y_offset = (screen_height - initial_height) // 2
+            
+            self.root.geometry(f"{initial_width}x{initial_height}+{x_offset}+{y_offset}")
+        except tk.TclError:
+            # Fallback if screen dimensions can't be obtained (e.g., window not fully ready)
+            self.root.geometry("1200x750") # A sensible default size
+
+        # --- Key changes for resizability ---
+        self.root.resizable(True, True)  # Allow resizing
+        self.root.minsize(800, 600)      # Set a minimum reasonable size for the window
 
         # Initialize settings
         self.settings_manager = SettingsManager()
@@ -93,5 +116,3 @@ class CashFlowApp:
             self.email_sender,
             self.settings_manager
         )
-
-      
