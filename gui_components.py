@@ -112,8 +112,8 @@ class GUIComponents:
         self.BUTTON_FG_COLOR = "#2196F3"
         self.BUTTON_HOVER_COLOR = "#1976D2"
         self.BUTTON_TEXT_COLOR = "#FFFFFF"
-        self.TOOLTIP_BG = "#E0E0E0"
-        self.TOOLTIP_TEXT = "#333333"
+        # self.TOOLTIP_BG = "#E0E0E0" # No longer needed
+        # self.TOOLTIP_TEXT = "#333333" # No longer needed
         self.DATE_BTN_FG = "#E3F2FD"
         self.DATE_BTN_HOVER = "#BBDEFB"
         self.DATE_BTN_TEXT = "#0D47A1"
@@ -128,7 +128,7 @@ class GUIComponents:
         self.button_font_size = self.base_font_size
         self.label_font_size = self.base_font_size
         self.entry_font_size = self.base_font_size
-        self.tooltip_font_size = max(8, int(self.base_font_size * 0.9))
+        # self.tooltip_font_size = max(8, int(self.base_font_size * 0.9)) # No longer needed
         self.base_pad_x = int(self.base_font_size * 0.6)
         self.base_pad_y = int(self.base_font_size * 0.3)
         self.section_pad_x = self.base_pad_x * 2
@@ -181,9 +181,7 @@ class GUIComponents:
     def _execute_with_loading(self, func, action_name, loading_message, *args, **kwargs):
         if not self.root.winfo_viewable():
             logging.warning(f"Root window not viewable when trying to show loading for {action_name}.")
-            # Optionally, try to run synchronously or show an error
-            # For now, let's proceed but this might indicate an issue
-            # return
+            return
 
         loading_window = LoadingWindow(self.root, title=f"{action_name} in Progress")
         loading_window.update_message(loading_message)
@@ -193,14 +191,9 @@ class GUIComponents:
 
         def task_wrapper():
             try:
-                # func is expected to return a dictionary:
-                # {"status": "success", "message": "...", "filename": "..." (optional)}
-                # or {"status": "error", "message": "..."}
-                # or {"status": "cancelled"} if user cancels a dialog within func
                 result = func(*args, **kwargs)
-                result_queue.put(result) # Put the whole dictionary
+                result_queue.put(result) 
             except Exception as e:
-                # This catches exceptions *within* the func if it wasn't designed to return a dict
                 logging.exception(f"Unhandled exception in task_wrapper for {action_name}")
                 result_queue.put({"status": "error", "message": f"Unexpected error in {action_name}: {str(e)}"})
 
@@ -209,9 +202,9 @@ class GUIComponents:
 
         def check_queue():
             try:
-                response = result_queue.get_nowait() # response is the dictionary
+                response = result_queue.get_nowait() 
                 
-                if not loading_window.winfo_exists(): # Check if window was closed prematurely
+                if not loading_window.winfo_exists(): 
                     logging.warning(f"Loading window for {action_name} closed before task completion.")
                     return 
 
@@ -222,34 +215,29 @@ class GUIComponents:
                     message = response.get("message")
 
                     if status == "success":
-                        if message: # Only show if message is provided
+                        if message: 
                             messagebox.showinfo("Success", message)
                         logging.info(f"Action '{action_name}' completed: {message or 'OK'}")
                     elif status == "error":
                         if message:
                             messagebox.showerror("Error", message)
-                        else: # Generic error if no message from func
+                        else: 
                             messagebox.showerror("Error", f"An error occurred during {action_name}.")
                         logging.error(f"Action '{action_name}' failed: {message or 'Unknown error'}")
                     elif status == "cancelled":
                         logging.info(f"Action '{action_name}' was cancelled by the user.")
-                        # No messagebox needed for user cancellation
-                    else: # Fallback for unexpected response structure
+                    else: 
                         logging.warning(f"Unexpected response structure from {action_name}: {response}")
                         if message:
                              messagebox.showinfo("Info", f"{action_name} finished.\nStatus: {status}\nMessage: {message}")
                         else:
                              messagebox.showinfo("Info", f"{action_name} finished.\nStatus: {status}")
-
-
-                else: # If func didn't return a dict (legacy or error)
+                else: 
                     logging.warning(f"Legacy or unexpected return type from {action_name}: {response}")
-                    if response not in [None, False]: # Check if it might be a simple success return
+                    if response not in [None, False]: 
                          messagebox.showinfo("Completed", f"{action_name} finished successfully.")
-
-
             except queue.Empty:
-                if loading_window.winfo_exists(): # Continue checking only if window is still up
+                if loading_window.winfo_exists(): 
                     self.root.after(100, check_queue)
             except Exception as e:
                 if loading_window.winfo_exists():
@@ -258,7 +246,6 @@ class GUIComponents:
                 messagebox.showerror("Error", f"An error occurred while monitoring {action_name}: {e}")
 
         self.root.after(100, check_queue)
-
 
     def setup_keyboard_shortcuts(self):
         self.root.bind('<Control-l>', lambda event: self._safe_call(self.file_handler.load_from_documentpdf, "Load"))
@@ -271,8 +258,6 @@ class GUIComponents:
 
     def _safe_call(self, func, action_name):
         try:
-            # This is for synchronous, quick actions like Load or Clear.
-            # The called function (func) might show its own message boxes.
             func() 
             logging.info(f"Action '{action_name}' executed (synchronously).")
         except AttributeError as e:
@@ -284,39 +269,6 @@ class GUIComponents:
         except Exception as e:
             logging.exception(f"Error during '{action_name}' action.")
             messagebox.showerror("Error", f"An unexpected error occurred during {action_name}:\n{e}")
-
-    def create_tooltip(self, widget, text):
-        tooltip = None
-        tooltip_window = None
-        def _create_tooltip_window():
-            nonlocal tooltip_window
-            if tooltip_window is not None and tooltip_window.winfo_exists():
-                tooltip_window.destroy()
-            tooltip_window = ctk.CTkToplevel(self.root)
-            tooltip_window.wm_overrideredirect(True)
-            tooltip_window.wm_geometry("+9999+9999")
-            label = ctk.CTkLabel(
-                tooltip_window, text=text, corner_radius=6, fg_color=self.TOOLTIP_BG,
-                text_color=self.TOOLTIP_TEXT, font=("Roboto", self.tooltip_font_size),
-                wraplength=max(200, self.screen_width // 4)
-            )
-            label.pack(padx=self.base_pad_x // 2, pady=self.base_pad_y // 2)
-            tooltip_window.withdraw()
-        def show(event):
-            if tooltip_window is None or not tooltip_window.winfo_exists():
-                _create_tooltip_window()
-            if tooltip_window and tooltip_window.state() == 'withdrawn':
-                widget.update_idletasks()
-                x = widget.winfo_rootx() + self.base_pad_x
-                y = widget.winfo_rooty() + widget.winfo_height() + self.base_pad_y // 2
-                tooltip_window.wm_geometry(f"+{x}+{y}")
-                tooltip_window.deiconify()
-        def hide(event):
-            if tooltip_window and tooltip_window.winfo_exists():
-                tooltip_window.withdraw()
-        widget.bind("<Enter>", show, add="+")
-        widget.bind("<Leave>", hide, add="+")
-
     def show_calendar(self):
         if not HoverCalendar:
             logging.warning("Attempted to open calendar, but HoverCalendar is not available.")
@@ -431,13 +383,11 @@ class GUIComponents:
         image1_size = (70, 70)
         image2_size = (273, 70)  # Size for footer images
         try:
-            # MODIFIED to use resource_path for defaults if variables not already set elsewhere
             footer_image1_var = self.variables.setdefault('footer_image1_var', ctk.StringVar(value=resource_path("chud logo.png")))
             footer_image2_var = self.variables.setdefault('footer_image2_var', ctk.StringVar(value=resource_path("xu logo.png")))
 
             image1_path = footer_image1_var.get()
             image2_path = footer_image2_var.get()
-
 
             if os.path.exists(image1_path):
                 img1 = Image.open(image1_path)
@@ -493,7 +443,7 @@ class GUIComponents:
         ctk.CTkLabel(address_frame, text="Header Address:", font=("Roboto", self.label_font_size), text_color=self.TEXT_COLOR, anchor="w").pack(side="top", fill="x", pady=(0, self.base_pad_y // 2))
         address_entry = ctk.CTkEntry(address_frame, textvariable=self.variables['address_var'], font=("Roboto", self.entry_font_size), corner_radius=6, fg_color=self.ENTRY_BG_COLOR, text_color=self.TEXT_COLOR, border_color=self.ENTRY_BORDER_COLOR)
         address_entry.pack(side="top", fill="x")
-        self.create_tooltip(address_entry, "Enter the address to display in the document header")
+        # self.create_tooltip(address_entry, "Enter the address to display in the document header") # REMOVED
 
         # Logo
         logo_frame = ctk.CTkFrame(header_config_frame, fg_color="transparent")
@@ -501,7 +451,7 @@ class GUIComponents:
         ctk.CTkLabel(logo_frame, text="Header Logo:", font=("Roboto", self.label_font_size), text_color=self.TEXT_COLOR, anchor="w").pack(side="top", fill="x", pady=(0, self.base_pad_y // 2))
         logo_button = ctk.CTkButton(logo_frame, text="Select Logo Image", font=("Roboto", self.button_font_size), command=self._select_logo, corner_radius=6, fg_color=self.BUTTON_FG_COLOR, hover_color=self.BUTTON_HOVER_COLOR, text_color=self.BUTTON_TEXT_COLOR)
         logo_button.pack(side="left", padx=(0, self.base_pad_x))
-        self.create_tooltip(logo_button, "Select a logo (PNG, JPG, etc.) for the header")
+        # self.create_tooltip(logo_button, "Select a logo (PNG, JPG, etc.) for the header") # REMOVED
         initial_logo_path = self.variables['logo_path_var'].get()
         initial_logo_text = ""
         if initial_logo_path:
@@ -517,7 +467,7 @@ class GUIComponents:
         settings_button_width = min(max(120, int(self.screen_width * 0.08)), 180)
         settings_button = ctk.CTkButton(settings_frame, text="Manage Settings", font=("Roboto", self.button_font_size), command=self.show_settings, corner_radius=6, fg_color=self.BUTTON_FG_COLOR, hover_color=self.BUTTON_HOVER_COLOR, text_color=self.BUTTON_TEXT_COLOR, width=settings_button_width)
         settings_button.pack(side="top", anchor="w")
-        self.create_tooltip(settings_button, "Configure application settings (email, login credentials)")
+        # self.create_tooltip(settings_button, "Configure application settings (email, login credentials)") # REMOVED
 
         # Date
         date_frame = ctk.CTkFrame(header_config_frame, fg_color="transparent")
@@ -526,7 +476,7 @@ class GUIComponents:
         date_button_width = min(max(120, int(self.screen_width * 0.08)), 180)
         date_button = ctk.CTkButton(date_frame, textvariable=self.display_date, font=("Roboto", self.button_font_size), command=self.show_calendar, corner_radius=6, fg_color=self.DATE_BTN_FG, hover_color=self.DATE_BTN_HOVER, text_color=self.DATE_BTN_TEXT, width=date_button_width)
         date_button.pack(side="top", anchor="w")
-        self.create_tooltip(date_button, "Click to select the report date")
+        # self.create_tooltip(date_button, "Click to select the report date") # REMOVED
 
         # Form sections (middle tables)
         self.columns_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
@@ -562,24 +512,23 @@ class GUIComponents:
         button_frame.grid_columnconfigure(tuple(range(num_buttons)), weight=1, uniform="button_group")
         
         for i, (text, command, tooltip_text) in enumerate(buttons_data):
-            action_name_simple = text.split('(')[0].strip() # e.g., "Export PDF"
+            action_name_simple = text.split('(')[0].strip() 
             loading_message = f"{action_name_simple}..."
 
-            # Determine if this command needs the loading indicator
             if command in [self.file_handler.export_to_pdf, self.file_handler.save_to_docx, self.email_sender.send_email]:
                 actual_command = lambda f=command, name=action_name_simple, msg=loading_message: self._execute_with_loading(f, name, msg)
-            else: # For Load, Clear Fields
+            else: 
                 actual_command = lambda cmd=command, name=action_name_simple: self._safe_call(cmd, name)
             
             btn = ctk.CTkButton(
                 button_frame, text=text,
-                command=actual_command, # Use the determined command
+                command=actual_command, 
                 font=("Roboto", self.button_font_size), corner_radius=8,
                 fg_color=self.BUTTON_FG_COLOR, hover_color=self.BUTTON_HOVER_COLOR,
                 text_color=self.BUTTON_TEXT_COLOR, height=int(self.base_font_size * 2.5)
             )
             btn.grid(row=0, column=i, sticky="ew", padx=self.base_pad_x // 4, pady=self.base_pad_y // 4)
-            self.create_tooltip(btn, tooltip_text)
+            # self.create_tooltip(btn, tooltip_text) # REMOVED
 
         # Names section
         names_frame = ctk.CTkFrame(
@@ -621,7 +570,7 @@ class GUIComponents:
                 border_color=self.ENTRY_BORDER_COLOR
             )
             entry.grid(row=1, column=0, sticky="ew")
-            self.create_tooltip(entry, tooltip_text)
+            # self.create_tooltip(entry, tooltip_text) # REMOVED
 
         self.main_frame.bind("<Configure>", self.debounce_layout, add="+")
 
@@ -636,7 +585,7 @@ class GUIComponents:
         content_frame.pack(fill="both", expand=True, padx=self.base_pad_x, pady=(0, self.base_pad_y * 1.5))
         return frame
 
-    def _create_entry_pair(self, parent_frame, label_text, var, is_disabled=False, tooltip_text=None, input_width=None):
+    def _create_entry_pair(self, parent_frame, label_text, var, is_disabled=False, tooltip_text=None, input_width=None): # tooltip_text is now unused
         item_frame = ctk.CTkFrame(parent_frame, fg_color="transparent")
         item_frame.pack(fill="x", padx=self.base_pad_x // 2, pady=self.base_pad_y // 2)
         ctk.CTkLabel(
@@ -656,19 +605,16 @@ class GUIComponents:
         if not is_disabled:
             try:
                 if hasattr(self.calculator, 'format_entry'):
-                    if var.get(): # Only call format_entry if there's a value; it's usually triggered on write
-                        pass # The trace_add in calculator handles formatting
-                    # However, for initial load if var already has value, this trace won't fire initially
-                    # For simplicity, rely on user interaction to trigger formatting or format initially if needed.
-                    # self.calculator.format_entry(var, entry) # This line might be redundant if trace_add is sufficient
+                    if var.get(): 
+                        pass 
                 else:
                     logging.warning("Calculator object missing 'format_entry' method.")
-                tooltip = tooltip_text if tooltip_text else "Enter amount (numeric)"
-                self.create_tooltip(entry, tooltip)
+                # tooltip = tooltip_text if tooltip_text else "Enter amount (numeric)" # REMOVED
+                # self.create_tooltip(entry, tooltip) # REMOVED
             except Exception as e:
-                logging.exception(f"Error applying format_entry or tooltip to {label_text}: {e}")
-        elif tooltip_text:
-            self.create_tooltip(entry, tooltip_text)
+                logging.exception(f"Error applying format_entry to {label_text}: {e}")
+        # elif tooltip_text: # REMOVED
+            # self.create_tooltip(entry, tooltip_text) # REMOVED
 
     def populate_columns(self):
         beg_content = self.beg_frame.winfo_children()[1]
@@ -682,11 +628,11 @@ class GUIComponents:
             ("Rentals:", 'rentals'), ("Solicitations/Donations:", 'solicitations'),
             ("Interest Income:", 'interest_income'), ("Livelihood Fee:", 'livelihood_fee'),
             ("Others:", 'inflows_others', "Other income sources")]
-        for label, var_key, *tooltip in inflow_items: self._create_entry_pair(
+        for label, var_key, *tooltip_arg in inflow_items: self._create_entry_pair(
             inflow_content,
             label,
             self.variables[var_key],
-            tooltip_text=tooltip[0] if tooltip else None,
+            tooltip_text=tooltip_arg[0] if tooltip_arg else None, # Still pass tooltip_text, _create_entry_pair just won't use it
             input_width=self.min_input_width // 1.5
             )
 
@@ -702,7 +648,7 @@ class GUIComponents:
             ("Cash Deposit:", 'cash_deposit', "Cash moved hand to bank"),
             ("Withholding tax:", 'withholding_tax'), ("Refund:", 'refund'),
             ("Others:", 'outflows_others', "Other expenses")]
-        for label, var_key, *tooltip in outflow_items: self._create_entry_pair(outflow_content, label, self.variables[var_key], tooltip_text=tooltip[0] if tooltip else None)
+        for label, var_key, *tooltip_arg in outflow_items: self._create_entry_pair(outflow_content, label, self.variables[var_key], tooltip_text=tooltip_arg[0] if tooltip_arg else None)
 
         end_content = self.end_frame.winfo_children()[1]
         end_items = [("Cash in Bank:", 'ending_cash_bank', "Calculated ending bank balance"), ("Cash on Hand:", 'ending_cash_hand', "Calculated ending cash on hand")]
@@ -739,7 +685,7 @@ class GUIComponents:
             'logo_path_var', 'address_var', 'date_var', 'display_date',
             'recipient_emails_var', 'prepared_by_var', 'noted_by_var_1',
             'noted_by_var_2', 'checked_by_var', 'title_var',
-            'footer_image1_var', 'footer_image2_var' # Keep footer image paths
+            'footer_image1_var', 'footer_image2_var' 
         }
 
         for key, var in self.variables.items():
@@ -766,48 +712,42 @@ if __name__ == '__main__':
     class MockFileHandler:
         def load_from_documentpdf(self): messagebox.showinfo("Mock", "Load called")
         def export_to_pdf(self): 
-            time.sleep(3) # Simulate long task
-            messagebox.showinfo("Mock", "Export PDF called")
+            time.sleep(1) # Simulate task
+            # messagebox.showinfo("Mock", "Export PDF called")
             return {"status": "success", "message": "Mock PDF Exported!"}
         def save_to_docx(self): 
-            time.sleep(3) # Simulate long task
-            messagebox.showinfo("Mock", "Save Word called")
+            time.sleep(1) # Simulate task
+            # messagebox.showinfo("Mock", "Save Word called")
             return {"status": "success", "message": "Mock Word Saved!"}
 
 
     class MockEmailSender:
         def send_email(self): 
-            time.sleep(3) # Simulate long task
-            messagebox.showinfo("Mock", "Send Email called")
+            time.sleep(1) # Simulate task
+            # messagebox.showinfo("Mock", "Send Email called")
             return {"status": "success", "message": "Mock Email Sent!"}
 
 
-    from setting import SettingsManager # Assuming setting.py is in the same directory
+    from setting import SettingsManager 
     root = ctk.CTk()
-    root.title("HOA Cash Flow (Fixed Horizontal)")
-    root.geometry("1000x600")  # Smaller initial size
-    root.resizable(True, True)  # Allow resizing and maximize/restore
-    root.minsize(800, 500)  # Set minimum window size
-    # root.state("normal")  # Ensure normal state # Often not needed, can cause issues on some systems
-    # root.attributes("-fullscreen", False)  # Disable fullscreen
-    # root.attributes("-toolwindow", False)  # Disable tool window mode
-    # print(f"Window state: {root.state()}")  # Debug log
+    root.title("HOA Cash Flow (No Tooltips)")
+    root.geometry("1000x600") 
+    root.resizable(True, True) 
+    root.minsize(800, 500) 
 
     variables = {}
     title_var = ctk.StringVar(value="HOA Cash Flow Statement")
     date_var = ctk.StringVar(value=datetime.date.today().strftime("%m/%d/%Y"))
     display_date = ctk.StringVar()
 
-    # Ensure logo_path_var and address_var are initialized for the mock example if create_widgets expects them
     variables['logo_path_var'] = ctk.StringVar(value="")
     variables['address_var'] = ctk.StringVar(value="Mock Address")
-    # Add footer image vars for the mock example if they are now expected by _initialize_missing_variables
     variables['footer_image1_var'] = ctk.StringVar(value=resource_path("chud logo.png"))
     variables['footer_image2_var'] = ctk.StringVar(value=resource_path("xu logo.png"))
 
 
     calculator = MockCalculator()
-    file_handler = MockFileHandler() # This mock won't have the updated __init__ for logo/address
+    file_handler = MockFileHandler() 
     email_sender = MockEmailSender()
     settings_manager = SettingsManager()
 
