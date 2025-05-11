@@ -1,6 +1,7 @@
 import customtkinter as ctk
 import json
 import os
+import sys # Added import for sys.platform
 from tkinter import messagebox
 import logging
 

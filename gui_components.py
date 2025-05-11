@@ -112,8 +112,6 @@ class GUIComponents:
         self.BUTTON_FG_COLOR = "#2196F3"
         self.BUTTON_HOVER_COLOR = "#1976D2"
         self.BUTTON_TEXT_COLOR = "#FFFFFF"
-        # self.TOOLTIP_BG = "#E0E0E0" # No longer needed
-        # self.TOOLTIP_TEXT = "#333333" # No longer needed
         self.DATE_BTN_FG = "#E3F2FD"
         self.DATE_BTN_HOVER = "#BBDEFB"
         self.DATE_BTN_TEXT = "#0D47A1"
@@ -128,7 +126,6 @@ class GUIComponents:
         self.button_font_size = self.base_font_size
         self.label_font_size = self.base_font_size
         self.entry_font_size = self.base_font_size
-        # self.tooltip_font_size = max(8, int(self.base_font_size * 0.9)) # No longer needed
         self.base_pad_x = int(self.base_font_size * 0.6)
         self.base_pad_y = int(self.base_font_size * 0.3)
         self.section_pad_x = self.base_pad_x * 2
@@ -139,11 +136,32 @@ class GUIComponents:
         self.layout_debounce_delay_ms = 100
         self.debounce_id = None
 
+        # Register validation command for numeric entries
+        self.vcmd_numeric = (self.root.register(self._validate_numeric_input), '%P')
+
         self.create_widgets()
         self.setup_keyboard_shortcuts()
         self.date_var.trace_add('write', self._update_display_date)
         self._update_display_date()
         self.root.after(150, self.update_layout)
+
+    def _validate_numeric_input(self, P):
+        """Validates that the input P is a valid numeric string (allowing digits, one decimal, and commas)."""
+        if P == "":
+            return True  # Allow empty string (clearing the field)
+        
+        allowed_chars = "0123456789.,"
+        decimal_points = 0
+        for char in P:
+            if char not in allowed_chars:
+                return False
+            if char == '.':
+                decimal_points += 1
+        
+        if decimal_points > 1:
+            return False
+            
+        return True
 
     def _initialize_missing_variables(self):
         initialized_count = 0
@@ -153,7 +171,6 @@ class GUIComponents:
                 default_value = ""
                 if var_key == 'address_var':
                     default_value = "Default Address - Configure Me"
-                # Special handling for footer images if they need defaults via resource_path
                 elif var_key == 'footer_image1_var':
                     default_value = resource_path("chud logo.png")
                 elif var_key == 'footer_image2_var':
@@ -369,15 +386,16 @@ class GUIComponents:
         footer_text_frame = ctk.CTkFrame(self.footer_frame, fg_color="transparent")
         footer_text_frame.pack(side="right", padx=self.base_pad_x)
 
-        # First line: compliance text
+        # Copyright text
         compliance_label = ctk.CTkLabel(
             footer_text_frame,
-            text="",
-            font=("Roboto", 12, "bold"),
+            text="© 2025 All Rights Reserved", # Moved from cash_flow_app.py
+            font=("Roboto", 10), 
             text_color="#FFFFFF",
-            justify="left"
+            justify="right"
         )
         compliance_label.pack(anchor="e", padx=(0, 20))
+
 
         # Footer images (aligned right)
         image1_size = (70, 70)
@@ -443,7 +461,6 @@ class GUIComponents:
         ctk.CTkLabel(address_frame, text="Header Address:", font=("Roboto", self.label_font_size), text_color=self.TEXT_COLOR, anchor="w").pack(side="top", fill="x", pady=(0, self.base_pad_y // 2))
         address_entry = ctk.CTkEntry(address_frame, textvariable=self.variables['address_var'], font=("Roboto", self.entry_font_size), corner_radius=6, fg_color=self.ENTRY_BG_COLOR, text_color=self.TEXT_COLOR, border_color=self.ENTRY_BORDER_COLOR)
         address_entry.pack(side="top", fill="x")
-        # self.create_tooltip(address_entry, "Enter the address to display in the document header") # REMOVED
 
         # Logo
         logo_frame = ctk.CTkFrame(header_config_frame, fg_color="transparent")
@@ -451,7 +468,6 @@ class GUIComponents:
         ctk.CTkLabel(logo_frame, text="Header Logo:", font=("Roboto", self.label_font_size), text_color=self.TEXT_COLOR, anchor="w").pack(side="top", fill="x", pady=(0, self.base_pad_y // 2))
         logo_button = ctk.CTkButton(logo_frame, text="Select Logo Image", font=("Roboto", self.button_font_size), command=self._select_logo, corner_radius=6, fg_color=self.BUTTON_FG_COLOR, hover_color=self.BUTTON_HOVER_COLOR, text_color=self.BUTTON_TEXT_COLOR)
         logo_button.pack(side="left", padx=(0, self.base_pad_x))
-        # self.create_tooltip(logo_button, "Select a logo (PNG, JPG, etc.) for the header") # REMOVED
         initial_logo_path = self.variables['logo_path_var'].get()
         initial_logo_text = ""
         if initial_logo_path:
@@ -467,7 +483,6 @@ class GUIComponents:
         settings_button_width = min(max(120, int(self.screen_width * 0.08)), 180)
         settings_button = ctk.CTkButton(settings_frame, text="Manage Settings", font=("Roboto", self.button_font_size), command=self.show_settings, corner_radius=6, fg_color=self.BUTTON_FG_COLOR, hover_color=self.BUTTON_HOVER_COLOR, text_color=self.BUTTON_TEXT_COLOR, width=settings_button_width)
         settings_button.pack(side="top", anchor="w")
-        # self.create_tooltip(settings_button, "Configure application settings (email, login credentials)") # REMOVED
 
         # Date
         date_frame = ctk.CTkFrame(header_config_frame, fg_color="transparent")
@@ -476,7 +491,6 @@ class GUIComponents:
         date_button_width = min(max(120, int(self.screen_width * 0.08)), 180)
         date_button = ctk.CTkButton(date_frame, textvariable=self.display_date, font=("Roboto", self.button_font_size), command=self.show_calendar, corner_radius=6, fg_color=self.DATE_BTN_FG, hover_color=self.DATE_BTN_HOVER, text_color=self.DATE_BTN_TEXT, width=date_button_width)
         date_button.pack(side="top", anchor="w")
-        # self.create_tooltip(date_button, "Click to select the report date") # REMOVED
 
         # Form sections (middle tables)
         self.columns_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
@@ -528,7 +542,6 @@ class GUIComponents:
                 text_color=self.BUTTON_TEXT_COLOR, height=int(self.base_font_size * 2.5)
             )
             btn.grid(row=0, column=i, sticky="ew", padx=self.base_pad_x // 4, pady=self.base_pad_y // 4)
-            # self.create_tooltip(btn, tooltip_text) # REMOVED
 
         # Names section
         names_frame = ctk.CTkFrame(
@@ -570,7 +583,6 @@ class GUIComponents:
                 border_color=self.ENTRY_BORDER_COLOR
             )
             entry.grid(row=1, column=0, sticky="ew")
-            # self.create_tooltip(entry, tooltip_text) # REMOVED
 
         self.main_frame.bind("<Configure>", self.debounce_layout, add="+")
 
@@ -585,41 +597,51 @@ class GUIComponents:
         content_frame.pack(fill="both", expand=True, padx=self.base_pad_x, pady=(0, self.base_pad_y * 1.5))
         return frame
 
-    def _create_entry_pair(self, parent_frame, label_text, var, is_disabled=False, tooltip_text=None, input_width=None): # tooltip_text is now unused
+    def _create_entry_pair(self, parent_frame, label_text, var, is_disabled=False, tooltip_text=None, input_width=None, is_numeric=False):
         item_frame = ctk.CTkFrame(parent_frame, fg_color="transparent")
         item_frame.pack(fill="x", padx=self.base_pad_x // 2, pady=self.base_pad_y // 2)
         ctk.CTkLabel(
             item_frame, text=label_text, font=("Roboto", self.label_font_size),
             text_color=self.TEXT_COLOR, anchor="w"
         ).pack(side="left", fill="x", expand=True, padx=(0, self.base_pad_x))
-        input_width = input_width or min(max(self.min_input_width, int(self.screen_width * 0.07)), self.max_input_width)
-        entry = ctk.CTkEntry(
-            item_frame, textvariable=var, width=input_width,
-            font=("Roboto", self.entry_font_size), corner_radius=6,
-            fg_color=self.DISABLED_BG_COLOR if is_disabled else self.ENTRY_BG_COLOR,
-            text_color=self.TEXT_COLOR, border_color=self.ENTRY_BORDER_COLOR,
-            state="disabled" if is_disabled else "normal",
-            justify="right"
-        )
+        
+        input_width_actual = input_width or min(max(self.min_input_width, int(self.screen_width * 0.07)), self.max_input_width)
+        
+        entry_config = {
+            "textvariable": var,
+            "width": input_width_actual,
+            "font": ("Roboto", self.entry_font_size),
+            "corner_radius": 6,
+            "fg_color": self.DISABLED_BG_COLOR if is_disabled else self.ENTRY_BG_COLOR,
+            "text_color": self.TEXT_COLOR,
+            "border_color": self.ENTRY_BORDER_COLOR,
+            "state": "disabled" if is_disabled else "normal",
+            "justify": "right"
+        }
+
+        if is_numeric and not is_disabled:
+            entry_config["validate"] = "key"
+            entry_config["validatecommand"] = self.vcmd_numeric
+            
+        entry = ctk.CTkEntry(item_frame, **entry_config)
         entry.pack(side="right")
-        if not is_disabled:
-            try:
-                if hasattr(self.calculator, 'format_entry'):
-                    if var.get(): 
-                        pass 
-                else:
-                    logging.warning("Calculator object missing 'format_entry' method.")
-                # tooltip = tooltip_text if tooltip_text else "Enter amount (numeric)" # REMOVED
-                # self.create_tooltip(entry, tooltip) # REMOVED
-            except Exception as e:
-                logging.exception(f"Error applying format_entry to {label_text}: {e}")
-        # elif tooltip_text: # REMOVED
-            # self.create_tooltip(entry, tooltip_text) # REMOVED
+
+        # Correctly call format_entry for live formatting of numeric fields
+        if not is_disabled and is_numeric: 
+            if hasattr(self.calculator, 'format_entry'):
+                try:
+                    self.calculator.format_entry(var, entry)
+                except Exception as e:
+                    logging.exception(f"Error applying format_entry to '{label_text}': {e}")
+            else:
+                logging.warning(f"Calculator object missing 'format_entry' method for '{label_text}'.")
+
 
     def populate_columns(self):
         beg_content = self.beg_frame.winfo_children()[1]
         beg_items = [("Cash in Bank:", 'cash_bank_beg', "Starting bank balance"), ("Cash on Hand:", 'cash_hand_beg', "Starting physical cash")]
-        for label, var_key, tooltip in beg_items: self._create_entry_pair(beg_content, label, self.variables[var_key], tooltip_text=tooltip)
+        for label, var_key, tooltip in beg_items: 
+            self._create_entry_pair(beg_content, label, self.variables[var_key], tooltip_text=tooltip, is_numeric=True)
 
         inflow_content = self.inflow_frame.winfo_children()[1]
         inflow_items = [
@@ -628,12 +650,14 @@ class GUIComponents:
             ("Rentals:", 'rentals'), ("Solicitations/Donations:", 'solicitations'),
             ("Interest Income:", 'interest_income'), ("Livelihood Fee:", 'livelihood_fee'),
             ("Others:", 'inflows_others', "Other income sources")]
-        for label, var_key, *tooltip_arg in inflow_items: self._create_entry_pair(
-            inflow_content,
-            label,
-            self.variables[var_key],
-            tooltip_text=tooltip_arg[0] if tooltip_arg else None, # Still pass tooltip_text, _create_entry_pair just won't use it
-            input_width=self.min_input_width // 1.5
+        for label, var_key, *tooltip_arg in inflow_items: 
+            self._create_entry_pair(
+                inflow_content,
+                label,
+                self.variables[var_key],
+                tooltip_text=tooltip_arg[0] if tooltip_arg else None,
+                input_width=self.min_input_width // 1.5,
+                is_numeric=True
             )
 
         outflow_content = self.outflow_frame.winfo_children()[1]
@@ -648,15 +672,24 @@ class GUIComponents:
             ("Cash Deposit:", 'cash_deposit', "Cash moved hand to bank"),
             ("Withholding tax:", 'withholding_tax'), ("Refund:", 'refund'),
             ("Others:", 'outflows_others', "Other expenses")]
-        for label, var_key, *tooltip_arg in outflow_items: self._create_entry_pair(outflow_content, label, self.variables[var_key], tooltip_text=tooltip_arg[0] if tooltip_arg else None)
+        for label, var_key, *tooltip_arg in outflow_items: 
+            self._create_entry_pair(
+                outflow_content, 
+                label, 
+                self.variables[var_key], 
+                tooltip_text=tooltip_arg[0] if tooltip_arg else None, 
+                is_numeric=True
+            )
 
         end_content = self.end_frame.winfo_children()[1]
         end_items = [("Cash in Bank:", 'ending_cash_bank', "Calculated ending bank balance"), ("Cash on Hand:", 'ending_cash_hand', "Calculated ending cash on hand")]
-        for label, var_key, tooltip in end_items: self._create_entry_pair(end_content, label, self.variables[var_key], is_disabled=True, tooltip_text=tooltip)
+        for label, var_key, tooltip in end_items: 
+            self._create_entry_pair(end_content, label, self.variables[var_key], is_disabled=True, tooltip_text=tooltip, is_numeric=True) # is_numeric true for consistency, but disabled
 
         total_content = self.totals_frame.winfo_children()[1]
         total_items = [("Total Receipts:", 'total_receipts', "Calculated total inflows"), ("Total Outflows:", 'cash_outflows', "Calculated total outflows"), ("Ending Balance:", 'ending_cash', "Calculated total ending cash")]
-        for label, var_key, tooltip in total_items: self._create_entry_pair(total_content, label, self.variables[var_key], is_disabled=True, tooltip_text=tooltip)
+        for label, var_key, tooltip in total_items: 
+            self._create_entry_pair(total_content, label, self.variables[var_key], is_disabled=True, tooltip_text=tooltip, is_numeric=True) # is_numeric true for consistency, but disabled
 
         logging.info("GUI columns populated into fixed horizontal layout.")
 
@@ -706,25 +739,22 @@ class GUIComponents:
 
 if __name__ == '__main__':
     class MockCalculator:
-        def format_entry(self, var, entry): pass
+        def format_entry(self, var, entry): print(f"Mock format_entry called for var linked to entry {entry}")
         def calculate_totals(self): print("Mock calculate_totals called")
 
     class MockFileHandler:
         def load_from_documentpdf(self): messagebox.showinfo("Mock", "Load called")
         def export_to_pdf(self): 
             time.sleep(1) # Simulate task
-            # messagebox.showinfo("Mock", "Export PDF called")
             return {"status": "success", "message": "Mock PDF Exported!"}
         def save_to_docx(self): 
             time.sleep(1) # Simulate task
-            # messagebox.showinfo("Mock", "Save Word called")
             return {"status": "success", "message": "Mock Word Saved!"}
 
 
     class MockEmailSender:
         def send_email(self): 
             time.sleep(1) # Simulate task
-            # messagebox.showinfo("Mock", "Send Email called")
             return {"status": "success", "message": "Mock Email Sent!"}
 
 
