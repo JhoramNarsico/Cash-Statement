@@ -366,9 +366,9 @@ class GUIComponents:
         # Main frame with footer space
         self.main_frame = ctk.CTkFrame(self.root, corner_radius=0, fg_color=self.BG_COLOR)
         self.main_frame.pack(fill="both", expand=True)
-        self.main_frame.grid_rowconfigure(0, weight=15)  # Increased weight for content area
-        self.main_frame.grid_rowconfigure(1, weight=0)
-        self.main_frame.grid_rowconfigure(2, weight=1)  # Footer
+        # Configure rows for content_frame and footer_frame
+        self.main_frame.grid_rowconfigure(0, weight=1)  # content_frame takes available vertical space
+        self.main_frame.grid_rowconfigure(1, weight=0)  # footer_frame has fixed height
         self.main_frame.grid_columnconfigure(0, weight=1)
 
         # Content frame (container for all content including header, form, and buttons)
@@ -379,7 +379,7 @@ class GUIComponents:
         # Footer
         footer_height = 80  # Keep footer height fixed
         self.footer_frame = ctk.CTkFrame(self.main_frame, height=footer_height, corner_radius=0, fg_color=self.FOOTER_BG)
-        self.footer_frame.grid(row=2, column=0, sticky="ew")
+        self.footer_frame.grid(row=1, column=0, sticky="ew") # Grid into row 1 of main_frame
         self.footer_frame.grid_propagate(False)  # Prevent resizing
 
         # Footer text container (aligned right)
@@ -437,10 +437,12 @@ class GUIComponents:
             error_label.pack(side="right", padx=self.base_pad_x, pady=self.base_pad_y)
 
         # Subdivide content frame
-        self.content_frame.grid_rowconfigure(0, weight=1)  # Header
-        self.content_frame.grid_rowconfigure(1, weight=6)  # Table
-        self.content_frame.grid_rowconfigure(2, weight=1)  # Action Buttons
-
+        self.content_frame.grid_columnconfigure(0, weight=1) # Single column for content stack
+        self.content_frame.grid_rowconfigure(0, weight=0)  # header_config_frame (row 0)
+        self.content_frame.grid_rowconfigure(1, weight=0)  # button_frame (action buttons) (row 1)
+        self.content_frame.grid_rowconfigure(2, weight=1)  # columns_frame (data sections) (row 2) - takes vertical space
+        self.content_frame.grid_rowconfigure(3, weight=0)  # names_frame (row 3)
+        
         # Header configuration (Address, Logo, Settings, Date)
         header_config_frame = ctk.CTkFrame(
             self.content_frame,
@@ -494,7 +496,7 @@ class GUIComponents:
 
         # Form sections (middle tables)
         self.columns_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
-        self.columns_frame.grid(row=2, column=0, sticky="nsew", padx=self.section_pad_x / 2, pady=(0, self.section_pad_y))
+        self.columns_frame.grid(row=2, column=0, sticky="nsew", padx=self.section_pad_x // 2, pady=(0, self.section_pad_y))
         num_data_cols = 5
         min_col_width = int(self.min_input_width * 1.7)
         for i in range(num_data_cols):
@@ -514,7 +516,7 @@ class GUIComponents:
 
         # Action buttons (bottom of content)
         button_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
-        button_frame.grid(row=1, column=0, sticky="ew", padx=self.section_pad_x, pady=(self.base_pad_y // 2, self.section_pad_y // 2))
+        button_frame.grid(row=1, column=0, sticky="ew", padx=self.section_pad_x, pady=(self.base_pad_y // 2, self.section_pad_y // 2)) # row 1 for buttons
         buttons_data = [
             ("Load (Ctrl+L)", self.file_handler.load_from_documentpdf, "Load data from DOCX/PDF"),
             ("Clear Fields", self.clear_fields, "Clear all input fields"),
@@ -600,16 +602,23 @@ class GUIComponents:
     def _create_entry_pair(self, parent_frame, label_text, var, is_disabled=False, tooltip_text=None, input_width=None, is_numeric=False):
         item_frame = ctk.CTkFrame(parent_frame, fg_color="transparent")
         item_frame.pack(fill="x", padx=self.base_pad_x // 2, pady=self.base_pad_y // 2)
+
+        # Configure grid columns within item_frame for label and entry
+        item_frame.grid_columnconfigure(0, weight=0)  # Label column (takes minimum space)
+        item_frame.grid_columnconfigure(1, weight=1)  # Entry column (expands to fill available space)
+
         ctk.CTkLabel(
             item_frame, text=label_text, font=("Roboto", self.label_font_size),
             text_color=self.TEXT_COLOR, anchor="w"
-        ).pack(side="left", fill="x", expand=True, padx=(0, self.base_pad_x))
+        ).grid(row=0, column=0, sticky="w", padx=(0, self.base_pad_x))
         
-        input_width_actual = input_width or min(max(self.min_input_width, int(self.screen_width * 0.07)), self.max_input_width)
-        
+        # 'width' for CTkEntry acts as a preferred/minimum width.
+        # Grid sticky="ew" and column weight=1 will allow it to expand.
+        preferred_entry_width = input_width or self.min_input_width
+
         entry_config = {
             "textvariable": var,
-            "width": input_width_actual,
+            "width": preferred_entry_width,
             "font": ("Roboto", self.entry_font_size),
             "corner_radius": 6,
             "fg_color": self.DISABLED_BG_COLOR if is_disabled else self.ENTRY_BG_COLOR,
@@ -624,7 +633,7 @@ class GUIComponents:
             entry_config["validatecommand"] = self.vcmd_numeric
             
         entry = ctk.CTkEntry(item_frame, **entry_config)
-        entry.pack(side="right")
+        entry.grid(row=0, column=1, sticky="ew") # Entry expands horizontally
 
         # Correctly call format_entry for live formatting of numeric fields
         if not is_disabled and is_numeric: 
@@ -702,7 +711,7 @@ class GUIComponents:
     def update_layout(self):
         self.main_frame.update_idletasks()
         self.content_frame.update_idletasks()
-        logging.debug("Updated static layout.")
+        logging.debug("Layout updated/recalculated due to window configure event.")
         self.debounce_id = None
 
     def clear_fields(self):
