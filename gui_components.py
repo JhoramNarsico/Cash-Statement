@@ -116,6 +116,9 @@ class GUIComponents:
         self.DATE_BTN_HOVER = "#BBDEFB"
         self.DATE_BTN_TEXT = "#0D47A1"
         self.FOOTER_BG = "#192337"  # Solid blue for footer
+        self.REMOVE_BTN_FG_COLOR = "#D32F2F" # Reddish for remove
+        self.REMOVE_BTN_HOVER_COLOR = "#C62828"
+
 
         self.root.update_idletasks()
         self.screen_width = self.root.winfo_screenwidth()
@@ -142,7 +145,10 @@ class GUIComponents:
         self.create_widgets()
         self.setup_keyboard_shortcuts()
         self.date_var.trace_add('write', self._update_display_date)
+        if 'logo_path_var' in self.variables: # Ensure var exists before tracing
+            self.variables['logo_path_var'].trace_add('write', self._update_logo_display)
         self._update_display_date()
+        self._update_logo_display() # Initial update for logo display
         self.root.after(150, self.update_layout)
 
     def _validate_numeric_input(self, P):
@@ -175,6 +181,9 @@ class GUIComponents:
                     default_value = resource_path("chud logo.png")
                 elif var_key == 'footer_image2_var':
                     default_value = resource_path("xu logo.png")
+                elif var_key == 'logo_path_var': # Ensure logo_path_var is initialized
+                    default_value = ""
+
 
                 self.variables[var_key] = ctk.StringVar(value=default_value)
                 initialized_count += 1
@@ -194,6 +203,21 @@ class GUIComponents:
             if raw_date:
                 logging.warning(f"Invalid date format entered: {raw_date}. Expected MM/DD/YYYY.")
             self.display_date.set("Select Date")
+
+    def _update_logo_display(self, *args):
+        logo_path = self.variables['logo_path_var'].get()
+        display_text = "No logo selected"
+        if logo_path:
+            if os.path.exists(logo_path):
+                filename = os.path.basename(logo_path)
+                display_text = f"Selected: {filename}" if len(filename) < 40 else f"Selected: ...{filename[-37:]}"
+            else:
+                display_text = "Logo file not found!" # Indicate error clearly
+        
+        if hasattr(self, 'logo_path_display') and self.logo_path_display.winfo_exists():
+            self.logo_path_display.configure(text=display_text)
+        else:
+            logging.debug("logo_path_display not available or destroyed during _update_logo_display")
     
     def _execute_with_loading(self, func, action_name, loading_message, *args, **kwargs):
         if not self.root.winfo_viewable():
@@ -347,15 +371,18 @@ class GUIComponents:
         )
         if filepath:
             if os.path.exists(filepath):
-                self.variables['logo_path_var'].set(filepath)
-                filename = os.path.basename(filepath)
-                self.logo_path_display.configure(text=f"Selected: {filename}" if len(filename) < 40 else f"Selected: ...{filename[-37:]}")
+                self.variables['logo_path_var'].set(filepath) # Trace will update display
                 logging.info(f"Logo selected: {filepath}")
             else:
                 messagebox.showerror("Error", f"Selected file does not exist:\n{filepath}")
                 logging.error(f"Selected logo file path does not exist: {filepath}")
+                # No change to logo_path_var, display will reflect previous state or "No logo selected" via trace.
         else:
             logging.info("Logo selection cancelled.")
+
+    def _remove_logo(self):
+        self.variables['logo_path_var'].set("") # Trace will update display to "No logo selected"
+        logging.info("Logo removed by user.")
 
     def show_settings(self):
         """Open the settings window."""
@@ -467,16 +494,46 @@ class GUIComponents:
         # Logo
         logo_frame = ctk.CTkFrame(header_config_frame, fg_color="transparent")
         logo_frame.grid(row=0, column=1, sticky="ew", padx=(self.base_pad_x, self.base_pad_x))
+        
         ctk.CTkLabel(logo_frame, text="Header Logo:", font=("Roboto", self.label_font_size), text_color=self.TEXT_COLOR, anchor="w").pack(side="top", fill="x", pady=(0, self.base_pad_y // 2))
-        logo_button = ctk.CTkButton(logo_frame, text="Select Logo Image", font=("Roboto", self.button_font_size), command=self._select_logo, corner_radius=6, fg_color=self.BUTTON_FG_COLOR, hover_color=self.BUTTON_HOVER_COLOR, text_color=self.BUTTON_TEXT_COLOR)
-        logo_button.pack(side="left", padx=(0, self.base_pad_x))
-        initial_logo_path = self.variables['logo_path_var'].get()
-        initial_logo_text = ""
-        if initial_logo_path:
-            filename = os.path.basename(initial_logo_path)
-            initial_logo_text = f"Selected: {filename}" if len(filename) < 40 else f"Selected: ...{filename[-37:]}"
-        self.logo_path_display = ctk.CTkLabel(logo_frame, text=initial_logo_text, font=("Roboto", self.label_font_size-1), text_color=self.TEXT_COLOR, anchor="w", wraplength=150)
-        self.logo_path_display.pack(side="left", fill="x", expand=True)
+
+        logo_buttons_frame = ctk.CTkFrame(logo_frame, fg_color="transparent")
+        logo_buttons_frame.pack(side="top", fill="x")
+
+        select_logo_button = ctk.CTkButton(
+            logo_buttons_frame, 
+            text="Select Logo",
+            font=("Roboto", self.button_font_size), 
+            command=self._select_logo, 
+            corner_radius=6, 
+            fg_color=self.BUTTON_FG_COLOR, 
+            hover_color=self.BUTTON_HOVER_COLOR, 
+            text_color=self.BUTTON_TEXT_COLOR
+        )
+        select_logo_button.pack(side="left", padx=(0, self.base_pad_x // 2))
+
+        remove_logo_button = ctk.CTkButton(
+            logo_buttons_frame, 
+            text="Remove Logo", 
+            font=("Roboto", self.button_font_size), 
+            command=self._remove_logo,
+            corner_radius=6, 
+            fg_color=self.REMOVE_BTN_FG_COLOR, 
+            hover_color=self.REMOVE_BTN_HOVER_COLOR, 
+            text_color=self.BUTTON_TEXT_COLOR
+        )
+        remove_logo_button.pack(side="left", padx=(0, self.base_pad_x))
+        
+        self.logo_path_display = ctk.CTkLabel(
+            logo_frame, 
+            text="No logo selected", # Initial text, will be updated by trace
+            font=("Roboto", max(9, self.label_font_size-2)), 
+            text_color=self.TEXT_COLOR, 
+            anchor="w", 
+            wraplength=200 
+        )
+        self.logo_path_display.pack(side="top", fill="x", pady=(self.base_pad_y // 2, 0))
+
 
         # Settings
         settings_frame = ctk.CTkFrame(header_config_frame, fg_color="transparent")
@@ -734,6 +791,12 @@ class GUIComponents:
             if key not in fields_to_keep and isinstance(var, ctk.StringVar):
                 var.set("")
                 cleared_count += 1
+        
+        # Explicitly clear logo_path_var if it's not in fields_to_keep
+        # (It is in fields_to_keep, so this is just for clarity if that changes)
+        # if 'logo_path_var' not in fields_to_keep and 'logo_path_var' in self.variables:
+        #    self.variables['logo_path_var'].set("")
+
 
         logging.info(f"Cleared {cleared_count} StringVar fields.")
         messagebox.showinfo("Success", "Cash flow data fields have been cleared.")
@@ -779,10 +842,10 @@ if __name__ == '__main__':
     date_var = ctk.StringVar(value=datetime.date.today().strftime("%m/%d/%Y"))
     display_date = ctk.StringVar()
 
-    variables['logo_path_var'] = ctk.StringVar(value="")
+    # variables['logo_path_var'] = ctk.StringVar(value="") # Will be initialized by GUIComponents
     variables['address_var'] = ctk.StringVar(value="Mock Address")
-    variables['footer_image1_var'] = ctk.StringVar(value=resource_path("chud logo.png"))
-    variables['footer_image2_var'] = ctk.StringVar(value=resource_path("xu logo.png"))
+    # variables['footer_image1_var'] = ctk.StringVar(value=resource_path("chud logo.png"))
+    # variables['footer_image2_var'] = ctk.StringVar(value=resource_path("xu logo.png"))
 
 
     calculator = MockCalculator()
