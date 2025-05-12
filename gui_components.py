@@ -7,6 +7,7 @@ import os
 import sys # Added for resource_path
 from setting import SettingsWindow
 from PIL import Image  # Requires Pillow
+import webbrowser # Added for hyperlink functionality
 import threading # Added for loading indicator
 import queue     # Added for loading indicator
 
@@ -413,15 +414,47 @@ class GUIComponents:
         footer_text_frame = ctk.CTkFrame(self.footer_frame, fg_color="transparent")
         footer_text_frame.pack(side="right", padx=self.base_pad_x)
 
-        # Copyright text
+        # --- Container for Copyright and GitHub link ---
+        copyright_github_container = ctk.CTkFrame(footer_text_frame, fg_color="transparent")
+        # This container will be pushed to the right of footer_text_frame (which itself is on the right of footer_frame)
+        copyright_github_container.pack(anchor="e", padx=(0, 20)) # Apply right-padding here
+
+        # Copyright text (packed into the new container)
         compliance_label = ctk.CTkLabel(
-            footer_text_frame,
+            copyright_github_container, # Parent is now the container
             text="© 2025 All Rights Reserved", # Moved from cash_flow_app.py
             font=("Roboto", 10), 
             text_color="#FFFFFF",
             justify="right"
         )
-        compliance_label.pack(anchor="e", padx=(0, 20))
+        compliance_label.pack(side="left") # Pack to the left within the container
+
+        # GitHub link and logo (packed next to copyright, in the same container)
+        github_url = "https://github.com/JhoramNarsico/Cash-Statement" # <<<< CHANGE THIS TO YOUR ACTUAL GITHUB REPO URL
+        
+        try:
+            gh_logo_filename = "github logo.png" # Ensure this file exists and resource_path can find it
+            gh_logo_path = resource_path(gh_logo_filename)
+            if os.path.exists(gh_logo_path):
+                gh_logo_pil = Image.open(gh_logo_path).convert("RGBA")
+                gh_logo_size = (16, 16) # Small logo size
+                gh_logo_pil = gh_logo_pil.resize(gh_logo_size, Image.Resampling.LANCZOS)
+                gh_logo_ctk = ctk.CTkImage(light_image=gh_logo_pil, dark_image=gh_logo_pil, size=gh_logo_size)
+                
+                gh_logo_label = ctk.CTkLabel(copyright_github_container, image=gh_logo_ctk, text="", cursor="hand2")
+                gh_logo_label.pack(side="left", padx=(8, 0)) # Add some space between copyright and logo
+                gh_logo_label.bind("<Button-1>", lambda e, url=github_url: webbrowser.open_new_tab(url))
+            else:
+                logging.warning(f"GitHub logo not found: {gh_logo_path}. Displaying text link.")
+                # Fallback text link if logo image is missing
+                github_fallback_label = ctk.CTkLabel(copyright_github_container, text="GitHub", font=("Roboto", 10), text_color="#A9D1F7", cursor="hand2") # Light blue for link
+                github_fallback_label.pack(side="left", padx=(5, 0))
+                github_fallback_label.bind("<Button-1>", lambda e, url=github_url: webbrowser.open_new_tab(url))
+        except Exception as e_gh_logo:
+            logging.error(f"Error loading GitHub logo: {e_gh_logo}. Displaying text link.")
+            github_fallback_label = ctk.CTkLabel(copyright_github_container, text="GitHub", font=("Roboto", 10), text_color="#A9D1F7", cursor="hand2")
+            github_fallback_label.pack(side="left", padx=(5, 0))
+            github_fallback_label.bind("<Button-1>", lambda e, url=github_url: webbrowser.open_new_tab(url))
 
 
         # Footer images (aligned right)
