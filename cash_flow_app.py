@@ -1,3 +1,5 @@
+# --- START OF FILE cash_flow_app.py ---
+
 import tkinter as tk
 import customtkinter as ctk
 import datetime
@@ -8,34 +10,24 @@ class CashFlowApp:
         self.root = root
         self.root.title("Cash Flow Statement Generator with Email")
 
-        # Get screen dimensions for intelligent sizing and centering
+        # ... (window sizing code remains the same) ...
         try:
             self.root.update_idletasks() # Ensure winfo methods work correctly
             screen_width = self.root.winfo_screenwidth()
             screen_height = self.root.winfo_screenheight()
-
-            # Set initial size to a reasonable portion of the screen, e.g., 80%
-            # or a sensible large default if screen detection is problematic.
             initial_width = min(1600, int(screen_width * 0.8))
             initial_height = min(900, int(screen_height * 0.8))
-            
-            # Center the window
             x_offset = (screen_width - initial_width) // 2
             y_offset = (screen_height - initial_height) // 2
-            
             self.root.geometry(f"{initial_width}x{initial_height}+{x_offset}+{y_offset}")
         except tk.TclError:
-            # Fallback if screen dimensions can't be obtained (e.g., window not fully ready)
             self.root.geometry("1200x750") # A sensible default size
 
-        # --- Key changes for resizability ---
-        self.root.resizable(True, True)  # Allow resizing
-        self.root.minsize(800, 600)      # Set a minimum reasonable size for the window
+        self.root.resizable(True, True)
+        self.root.minsize(800, 600)
 
-        # Initialize settings
-        self.settings_manager = SettingsManager()
+        self.settings_manager = SettingsManager() # Keep this
 
-        # Initialize variables
         self.variables = {
             'recipient_emails_var': tk.StringVar(),
             'title_var': tk.StringVar(value="Statement Of Cash Flows"),
@@ -88,7 +80,7 @@ class CashFlowApp:
         from gui_components import GUIComponents
 
         self.calculator = CashFlowCalculator(self.variables)
-        self.file_handler = FileHandler(
+        self.file_handler = FileHandler( # FileHandler still doesn't need settings_manager directly
             self.variables,
             self.variables['title_var'],
             self.variables['date_var'],
@@ -98,13 +90,15 @@ class CashFlowApp:
             self.variables['noted_by_var_1'],
             self.variables['noted_by_var_2'],
             self.variables['checked_by_var']
+            # No settings_manager passed here
         )
+        # --- Update EmailSender instantiation ---
         self.email_sender = EmailSender(
-            sender_email=self.settings_manager.get_setting("sender_email"),
-            sender_password=self.settings_manager.get_setting("sender_password"),
+            settings_manager=self.settings_manager, # Pass the manager instance
             recipient_emails_var=self.variables['recipient_emails_var'],
             file_handler=self.file_handler
         )
+        # ---------------------------------------
         self.gui = GUIComponents(
             self.root,
             self.variables,
@@ -114,5 +108,7 @@ class CashFlowApp:
             self.calculator,
             self.file_handler,
             self.email_sender,
-            self.settings_manager
+            self.settings_manager # GUIComponents still needs settings_manager for its own Settings button
         )
+
+# --- END OF FILE cash_flow_app.py ---
