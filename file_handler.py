@@ -26,6 +26,10 @@ from docx.enum.section import WD_SECTION
 from docx.shared import Inches, Pt
 from docx.oxml.ns import qn 
 from docx.enum.table import WD_TABLE_ALIGNMENT, WD_CELL_VERTICAL_ALIGNMENT
+from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT  # Add import at the top of the file
+from docx.shared import Inches, Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 class FileHandler:
     def __init__(self, variables, title_var, date_var, logo_path_var, address_var, prepared_by_var, noted_by_var_1, noted_by_var_2, checked_by_var):
@@ -339,76 +343,107 @@ class FileHandler:
         section.top_margin = Inches(0.5); section.bottom_margin = Inches(0.7)
         section.left_margin = Inches(0.5); section.right_margin = Inches(0.5)
 
-        # Header
+            # --- Header Section ---
         header = section.header
-        header.is_linked_to_previous = False
-        if header.paragraphs: # Clear default paragraph
-            ht_p = header.paragraphs[0]._element
-            ht_p.getparent().remove(ht_p)
+        header.is_linked_to_previous = False  # Ensure header is unique to this section
+# Clear existing default paragraph in header
+        if header.paragraphs:
+            ht = header.paragraphs[0]._element
+            ht.getparent().remove(ht)
 
+# Get logo path and address
         logo_path = self.logo_path_var.get()
         address_text = self.address_var.get() or " "
-        
-        header_table = header.add_table(rows=1, cols=2, width=Inches(7.5)) # Adjusted width: 8.5 page - 0.5 L - 0.5 R margin
-        header_table.autofit = False; header_table.allow_autofit = False
-        header_table.alignment = WD_TABLE_ALIGNMENT.CENTER # Center table for better looks
-        
-        # Column widths for header table (example, adjust as needed)
-        header_table.columns[0].width = Inches(1.5) 
-        header_table.columns[1].width = Inches(6.0)
 
+# Create a 1x2 table in the header
+        header_table = header.add_table(rows=1, cols=2, width=Inches(6.08))  # Width = Page Width - Margins
+        header_table.autofit = False
+        header_table.allow_autofit = False
+        header_table.alignment = WD_TABLE_ALIGNMENT.LEFT
+
+# Set column widths
+        header_table.columns[0].width = Inches(1.58)  # Width for logo
+        header_table.columns[1].width = Inches(4.5)   # Width for text
+
+# Set cell widths explicitly
         logo_cell = header_table.cell(0, 0)
         text_cell = header_table.cell(0, 1)
+        logo_cell.width = Inches(1.58)
+        text_cell.width = Inches(4.5)
+
+# Set vertical alignment
         logo_cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
-        text_cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.TOP # Text starts at top
-        
-        # Logo in left cell
-        if logo_cell.paragraphs: # Clear default paragraph in cell
-            p_logo = logo_cell.paragraphs[0]._element
-            p_logo.getparent().remove(p_logo)
+        text_cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+
+# Left Cell (Logo)
+# Remove default paragraph in cell
+        if logo_cell.paragraphs:
+            p = logo_cell.paragraphs[0]._element
+            p.getparent().remove(p)
+# Add logo if path exists
         logo_para = logo_cell.add_paragraph()
-        logo_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        logo_para.alignment = 1  # Center logo in its cell
         if logo_path and os.path.exists(logo_path):
             try:
-                logo_para.add_run().add_picture(logo_path, width=Inches(1.25)) # Slightly smaller than cell width
+                logo_run = logo_para.add_run()
+                    # Scale logo to fit within 1.58-inch column, preserving aspect ratio
+                logo_run.add_picture(logo_path, width=Inches(1.18))  # Slightly less than column width
+                logging.info(f"Included logo in Word header: {logo_path}, scaled to width 1.5 inches")
             except Exception as e:
+                logging.warning(f"Could not add logo picture to Word: {e}")
                 logo_para.add_run("[Logo Error]").italic = True
-                logging.warning(f"Could not add logo to Word: {e}")
         elif logo_path:
+            logging.warning(f"Logo path specified but not found for Word: {logo_path}")
             logo_para.add_run("[Logo N/A]").italic = True
+# Else: leave the cell empty
 
-        # Header text in right cell
-        if text_cell.paragraphs: # Clear default
-            p_text_cell = text_cell.paragraphs[0]._element
-            p_text_cell.getparent().remove(p_text_cell)
+# Right Cell (Text)
+# Remove default paragraph
+        if text_cell.paragraphs:
+            p = text_cell.paragraphs[0]._element
+            p.getparent().remove(p)
 
-        p_address = text_cell.add_paragraph()
-        p_address.add_run(address_text).font.name = 'Helvetica'; p_address.runs[0].font.size = Pt(10)
-        p_address.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        
-        p_title = text_cell.add_paragraph()
-        title_run = p_title.add_run("CASH FLOW STATEMENT")
-        title_run.font.name = 'Helvetica'; title_run.bold = True; title_run.font.size = Pt(12)
-        p_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        
-        p_date = text_cell.add_paragraph()
-        date_run = p_date.add_run(f"For the Month of {self.format_date_for_display(self.date_var.get())}")
-        date_run.font.name = 'Helvetica'; date_run.font.size = Pt(8)
-        p_date.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        
-        # Helper for cell styling
+# Add Header Text Lines
+        p = text_cell.add_paragraph()
+        run = p.add_run(address_text)  # Add address
+        run.font.name = 'Helvetica'
+        run.font.size = Pt(10)
+        p.alignment = 1  # Center
+  # Small spacer
+        p.add_run("\n")
+        run = p.add_run("\nCASH FLOW STATEMENT")
+        run.font.name = 'Helvetica'
+        run.bold = True
+        run.font.size = Pt(12)
+        p.alignment = 1  # Center
+
+        p = text_cell.add_paragraph()
+        run = p.add_run(f"For the Month of {self.format_date_for_display(self.date_var.get())}")
+        run.font.name = 'Helvetica'
+        run.font.size = Pt(8)
+        p.alignment = 1  # Center
+
         def set_cell_style(cell, text, size=8, bold=False, align='left', font='Helvetica'):
-            para = cell.paragraphs[0]
-            if not para.runs: para.add_run() # Ensure at least one run
-            para.text = text # Set text on paragraph first
-            run = para.runs[0] # Now get the run
-            run.font.name = font; run.font.size = Pt(size); run.bold = bold
-            if align == 'right': para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-            elif align == 'center': para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            else: para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+                para = cell.paragraphs[0]
+                # Clear existing runs if needed, or just set text on the first paragraph
+                if not para.runs:
+                    para.add_run(text)
+                else:
+                    para.text = text # Overwrite if text exists
 
+                # Ensure there's at least one run after setting text
+                if not para.runs:
+                     para.add_run(text) # Add run again if setting para.text cleared it
 
+                run = para.runs[0]
+                run.font.name = font
+                run.font.size = Pt(size)
+                run.bold = bold
+                # Alignment: 0=left, 1=center, 2=right
+                if align == 'right': para.alignment = 2
+                elif align == 'center': para.alignment = 1
+                else: para.alignment = 0
+                
         # Content tables (width 7.5 inches)
         table_col1_width = Inches(6.0)
         table_col2_width = Inches(1.5)
@@ -621,60 +656,82 @@ class FileHandler:
             if not address_found: logging.warning("No address found in any header table.")
 
             label_to_var = {
-                "Cash in Bank-beg": self.variables['cash_bank_beg'], "Cash on Hand-beg": self.variables['cash_hand_beg'],
-                "Monthly Dues Collected": self.variables['monthly_dues'], "Certifications Issued": self.variables['certifications'],
-                "Membership Fee": self.variables['membership_fee'], "Vehicle Stickers": self.variables['vehicle_stickers'],
-                "Rentals": self.variables['rentals'], "Solicitations/Donations": self.variables['solicitations'],
-                "Interest Income on Bank Deposits": self.variables['interest_income'], "Livelihood Management Fee": self.variables['livelihood_fee'],
-                "Others (Inflow)": self.variables['inflows_others'], "Total Cash Receipts": self.variables['total_receipts'],
-                "Cash Outflows/Disbursements": self.variables['cash_outflows'], "Snacks/Meals for Visitors": self.variables['snacks_meals'],
-                "Transportation Expenses": self.variables['transportation'], "Office Supplies Expense": self.variables['office_supplies'],
-                "Printing and Photocopy": self.variables['printing'], "Labor": self.variables['labor'],
-                "Billboard Expense": self.variables['billboard'], "Clearing/Cleaning Charges": self.variables['cleaning'],
-                "Miscellaneous Expenses": self.variables['misc_expenses'], "Federation Fee": self.variables['federation_fee'],
-                "HOA-BOD Uniforms": self.variables['uniforms'], "BOD Meeting": self.variables['bod_mtg'],
-                "General Assembly": self.variables['general_assembly'], "Cash Deposit to Bank": self.variables['cash_deposit'],
-                "Withholding Tax on Bank Deposit": self.variables['withholding_tax'], "Refund": self.variables['refund'],
+                "Cash in Bank-beg": self.variables['cash_bank_beg'],
+                "Cash on Hand-beg": self.variables['cash_hand_beg'],
+                "Monthly Dues Collected": self.variables['monthly_dues'],
+                "Certifications Issued": self.variables['certifications'],
+                "Membership Fee": self.variables['membership_fee'],
+                "Vehicle Stickers": self.variables['vehicle_stickers'],
+                "Rentals": self.variables['rentals'],
+                "Solicitations/Donations": self.variables['solicitations'],
+                "Interest Income on Bank Deposits": self.variables['interest_income'],
+                "Livelihood Management Fee": self.variables['livelihood_fee'],
+                "Others (Inflow)": self.variables['inflows_others'],
+                "Total Cash Receipts": self.variables['total_receipts'],
+                "Cash Outflows/Disbursements": self.variables['cash_outflows'],
+                "Snacks/Meals for Visitors": self.variables['snacks_meals'],
+                "Transportation Expenses": self.variables['transportation'],
+                "Office Supplies Expense": self.variables['office_supplies'],
+                "Printing and Photocopy": self.variables['printing'],
+                "Labor": self.variables['labor'],
+                "Billboard Expense": self.variables['billboard'],
+                "Clearing/Cleaning Charges": self.variables['cleaning'],
+                "Miscellaneous Expenses": self.variables['misc_expenses'],
+                "Federation Fee": self.variables['federation_fee'],
+                "HOA-BOD Uniforms": self.variables['uniforms'],
+                "BOD Meeting": self.variables['bod_mtg'],
+                "General Assembly": self.variables['general_assembly'],
+                "Cash Deposit to Bank": self.variables['cash_deposit'],
+                "Withholding Tax on Bank Deposit": self.variables['withholding_tax'],
+                "Refund": self.variables['refund'],
                 "Others (Outflow)": self.variables['outflows_others']
             }
+
+            # Extract table data
             for table in doc.tables:
-                for row_idx, row in enumerate(table.rows):
+                for row in table.rows:
                     if len(row.cells) >= 2:
                         label = row.cells[0].text.strip()
                         value = row.cells[1].text.strip()
-                        if label.lower().startswith("for the month of"):
+                        # logging.debug(f"Extracted Label: '{label}', Value: '{value}'") # Debugging
+                        if label.lower().startswith("for the month of"): # Adjusted keyword
                             try:
+                                lines = value.splitlines()
+                                lines = [line.strip() for line in lines if line.strip()]
+                                # Extract date string after "For the Month of "
                                 date_str_part = label.split("For the Month of", 1)[1].strip()
                                 date_obj = datetime.datetime.strptime(date_str_part, "%B %d, %Y")
                                 self.date_var.set(date_obj.strftime("%m/%d/%Y"))
-                            except: 
-                                try: # Try parsing value if label failed
+                                logging.info(f"Loaded date: {self.date_var.get()}")
+                            except (IndexError, ValueError, TypeError) as e:
+                                logging.warning(f"Could not parse date from header: '{label}', Error: {e}")
+                                # Try parsing just the value if label didn't work
+                                try:
                                     date_obj = datetime.datetime.strptime(value, "%B %d, %Y")
                                     self.date_var.set(date_obj.strftime("%m/%d/%Y"))
-                                except: pass
-                        
-                        # Check for signatories more robustly
-                        if "prepared by:" in label.lower() and row_idx + 1 < len(table.rows):
-                             # Assuming names are in the next row, first two cells
-                            if len(table.rows[row_idx+1].cells) >=2:
-                                self.prepared_by_var.set(table.rows[row_idx+1].cells[0].text.strip())
-                                self.checked_by_var.set(table.rows[row_idx+1].cells[1].text.strip())
+                                    logging.info(f"Loaded date from value: {self.date_var.get()}")
+                                except: pass # Ignore if value also fails
+                        if label.lower().startswith("prepared by:"): # Adjusted keyword
+                            treasurer = table.rows[1].cells[0].text.strip()
+                            auditor = table.rows[1].cells[1].text.strip()
+                            self.prepared_by_var.set(treasurer)
+                            self.checked_by_var.set(auditor)
 
-                        if "noted by:" in label.lower() and row_idx + 2 < len(table.rows): # If "Noted by:" is a title row
-                            # Assuming names are two rows down (after title and names)
-                            # This is heuristic and might need adjustment based on actual DOCX structure
-                            if len(table.rows[row_idx+2].cells) >=2: # Check if HOA President/CHUDD titles are here
-                                if "hoa president" in table.rows[row_idx+2].cells[0].text.lower() and row_idx + 1 < len(table.rows):
-                                     self.noted_by_var_1.set(table.rows[row_idx+1].cells[0].text.strip()) # Name is above title
-                                if "chudd hcd-cords" in table.rows[row_idx+2].cells[1].text.lower() and row_idx + 1 < len(table.rows):
-                                     self.noted_by_var_2.set(table.rows[row_idx+1].cells[1].text.strip()) # Name is above title
-
+                        if label.lower().startswith("hoa president"): # Adjusted keyword
+                            president = table.rows[0].cells[0].text.strip()
+                            Chords = table.rows[0].cells[1].text.strip()
+                            self.noted_by_var_1.set(president)
+                            self.noted_by_var_2.set(Chords)
                         if label in label_to_var:
-                            label_to_var[label].set(self.parse_amount(value))
+                            parsed_value = self.parse_amount(value)
+                            label_to_var[label].set(parsed_value)
+                            # logging.debug(f"Set {label} to {parsed_value}") # Debugging
+                
             messagebox.showinfo("Success", "DOCX data loaded successfully")
             return True
+
         except Exception as e:
-            logging.exception(f"Error loading Word document: {filename}")
+            logging.exception(f"Error loading Word document: {filename}") # Log full traceback
             messagebox.showerror("Error", f"Error loading Word document:\n{str(e)}")
             return False
 
