@@ -1,20 +1,20 @@
 import os
 import re
-import sys 
+import sys
 import datetime
-import logging 
+import logging
 from decimal import Decimal
-from tkinter import filedialog, messagebox 
-import tempfile # Added for temporary files
+from tkinter import filedialog, messagebox
+import tempfile # Already imported, which is good
 
 # PDF Imports
 import pdfplumber
 from reportlab.lib.styles import ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer, Image 
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter 
-from reportlab.lib.units import inch 
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.units import inch
 import camelot
 import fitz
 import random
@@ -24,7 +24,7 @@ from docx import Document
 from docx.enum.text import WD_LINE_SPACING, WD_ALIGN_PARAGRAPH
 from docx.enum.section import WD_SECTION
 from docx.shared import Inches, Pt
-from docx.oxml.ns import qn 
+from docx.oxml.ns import qn
 from docx.enum.table import WD_TABLE_ALIGNMENT, WD_CELL_VERTICAL_ALIGNMENT
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT  # Add import at the top of the file
@@ -36,8 +36,8 @@ class FileHandler:
         self.variables = variables
         self.title_var = title_var
         self.date_var = date_var
-        self.logo_path_var = logo_path_var 
-        self.address_var = address_var   
+        self.logo_path_var = logo_path_var
+        self.address_var = address_var
         self.prepared_by_var = prepared_by_var
         self.noted_by_var_1 = noted_by_var_1
         self.noted_by_var_2 = noted_by_var_2
@@ -75,7 +75,7 @@ class FileHandler:
                     return f"{amount:,.2f}"
                 except Exception as e:
                     logging.warning(f"Could not format amount '{value}' for PDF: {e}")
-                    return str(value) 
+                    return str(value)
             return ""
 
         styles = getSampleStyleSheet()
@@ -271,7 +271,7 @@ class FileHandler:
             )
             elements = self._build_pdf_elements()
             doc.build(elements)
-            return True 
+            return True
         except Exception as e:
             logging.exception(f"Error creating PDF content for {filename}")
             return False
@@ -295,7 +295,7 @@ class FileHandler:
                 return {"status": "success", "message": f"PDF successfully exported to {filename}", "filename": filename}
             else:
                 return {"status": "error", "message": f"Failed to create PDF at {filename}.\nCheck logs for details and ensure ReportLab is installed."}
-        except Exception as e: 
+        except Exception as e:
             logging.exception("Error during PDF export process")
             return {"status": "error", "message": f"An unexpected error occurred during PDF export: {str(e)}"}
 
@@ -570,7 +570,7 @@ class FileHandler:
         try:
             doc = self._build_docx_document()
             doc.save(filename)
-            return True 
+            return True
         except Exception as e:
             logging.exception(f"Error creating DOCX content for {filename}")
             return False
@@ -623,19 +623,26 @@ class FileHandler:
         try:
             logging.info(f"Loading DOCX: {filename}")
             doc = Document(filename)
-            current_directory = os.getcwd()
+            # current_directory = os.getcwd() # Not needed for temp file saving
             for section in doc.sections:
                 header = section.header
                 for rel in header.part.rels.values():
                     if "image" in rel.reltype:
                         image_data = rel.target_part.blob
                         image_ext = rel.target_part.content_type.split("/")[-1]
-                        image_filename = os.path.join(current_directory, f"Logo_{random.random()}.{image_ext}")
-                        with open(image_filename, "wb") as f:
-                            f.write(image_data)
-                            print(f"Saved header image: {image_filename}")
-                            self.variables['logo_path_var'].set(image_filename)
-            
+                        # image_filename = os.path.join(current_directory, f"Logo_{random.random()}.{image_ext}")
+                        # with open(image_filename, "wb") as f:
+                        #     f.write(image_data)
+                        #     print(f"Saved header image: {image_filename}")
+                        #     self.variables['logo_path_var'].set(image_filename)
+                        with tempfile.NamedTemporaryFile(suffix=f".{image_ext}", prefix="logo_docx_", delete=False) as temp_logo_file:
+                            temp_logo_file.write(image_data)
+                            image_filename = temp_logo_file.name
+                        logging.info(f"Saved extracted DOCX header image to temporary file: {image_filename}")
+                        self.variables['logo_path_var'].set(image_filename)
+                        break # Assuming one logo
+                if self.variables['logo_path_var'].get(): break # Found logo, no need to check other sections' headers for logo
+
             self.address_var.set("")
             address_found = False
             for section in doc.sections:
@@ -849,8 +856,13 @@ class FileHandler:
                         base_image = doc_fitz.extract_image(xref)
                         image_bytes = base_image["image"]
                         image_ext = base_image["ext"]
-                        image_filename = os.path.join(os.getcwd(), f"Logo_extracted_{random.random()}.{image_ext}")
-                        with open(image_filename, "wb") as f: f.write(image_bytes)
+                        # image_filename = os.path.join(os.getcwd(), f"Logo_extracted_{random.random()}.{image_ext}")
+                        # with open(image_filename, "wb") as f: f.write(image_bytes)
+                        # self.variables['logo_path_var'].set(image_filename)
+                        with tempfile.NamedTemporaryFile(suffix=f".{image_ext}", prefix="logo_pdf_", delete=False) as temp_logo_file:
+                            temp_logo_file.write(image_bytes)
+                            image_filename = temp_logo_file.name
+                        logging.info(f"Saved extracted PDF image to temporary file: {image_filename}")
                         self.variables['logo_path_var'].set(image_filename)
                         break # Assume first image found is the logo
             
