@@ -1,5 +1,7 @@
 # --- START OF FILE gui_components.py ---
 
+# --- START OF FILE gui_components.py ---
+
 import tkinter
 import customtkinter as ctk
 from tkinter import Tk, messagebox, filedialog
@@ -135,7 +137,10 @@ class GUIComponents:
         self.screen_width = self.root.winfo_screenwidth()
         self.screen_height = self.root.winfo_screenheight()
         logging.info(f"Screen dimensions: {self.screen_width}x{self.screen_height}")
-        self.base_font_size = max(9, min(16, int(self.screen_height / 65)))
+        # --- MODIFICATION HERE ---
+        # Changed divisor from 65 to 70 to make base font smaller
+        self.base_font_size = max(9, min(15, int(self.screen_height / 70))) # Also slightly reduced max from 16 to 15
+        # --- END MODIFICATION ---
         self.title_font_size = int(self.base_font_size * 1.2)
         self.button_font_size = self.base_font_size
         self.label_font_size = self.base_font_size
@@ -144,9 +149,9 @@ class GUIComponents:
         self.base_pad_y = int(self.base_font_size * 0.3)
         self.section_pad_x = self.base_pad_x * 2
         self.section_pad_y = self.base_pad_y * 2
-        self.min_input_width = 120
+        self.min_input_width = 160 # Kept from previous change
         self.max_input_width = 300
-        self.min_column_width = 200  # Reduced for better responsiveness
+        self.min_column_width = 200
         self.layout_debounce_delay_ms = 100
         self.debounce_id = None
 
@@ -634,11 +639,10 @@ class GUIComponents:
         self.columns_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
         self.columns_frame.grid(row=2, column=0, sticky="ew", padx=self.section_pad_x // 2, pady=(self.base_pad_y, self.section_pad_y)) # row 2 for columns
         num_data_cols = 5
-        min_col_width = int(self.min_input_width * 1.7)
+        # The min_column_width for data columns is now dynamically tied to self.min_input_width
+        min_col_width = int(self.min_input_width * 1.7) # Ensure columns are wide enough
         for i in range(num_data_cols):
             self.columns_frame.grid_columnconfigure(i, weight=1, uniform="data_cols", minsize=min_col_width)
-        # For CTkScrollableFrame, rowconfigure weight isn't strictly needed for the frame itself to expand.
-        # self.columns_frame.grid_rowconfigure(0, weight=1) # This would make the row inside columns_frame expand if columns_frame had extra space
 
         self.beg_frame = self._create_section_frame("Beginning Cash Balances")
         self.inflow_frame = self._create_section_frame("Cash Inflows")
@@ -666,7 +670,8 @@ class GUIComponents:
             ("Checked by (Auditor):", 'checked_by_var', "Name of HOA Auditor")
         ]
         num_name_fields = len(name_fields_data)
-        min_name_col_width = int(self.min_input_width * 1.5)
+        # The min_name_col_width is also dynamically tied to self.min_input_width
+        min_name_col_width = int(self.min_input_width * 1.5) # Ensure name columns are wide enough
         for i in range(num_name_fields):
             names_frame.grid_columnconfigure(i, weight=1, uniform="name_group_adjusted", minsize=min_name_col_width)
         for i, (label_text, var_key, tooltip_text) in enumerate(name_fields_data):
@@ -694,15 +699,17 @@ class GUIComponents:
 
 
     def _create_entry_pair(self, parent_frame, label_text, var, is_disabled=False, tooltip_text=None, input_width=None, is_numeric=False):
-        # ... (Remains the same) ...
+        # ... (Remains the same from previous step, using sticky="e" for entry) ...
         item_frame = ctk.CTkFrame(parent_frame, fg_color="transparent")
         item_frame.pack(fill="x", padx=self.base_pad_x // 2, pady=self.base_pad_y // 2)
-        item_frame.grid_columnconfigure(0, weight=0)
-        item_frame.grid_columnconfigure(1, weight=1)
+        item_frame.grid_columnconfigure(0, weight=0) # Column for Label
+        item_frame.grid_columnconfigure(1, weight=1) # Column for Entry (this column will expand)
+        
         ctk.CTkLabel(
             item_frame, text=label_text, font=("Roboto", self.label_font_size),
             text_color=self.TEXT_COLOR, anchor="w"
         ).grid(row=0, column=0, sticky="w", padx=(0, self.base_pad_x))
+        
         preferred_entry_width = input_width or self.min_input_width
         entry_config = {
             "textvariable": var, "width": preferred_entry_width,
@@ -713,8 +720,10 @@ class GUIComponents:
         }
         if is_numeric and not is_disabled:
             entry_config["validate"] = "key"; entry_config["validatecommand"] = self.vcmd_numeric
+        
         entry = ctk.CTkEntry(item_frame, **entry_config)
-        entry.grid(row=0, column=1, sticky="ew")
+        entry.grid(row=0, column=1, sticky="e") # Aligned to the right
+        
         if not is_disabled and is_numeric:
             if hasattr(self.calculator, 'format_entry'):
                 try: self.calculator.format_entry(var, entry)
@@ -723,19 +732,23 @@ class GUIComponents:
 
 
     def populate_columns(self):
-        # ... (Remains the same) ...
+        # ... (Remains the same, but will use the new self.min_input_width and scaled font) ...
         beg_content = self.beg_frame.winfo_children()[1]
         beg_items = [("Cash in Bank:", 'cash_bank_beg', "Starting bank balance"), ("Cash on Hand:", 'cash_hand_beg', "Starting physical cash")]
         for label, var_key, tooltip in beg_items: self._create_entry_pair(beg_content, label, self.variables[var_key], tooltip_text=tooltip, is_numeric=True)
+        
         inflow_content = self.inflow_frame.winfo_children()[1]
         inflow_items = [ ("Monthly dues collected:", 'monthly_dues'), ("Certifications issued:", 'certifications'), ("Membership fee:", 'membership_fee'), ("Vehicle stickers:", 'vehicle_stickers'), ("Rentals:", 'rentals'), ("Solicitations/Donations:", 'solicitations'), ("Interest Income:", 'interest_income'), ("Livelihood Fee:", 'livelihood_fee'), ("Others:", 'inflows_others', "Other income sources")]
-        for label, var_key, *tooltip_arg in inflow_items: self._create_entry_pair( inflow_content, label, self.variables[var_key], tooltip_text=tooltip_arg[0] if tooltip_arg else None, input_width=self.min_input_width // 1.5, is_numeric=True )
+        for label, var_key, *tooltip_arg in inflow_items: self._create_entry_pair( inflow_content, label, self.variables[var_key], tooltip_text=tooltip_arg[0] if tooltip_arg else None, input_width=int(self.min_input_width / 1.5), is_numeric=True ) 
+        
         outflow_content = self.outflow_frame.winfo_children()[1]
         outflow_items = [ ("Snacks/Meals:", 'snacks_meals'), ("Transportation:", 'transportation'), ("Office supplies:", 'office_supplies'), ("Printing/Photocopy:", 'printing'), ("Labor:", 'labor'), ("Billboard expense:", 'billboard'), ("Cleaning charges:", 'cleaning'), ("Misc expenses:", 'misc_expenses'), ("Federation fee:", 'federation_fee'), ("Uniforms:", 'uniforms'), ("BOD Mtg:", 'bod_mtg', "Board meeting expenses"), ("General Assembly:", 'general_assembly', "Assembly expenses"), ("Cash Deposit:", 'cash_deposit', "Cash moved hand to bank"), ("Withholding tax:", 'withholding_tax'), ("Refund:", 'refund'), ("Others:", 'outflows_others', "Other expenses")]
-        for label, var_key, *tooltip_arg in outflow_items: self._create_entry_pair( outflow_content, label, self.variables[var_key], tooltip_text=tooltip_arg[0] if tooltip_arg else None, input_width=self.min_input_width // 1.5, is_numeric=True )
+        for label, var_key, *tooltip_arg in outflow_items: self._create_entry_pair( outflow_content, label, self.variables[var_key], tooltip_text=tooltip_arg[0] if tooltip_arg else None, input_width=int(self.min_input_width / 1.5), is_numeric=True )
+        
         end_content = self.end_frame.winfo_children()[1]
         end_items = [("Cash in Bank:", 'ending_cash_bank', "Calculated ending bank balance"), ("Cash on Hand:", 'ending_cash_hand', "Calculated ending cash on hand")]
         for label, var_key, tooltip in end_items: self._create_entry_pair(end_content, label, self.variables[var_key], is_disabled=True, tooltip_text=tooltip, is_numeric=True)
+        
         total_content = self.totals_frame.winfo_children()[1]
         total_items = [("Total Receipts:", 'total_receipts', "Calculated total inflows"), ("Total Outflows:", 'cash_outflows', "Calculated total outflows"), ("Ending Balance:", 'ending_cash', "Calculated total ending cash")]
         for label, var_key, tooltip in total_items: self._create_entry_pair(total_content, label, self.variables[var_key], is_disabled=True, tooltip_text=tooltip, is_numeric=True)
