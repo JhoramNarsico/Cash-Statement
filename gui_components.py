@@ -425,7 +425,6 @@ class GUIComponents:
     # --- End Method ---
 
     def create_widgets(self):
-        # ... (Frame setup, footer setup remains the same) ...
         # Main frame with footer space
         self.main_frame = ctk.CTkFrame(self.root, corner_radius=0, fg_color=self.BG_COLOR)
         self.main_frame.pack(fill="both", expand=True)
@@ -434,22 +433,23 @@ class GUIComponents:
         self.main_frame.grid_rowconfigure(1, weight=0)  # footer_frame has fixed height
         self.main_frame.grid_columnconfigure(0, weight=1)
 
-        # Content frame (container for all content including header, form, and buttons)
-        self.content_frame = ctk.CTkFrame(self.main_frame, corner_radius=0, fg_color=self.BG_COLOR)
+        # --- MODIFICATION: Use CTkScrollableFrame for content_frame ---
+        self.content_frame = ctk.CTkScrollableFrame(self.main_frame, corner_radius=0, fg_color=self.BG_COLOR)
+        # --- END MODIFICATION ---
         self.content_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=(10, 10)) # Increased top padding for better spacing
-        self.content_frame.grid_columnconfigure(0, weight=1)
+        self.content_frame.grid_columnconfigure(0, weight=1) # Ensure content within scrollable frame can expand horizontally
 
-        # Footer
-        footer_height = 80  # Keep footer height fixed
+        # Footer (remains unchanged, placed in self.main_frame)
+        footer_height = 80
         self.footer_frame = ctk.CTkFrame(self.main_frame, height=footer_height, corner_radius=0, fg_color=self.FOOTER_BG)
-        self.footer_frame.grid(row=1, column=0, sticky="ew") # Grid into row 1 of main_frame
-        self.footer_frame.grid_propagate(False)  # Prevent resizing
+        self.footer_frame.grid(row=1, column=0, sticky="ew")
+        self.footer_frame.grid_propagate(False)
 
         # Footer text container (aligned right)
         footer_text_frame = ctk.CTkFrame(self.footer_frame, fg_color="transparent")
         footer_text_frame.pack(side="right", padx=self.base_pad_x)
 
-        # --- Container for Copyright and GitHub link ---
+        # Container for Copyright and GitHub link
         copyright_github_container = ctk.CTkFrame(footer_text_frame, fg_color="transparent")
         copyright_github_container.pack(anchor="e", padx=(0, 20))
 
@@ -511,14 +511,21 @@ class GUIComponents:
             logging.exception("Failed to load footer images.")
             ctk.CTkLabel(self.footer_frame, text="Img Err", font=("Roboto", self.label_font_size-2), text_color="#FFFFFF").pack(side="right", padx=self.base_pad_x, pady=self.base_pad_y)
 
-        # --- Subdivide content frame ---
+        # --- Subdivide content frame (now the CTkScrollableFrame) ---
+        # Note: For CTkScrollableFrame, direct children are packed/gridded into its internal canvas.
+        # The grid_columnconfigure and grid_rowconfigure below apply to the layout *within* the scrollable area.
         self.content_frame.grid_columnconfigure(0, weight=1) # Single column for content stack
         self.content_frame.grid_rowconfigure(0, weight=0)  # header_config_frame (row 0)
         self.content_frame.grid_rowconfigure(1, weight=0)  # button_frame (action buttons) (row 1)
-        self.content_frame.grid_rowconfigure(2, weight=1)  # columns_frame (data sections) (row 2) - takes vertical space
+        # For CTkScrollableFrame, it manages its own vertical expansion based on content.
+        # So, row 2 for columns_frame doesn't need 'weight=1' in the same way,
+        # but its content will determine the scrollable height.
+        self.content_frame.grid_rowconfigure(2, weight=0) # columns_frame (data sections) (row 2)
         self.content_frame.grid_rowconfigure(3, weight=0)  # names_frame (row 3)
 
+
         # --- Header configuration (Address, Logo, Settings/Attachments, Date) ---
+        # These are now children of self.content_frame (the CTkScrollableFrame)
         header_config_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
         header_config_frame.grid(row=0, column=0, sticky="ew", padx=self.section_pad_x, pady=(0, 0))
         header_config_frame.grid_columnconfigure((0, 1, 2, 3), weight=1, uniform="header_group") # 4 columns
@@ -594,33 +601,25 @@ class GUIComponents:
         # --- Action buttons (bottom of content) ---
         button_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
         button_frame.grid(row=1, column=0, sticky="ew", padx=self.section_pad_x, pady=(self.base_pad_y, self.section_pad_y // 2)) # row 1 for buttons
-        # --- REMOVED Manage Attachments Button ---
         buttons_data = [
             ("Load (Ctrl+L)", self.file_handler.load_from_documentpdf, "Load data from DOCX/PDF"),
             ("Clear Fields", self.clear_fields, "Clear all input fields"),
             ("Export PDF (Ctrl+E)", self.file_handler.export_to_pdf, "Export as PDF"),
             ("Save Word (Ctrl+W)", self.file_handler.save_to_docx, "Save as DOCX"),
-            # ("Manage Attachments & Send", self.show_email_attachments_window, "Manage extra email attachments & Send"), # REMOVED
         ]
-        # ---------------------------------------
-        num_buttons = len(buttons_data) # Recalculates correctly
-        if num_buttons > 0: # Avoid configuring columns if no buttons left
+        num_buttons = len(buttons_data)
+        if num_buttons > 0:
             button_frame.grid_columnconfigure(tuple(range(num_buttons)), weight=1, uniform="button_group")
 
         for i, (text, command, tooltip_text) in enumerate(buttons_data):
             action_name_simple = text.split('(')[0].strip()
             loading_message = f"{action_name_simple}..."
-
-            # Determine button color (Manage Attachments color logic no longer needed here)
             fg_color = self.BUTTON_FG_COLOR
             hover_color = self.BUTTON_HOVER_COLOR
-
-            # Determine command wrapper
             if command in [self.file_handler.export_to_pdf, self.file_handler.save_to_docx]:
                 actual_command = lambda f=command, name=action_name_simple, msg=loading_message: self._execute_with_loading(f, name, msg)
-            else: # Load, Clear Fields
+            else:
                 actual_command = lambda cmd=command, name=action_name_simple: self._safe_call(cmd, name)
-
             btn = ctk.CTkButton(
                 button_frame, text=text,
                 command=actual_command,
@@ -629,17 +628,18 @@ class GUIComponents:
                 text_color=self.BUTTON_TEXT_COLOR, height=int(self.base_font_size * 2.5)
             )
             btn.grid(row=0, column=i, sticky="ew", padx=self.base_pad_x // 4, pady=self.base_pad_y // 4)
-            # Add tooltip here if needed
 
 
-        # --- Form sections (middle tables - unchanged) ---
+        # --- Form sections (middle tables) ---
         self.columns_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
-        self.columns_frame.grid(row=2, column=0, sticky="nsew", padx=self.section_pad_x // 2, pady=(self.base_pad_y, self.section_pad_y)) # row 2 for columns
+        self.columns_frame.grid(row=2, column=0, sticky="ew", padx=self.section_pad_x // 2, pady=(self.base_pad_y, self.section_pad_y)) # row 2 for columns
         num_data_cols = 5
         min_col_width = int(self.min_input_width * 1.7)
         for i in range(num_data_cols):
             self.columns_frame.grid_columnconfigure(i, weight=1, uniform="data_cols", minsize=min_col_width)
-        self.columns_frame.grid_rowconfigure(0, weight=1)
+        # For CTkScrollableFrame, rowconfigure weight isn't strictly needed for the frame itself to expand.
+        # self.columns_frame.grid_rowconfigure(0, weight=1) # This would make the row inside columns_frame expand if columns_frame had extra space
+
         self.beg_frame = self._create_section_frame("Beginning Cash Balances")
         self.inflow_frame = self._create_section_frame("Cash Inflows")
         self.outflow_frame = self._create_section_frame("Cash Outflows")
@@ -653,12 +653,12 @@ class GUIComponents:
         self.populate_columns()
 
 
-        # --- Names section (Unchanged - already removed Recipients earlier) ---
+        # --- Names section ---
         names_frame = ctk.CTkFrame(
             self.content_frame, corner_radius=8, fg_color=self.FRAME_COLOR,
             border_width=1, border_color=self.BORDER_COLOR,
         )
-        names_frame.grid( row=3, column=0, sticky="ew", padx=self.section_pad_x, pady=(0, 0) )
+        names_frame.grid( row=3, column=0, sticky="ew", padx=self.section_pad_x, pady=(0, self.base_pad_y) ) # Added some bottom padding
         name_fields_data = [
             ("Prepared by (Treasurer):", 'prepared_by_var', "Name of HOA Treasurer"),
             ("Noted by (President):", 'noted_by_var_1', "Name of HOA President"),
@@ -676,19 +676,19 @@ class GUIComponents:
             ctk.CTkLabel(frame, text=label_text, font=("Roboto", self.label_font_size), text_color=self.TEXT_COLOR, anchor="w").grid(row=0, column=0, sticky="ew", pady=(0, self.base_pad_y // 2))
             entry = ctk.CTkEntry(frame, textvariable=self.variables[var_key], font=("Roboto", self.entry_font_size), corner_radius=6, fg_color=self.ENTRY_BG_COLOR, text_color=self.TEXT_COLOR, border_color=self.ENTRY_BORDER_COLOR)
             entry.grid(row=1, column=0, sticky="ew")
-            # Add tooltips if needed
 
+        # Bind configure to main_frame still, as this controls the overall window size changes
         self.main_frame.bind("<Configure>", self.debounce_layout, add="+")
 
 
     def _create_section_frame(self, title):
-        # ... (Remains the same) ...
+        # This frame is a child of self.columns_frame, which is a child of self.content_frame (scrollable)
         frame = ctk.CTkFrame(self.columns_frame, corner_radius=8, fg_color=self.FRAME_COLOR, border_width=1, border_color=self.BORDER_COLOR)
         ctk.CTkLabel(
             frame, text=title, font=("Roboto", self.title_font_size, "bold"),
             text_color=self.TEXT_COLOR, anchor="w"
         ).pack(fill="x", padx=self.base_pad_x * 1.5, pady=(self.base_pad_y * 1.5, self.base_pad_y))
-        content_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        content_frame = ctk.CTkFrame(frame, fg_color="transparent") # This content_frame is local to the section
         content_frame.pack(fill="both", expand=True, padx=self.base_pad_x, pady=(0, self.base_pad_y * 1.5))
         return frame
 
@@ -748,11 +748,17 @@ class GUIComponents:
         self.debounce_id = self.root.after(self.layout_debounce_delay_ms, self.update_layout)
 
     def update_layout(self):
-        # ... (Remains the same) ...
-        self.main_frame.update_idletasks()
-        self.content_frame.update_idletasks()
+        # When self.content_frame is a CTkScrollableFrame, its internal scrollbars
+        # will adjust based on its content size vs its allocated size.
+        # This method might not need to do as much explicit recalculation for elements
+        # *within* the scrollable frame, but updating idletasks is still good.
+        if self.main_frame.winfo_exists():
+            self.main_frame.update_idletasks()
+        if self.content_frame.winfo_exists():
+            self.content_frame.update_idletasks() # For the scrollable frame itself
         logging.debug("Layout updated/recalculated due to window configure event.")
         self.debounce_id = None
+
 
     def clear_fields(self):
         # ... (Remains the same - already updated) ...
@@ -779,7 +785,6 @@ class GUIComponents:
         if 'recipient_emails_var' in self.variables:
              self.variables['recipient_emails_var'].set("")
              logging.info("Cleared recipient email variable.")
-        logging.info(f"Cleared {cleared_count} non-kept StringVar fields.")
         if hasattr(self, 'email_sender') and hasattr(self.email_sender, 'attachments'):
             if self.email_sender.attachments:
                 self.email_sender.attachments.clear()
@@ -825,9 +830,10 @@ if __name__ == '__main__':
     from setting import SettingsManager
     root = ctk.CTk()
     root.title("HOA Cash Flow (Test)")
-    root.geometry("1200x750")
+    root.geometry("1200x750") # Start with a larger size for testing
+    # root.geometry("800x500") # Test with smaller size to see scrollbars
     root.resizable(True, True)
-    root.minsize(900, 600)
+    root.minsize(700, 500) # Reduced minsize to test scrolling earlier
 
     settings_manager = SettingsManager()
     variables = {}
