@@ -387,7 +387,7 @@ class FileHandler:
             try:
                 logo_run = logo_para.add_run()
                     # Scale logo to fit within 1.58-inch column, preserving aspect ratio
-                logo_run.add_picture(logo_path, width=Inches(1.18))  # Slightly less than column width
+                logo_run.add_picture(logo_path, width=Inches(1.18), height = Inches(1.18))  # Slightly less than column width
                 logging.info(f"Included logo in Word header: {logo_path}, scaled to width 1.5 inches")
             except Exception as e:
                 logging.warning(f"Could not add logo picture to Word: {e}")
