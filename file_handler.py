@@ -108,8 +108,11 @@ class FileHandler:
         logo_placeholder_text = ""
         if logo_path and os.path.exists(logo_path):
             try:
-                logo_img = Image(logo_path, width=1.18 * inch, height=1.18 * inch) # Fixed size from DOCX
+                target_w = 1.18 * inch
+                target_h = 1.18 * inch
+                logo_img = Image(logo_path, width=target_w, height=target_h)
                 logo_img.hAlign = 'CENTER'
+                logo_img.vAlign = 'MIDDLE'
             except Exception as e:
                 logging.warning(f"Could not load or process logo image '{logo_path}': {e}")
                 logo_placeholder_text = "[Logo Error]"
@@ -120,30 +123,28 @@ class FileHandler:
 
         header_text_elements = [
             Paragraph(address_text, addressStyle),
-            Spacer(1, 4), 
+            Spacer(1, 12),
             Paragraph("CASH FLOW STATEMENT", titleStyle),
             Paragraph(f"For the Month of {self.format_date_for_display(self.date_var.get())}", dateStyle)
         ]
         
         page_width = folio_size[0] - doc_left_margin - doc_right_margin
-        logo_col_width = 1.58 * inch 
-        text_col_width = page_width - logo_col_width - (0.05*inch) 
+        logo_col_width = 1.58 * inch
+        text_col_width = 4.5 * inch
 
         header_table_data = [[logo_cell_content, header_text_elements]]
-        header_table = Table(header_table_data, colWidths=[logo_col_width, text_col_width], hAlign='LEFT') # ReportLab Table
+        header_table = Table(header_table_data, colWidths=[logo_col_width, text_col_width], hAlign='LEFT', vAlign='LEFT')
         header_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (0,0), 'MIDDLE'), 
-            ('ALIGN', (0,0), (0,0), 'CENTER'),   
-            ('VALIGN', (1,0), (1,0), 'TOP'),    
-            ('ALIGN', (1, 0), (1, 0), 'CENTER'), 
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
             ('LEFTPADDING', (0,0), (-1,-1), 0), ('RIGHTPADDING', (0,0), (-1,-1), 0),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 0), ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0), ('TOPPADDING', (0,0), (-1,-1), 0)
         ]))
         elements.append(header_table)
-        elements.append(Spacer(1, 8)) 
+        elements.append(Spacer(1, 12))
 
-        data_label_width = page_width * 0.70 
-        data_value_width = page_width * 0.30 
+        data_label_width = page_width * 0.65
+        data_value_width = page_width * 0.35
         
         common_table_style_list = [
             ('BOX', (0,0), (-1,-1), 0.5, colors.black), 
@@ -154,8 +155,8 @@ class FileHandler:
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('LEFTPADDING', (0,0), (0,-1), 5), 
             ('RIGHTPADDING', (1,0), (1,-1), 5), 
-            ('TOPPADDING', (0,0), (-1,-1), 2), # Reduced padding
-            ('BOTTOMPADDING', (0,0), (-1,-1), 2), # Reduced padding
+            ('TOPPADDING', (0,0), (-1,-1), 1), # Reduced padding
+            ('BOTTOMPADDING', (0,0), (-1,-1), 1), # Reduced padding
         ]
         
         # Beginning Cash Balances
@@ -247,35 +248,26 @@ class FileHandler:
         noted_name_2 = self.noted_by_var_2.get() or "_______________________"
         checked_name = self.checked_by_var.get() or "_______________________"
         
-        sign_col_width = (page_width / 2) - (0.05 * inch) 
+        col_width = (page_width / 2) - (0.1 * inch)
         
-        # Prepared by / Checked by
         prep_check_data = [
-            [Paragraph(f"Prepared by:<br/><br/><b>{prepared_name}</b><br/>HOA Treasurer", footerStyle)],
-            [Paragraph(f"Checked by:<br/><br/><b>{checked_name}</b><br/>HOA Auditor", footerStyle)]
+            [Paragraph(f"Prepared by:<br/><br/><br/>{prepared_name}<br/>HOA Treasurer", footerStyle)],
+            [Paragraph(f"Checked by:<br/><br/><br/>{checked_name}<br/>HOA Auditor", footerStyle)]
         ]
-        prep_check_table = Table(prep_check_data, colWidths=[sign_col_width, sign_col_width]) # ReportLab Table
-        prep_check_table.setStyle(TableStyle([
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0),(-1,-1), 'TOP'),
-            ('LEFTPADDING', (0,0),(-1,-1),0), ('RIGHTPADDING', (0,0),(-1,-1),0),
-            ('TOPPADDING', (0,0), (-1,-1), 0), ('BOTTOMPADDING', (0,0), (-1,-1), 0)
-        ]))
+        prep_check_table = Table([prep_check_data[0] + prep_check_data[1]], colWidths=[col_width, col_width])
+        prep_check_table.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0),(-1,-1), 'TOP'), ('LEFTPADDING', (0,0),(-1,-1),0), ('RIGHTPADDING', (0,0),(-1,-1),0)]))
         elements.append(prep_check_table)
-        elements.append(Spacer(1, 12)) 
+        elements.append(Spacer(1, 12))
         
-        elements.append(Paragraph("Noted by:", notedStyle)) 
-        elements.append(Spacer(1, 4)) 
+        elements.append(Paragraph("Noted by:", notedStyle))
+        elements.append(Spacer(1, 6))
         
         noted_data = [
-            [Paragraph(f"<b>{noted_name_1}</b><br/>HOA President", footerStyle)],
-            [Paragraph(f"<b>{noted_name_2}</b><br/>CHUDD HCD-CORDS", footerStyle)]
+            [Paragraph(f"<br/><br/>{noted_name_1}<br/>HOA President", footerStyle)],
+            [Paragraph(f"<br/><br/>{noted_name_2}<br/>CHUDD HCD-CORDS", footerStyle)]
         ]
-        noted_table = Table(noted_data, colWidths=[sign_col_width, sign_col_width]) # ReportLab Table
-        noted_table.setStyle(TableStyle([
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0),(-1,-1), 'TOP'),
-            ('LEFTPADDING', (0,0),(-1,-1),0), ('RIGHTPADDING', (0,0),(-1,-1),0),
-            ('TOPPADDING', (0,0), (-1,-1), 0), ('BOTTOMPADDING', (0,0), (-1,-1), 0)
-        ]))
+        noted_table = Table([noted_data[0] + noted_data[1]], colWidths=[col_width, col_width])
+        noted_table.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0),(-1,-1), 'TOP'), ('LEFTPADDING', (0,0),(-1,-1),0), ('RIGHTPADDING', (0,0),(-1,-1),0)]))
         elements.append(noted_table)
         
         return elements
@@ -362,71 +354,85 @@ class FileHandler:
         section.top_margin = Inches(0.5); section.bottom_margin = Inches(0.7)
         section.left_margin = Inches(0.5); section.right_margin = Inches(0.5)
 
+            # --- Header Section ---
         header = section.header
-        header.is_linked_to_previous = False
-        
-        hdr_elm = header._element 
-        for child_elm in list(hdr_elm): 
-            hdr_elm.remove(child_elm)
-        
-        page_content_width = section.page_width - section.left_margin - section.right_margin
+        header.is_linked_to_previous = False  # Ensure header is unique to this section
+# Clear existing default paragraph in header
+        if header.paragraphs:
+            ht = header.paragraphs[0]._element
+            ht.getparent().remove(ht)
 
+# Get logo path and address
         logo_path = self.logo_path_var.get()
         address_text = self.address_var.get() or " "
 
-        header_table = header.add_table(rows=1, cols=2, width=page_content_width) 
-        header_table.autofit = False; header_table.allow_autofit = False
-        
-        logo_col_width_val = Inches(1.58)
-        text_col_width_val = page_content_width - logo_col_width_val
-        if text_col_width_val < Inches(0.5): text_col_width_val = Inches(0.5)
-        
-        header_table.columns[0].width = logo_col_width_val
-        header_table.columns[1].width = text_col_width_val
-        
+# Create a 1x2 table in the header
+        header_table = header.add_table(rows=1, cols=2, width=Inches(6.08))  # Width = Page Width - Margins
+        header_table.autofit = False
+        header_table.allow_autofit = False
+        header_table.alignment = WD_TABLE_ALIGNMENT.LEFT
+
+# Set column widths
+        header_table.columns[0].width = Inches(1.58)  # Width for logo
+        header_table.columns[1].width = Inches(4.5)   # Width for text
+
+# Set cell widths explicitly
         logo_cell = header_table.cell(0, 0)
         text_cell = header_table.cell(0, 1)
-        logo_cell.width = logo_col_width_val; text_cell.width = text_col_width_val
-        logo_cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
-        text_cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.TOP 
+        logo_cell.width = Inches(1.58)
+        text_cell.width = Inches(4.5)
 
-        tc_logo_elm = logo_cell._tc
-        for child_elm in list(tc_logo_elm):
-            tc_logo_elm.remove(child_elm)
-        
+# Set vertical alignment
+        logo_cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+        text_cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+
+# Left Cell (Logo)
+# Remove default paragraph in cell
+        if logo_cell.paragraphs:
+            p = logo_cell.paragraphs[0]._element
+            p.getparent().remove(p)
+# Add logo if path exists
         logo_para = logo_cell.add_paragraph()
-        logo_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        logo_para.alignment = 1  # Center logo in its cell
         if logo_path and os.path.exists(logo_path):
             try:
-                # Separate run creation for clarity in case of add_picture failure
-                run = logo_para.add_run()
-                run.add_picture(logo_path, width=Inches(1.18), height=Inches(1.18)) 
+                logo_run = logo_para.add_run()
+                    # Scale logo to fit within 1.58-inch column, preserving aspect ratio
+                logo_run.add_picture(logo_path, width=Inches(1.18), height = Inches(1.18))  # Slightly less than column width
+                logging.info(f"Included logo in Word header: {logo_path}, scaled to width 1.5 inches")
             except Exception as e:
-                logging.warning(f"Could not add picture {logo_path} to DOCX header: {e}")
-                # Clean the paragraph and add error text
-                p_elm = logo_para._p
-                for r_elm in list(p_elm.xpath('./w:r')): # Remove any existing runs
-                    p_elm.remove(r_elm)
+                logging.warning(f"Could not add logo picture to Word: {e}")
                 logo_para.add_run("[Logo Error]").italic = True
-        elif logo_path: # logo_path is not empty but file doesn't exist
+        elif logo_path:
+            logging.warning(f"Logo path specified but not found for Word: {logo_path}")
             logo_para.add_run("[Logo N/A]").italic = True
-        # If logo_path is empty, logo_para remains an empty, centered paragraph.
+# Else: leave the cell empty
 
-        tc_text_elm = text_cell._tc
-        for child_elm in list(tc_text_elm):
-            tc_text_elm.remove(child_elm)
+# Right Cell (Text)
+# Remove default paragraph
+        if text_cell.paragraphs:
+            p = text_cell.paragraphs[0]._element
+            p.getparent().remove(p)
 
-        p_address = text_cell.add_paragraph()
-        run_address = p_address.add_run(address_text); run_address.font.name = 'Helvetica'; run_address.font.size = Pt(10)
-        p_address.alignment = WD_ALIGN_PARAGRAPH.CENTER; p_address.paragraph_format.space_after = Pt(4)
-        
-        p_title = text_cell.add_paragraph()
-        run_title = p_title.add_run("CASH FLOW STATEMENT"); run_title.font.name = 'Helvetica'; run_title.bold = True; run_title.font.size = Pt(12)
-        p_title.alignment = WD_ALIGN_PARAGRAPH.CENTER; p_title.paragraph_format.space_after = Pt(0)
+# Add Header Text Lines
+        p = text_cell.add_paragraph()
+        run = p.add_run(address_text)  # Add address
+        run.font.name = 'Helvetica'
+        run.font.size = Pt(10)
+        p.alignment = 1  # Center
+  # Small spacer
+        p.add_run("\n")
+        run = p.add_run("\nCASH FLOW STATEMENT")
+        run.font.name = 'Helvetica'
+        run.bold = True
+        run.font.size = Pt(12)
+        p.alignment = 1  # Center
 
-        p_date = text_cell.add_paragraph()
-        run_date = p_date.add_run(f"For the Month of {self.format_date_for_display(self.date_var.get())}"); run_date.font.name = 'Helvetica'; run_date.font.size = Pt(8)
-        p_date.alignment = WD_ALIGN_PARAGRAPH.CENTER; p_date.paragraph_format.space_before = Pt(0); p_date.paragraph_format.space_after = Pt(4)
+        p = text_cell.add_paragraph()
+        run = p.add_run(f"For the Month of {self.format_date_for_display(self.date_var.get())}")
+        run.font.name = 'Helvetica'
+        run.font.size = Pt(8)
+        p.alignment = 1  # Center
 
         def set_cell_style(cell, text, size=8, bold=False, align='left', font='Helvetica'):
             tc_element = cell._tc 
@@ -520,30 +526,51 @@ class FileHandler:
         # Ensure calculated widths are integers (EMUs)
         sign_col_width_val = int((table_content_width / 2) - Inches(0.05))
 
-        prep_check_table = doc.add_table(rows=3, cols=2); prep_check_table.autofit = False
-        prep_check_table.columns[0].width = sign_col_width_val; prep_check_table.columns[1].width = sign_col_width_val
-        prep_check_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        prepared_table = doc.add_table(rows=1, cols=2); prepared_table.autofit = False
+        prepared_table.columns[0].width = sign_col_width_val
+        prepared_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+
+        set_cell_style(prepared_table.cell(0,0), "Prepared by:", align='center', size=8)
+        set_cell_style(prepared_table.cell(0,1), "Checked by:", align='center', size=8)
+
+        paragraph = doc.add_paragraph()
+        run = paragraph.add_run()
+        run.add_text("\u00A0")
+
+        prep_check_table = doc.add_table(rows=2, cols=2)
+        prep_check_table.autofit = False
+        prep_check_table.columns[0].width = sign_col_width_val
+        prep_check_table.columns[1].width = sign_col_width_val
+        prep_check_table.alignment = WD_TABLE_ALIGNMENT.CENTER 
+
+        prep_check_table.rows[0].height = Pt(2)  # Row with signatory names
+        prep_check_table.rows[1].height = Pt(2)
         
         def set_signatory_name_cell(cell, name_text):
             tc_el = cell._tc
             for p_el in tc_el.xpath('./w:p'): tc_el.remove(p_el)
             para = cell.add_paragraph()
-            run = para.add_run("\n" + name_text) 
-            run.font.name = 'Helvetica'; run.font.size = Pt(8); run.bold = True
+            para.paragraph_format.space_before = Pt(0)  # No space before
+            para.paragraph_format.space_after = Pt(0)   # No space after
+            run = para.add_run(name_text)  # Removed "\n" to avoid extra line
+            run.font.name = 'Helvetica'
+            run.font.size = Pt(8)
             para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
 
-        set_cell_style(prep_check_table.cell(0,0), "Prepared by:", align='center', size=8)
-        set_signatory_name_cell(prep_check_table.cell(1,0), prepared_name)
-        set_cell_style(prep_check_table.cell(2,0), "HOA Treasurer", align='center', size=8)
+        set_signatory_name_cell(prep_check_table.cell(0,0), prepared_name)
+        set_cell_style(prep_check_table.cell(1,0), "HOA Treasurer", align='center', size=8)
         
-        set_cell_style(prep_check_table.cell(0,1), "Checked by:", align='center', size=8)
-        set_signatory_name_cell(prep_check_table.cell(1,1), checked_name)
-        set_cell_style(prep_check_table.cell(2,1), "HOA Auditor", align='center', size=8)
+        set_signatory_name_cell(prep_check_table.cell(0,1), checked_name)
+        set_cell_style(prep_check_table.cell(1,1), "HOA Auditor", align='center', size=8)
         
         p_noted_title = doc.add_paragraph(); run_noted_title = p_noted_title.add_run("Noted by:")
         run_noted_title.font.name = 'Helvetica'; run_noted_title.font.size = Pt(8)
-        p_noted_title.alignment = WD_ALIGN_PARAGRAPH.CENTER; p_noted_title.paragraph_format.space_before = Pt(10); p_noted_title.paragraph_format.space_after = Pt(4)
+        p_noted_title.alignment = WD_ALIGN_PARAGRAPH.CENTER; p_noted_title.paragraph_format.space_before = Pt(5); p_noted_title.paragraph_format.space_after = Pt(2)
+
+        paragraph1 = doc.add_paragraph()
+        run = paragraph1.add_run()
+        run.add_text("\u00A0")
 
         noted_table = doc.add_table(rows=2, cols=2); noted_table.autofit = False
         noted_table.columns[0].width = sign_col_width_val; noted_table.columns[1].width = sign_col_width_val
@@ -680,50 +707,44 @@ class FileHandler:
                 "Refund": self.variables['refund'], "Others (Outflow)": self.variables['outflows_others'],
             }
 
-            for table_obj in doc.tables: # docx.Document.tables
-                for row_idx, row in enumerate(table_obj.rows):
+            for table in doc.tables:
+                for row in table.rows:
                     if len(row.cells) >= 2:
                         label = row.cells[0].text.strip()
-                        value_text = row.cells[1].text.strip()
+                        value = row.cells[1].text.strip()
+                        # logging.debug(f"Extracted Label: '{label}', Value: '{value}'") # Debugging
+                        if label.lower().startswith("for the month of"): # Adjusted keyword
+                            try:
+                                lines = value.splitlines()
+                                lines = [line.strip() for line in lines if line.strip()]
+                                # Extract date string after "For the Month of "
+                                date_str_part = label.split("For the Month of", 1)[1].strip()
+                                date_obj = datetime.datetime.strptime(date_str_part, "%B %d, %Y")
+                                self.date_var.set(date_obj.strftime("%m/%d/%Y"))
+                                logging.info(f"Loaded date: {self.date_var.get()}")
+                            except (IndexError, ValueError, TypeError) as e:
+                                logging.warning(f"Could not parse date from header: '{label}', Error: {e}")
+                                # Try parsing just the value if label didn't work
+                                try:
+                                    date_obj = datetime.datetime.strptime(value, "%B %d, %Y")
+                                    self.date_var.set(date_obj.strftime("%m/%d/%Y"))
+                                    logging.info(f"Loaded date from value: {self.date_var.get()}")
+                                except: pass # Ignore if value also fails
+                        if label.lower().startswith("hoa treasurer"): # Adjusted keyword
+                            treasurer = table.rows[0].cells[0].text.strip()
+                            auditor = table.rows[0].cells[1].text.strip()
+                            self.prepared_by_var.set(treasurer)
+                            self.checked_by_var.set(auditor)
+
+                        if label.lower().startswith("hoa president"): # Adjusted keyword
+                            president = table.rows[0].cells[0].text.strip()
+                            Chords = table.rows[0].cells[1].text.strip()
+                            self.noted_by_var_1.set(president)
+                            self.noted_by_var_2.set(Chords)
                         if label in label_to_var_map:
-                            label_to_var_map[label].set(self.parse_amount(value_text))
-                        
-                        if "Prepared by:" in label and row_idx + 2 < len(table_obj.rows): 
-                             name_text = table_obj.cell(row_idx + 1, 0).text.strip()
-                             if name_text and "HOA Treasurer" not in table_obj.cell(row_idx+2, 0).text: self.prepared_by_var.set(name_text.splitlines()[0])
-                        if "Checked by:" in label and row_idx + 2 < len(table_obj.rows) and len(table_obj.columns) > 1:
-                             name_text = table_obj.cell(row_idx + 1, 1).text.strip()
-                             if name_text and "HOA Auditor" not in table_obj.cell(row_idx+2,1).text: self.checked_by_var.set(name_text.splitlines()[0])
-            
-            noted_by_table_found = False
-            # Iterate through body child elements (paragraphs and tables)
-            for i, body_child_element in enumerate(doc.element.body):
-                if body_child_element.tag.endswith('p'): 
-                    current_para_text = ""
-                    # Find the high-level Paragraph object corresponding to this XML element
-                    for p_obj in doc.paragraphs:
-                        if p_obj._element is body_child_element: # Check for identity
-                            current_para_text = p_obj.text
-                            break
-                    
-                    if "noted by:" in current_para_text.lower():
-                        if i + 1 < len(doc.element.body):
-                            next_element = doc.element.body[i+1]
-                            if next_element.tag.endswith('tbl'): 
-                                noted_table_doc = DocxTable(next_element, doc) 
-                                if len(noted_table_doc.rows) >= 2 and len(noted_table_doc.columns) == 2: # Check rows >= 2 for safety
-                                    # Ensure cell text extraction is safe for potentially empty/merged cells
-                                    cell_1_0_text = noted_table_doc.cell(1,0).text.lower() if len(noted_table_doc.rows) > 1 else ""
-                                    cell_1_1_text = noted_table_doc.cell(1,1).text.lower() if len(noted_table_doc.rows) > 1 else ""
-                                    
-                                    if "hoa president" in cell_1_0_text and \
-                                       "chudd" in cell_1_1_text:
-                                        name1_lines = noted_table_doc.cell(0,0).text.strip().splitlines()
-                                        name2_lines = noted_table_doc.cell(0,1).text.strip().splitlines()
-                                        if name1_lines: self.noted_by_var_1.set(name1_lines[0])
-                                        if name2_lines: self.noted_by_var_2.set(name2_lines[0])
-                                        noted_by_table_found = True; break
-            if not noted_by_table_found: logging.warning("DOCX Load: 'Noted by' signatory table not found with expected structure.")
+                            parsed_value = self.parse_amount(value)
+                            label_to_var_map[label].set(parsed_value)
+                            # logging.debug(f"Set {label} to {parsed_value}") # Debugging
 
             messagebox.showinfo("Success", "DOCX data loaded successfully.")
             return True
@@ -740,25 +761,22 @@ class FileHandler:
             address_found = False; date_found = False; logo_extracted = False
 
             label_to_var_map_pdf = {
-                re.sub(r'[^\w\s-]', '', key.lower()): var 
-                for key, var in {
-                    "Cash in Bank-beg": self.variables['cash_bank_beg'], "Cash on Hand-beg": self.variables['cash_hand_beg'],
-                    "Monthly Dues Collected": self.variables['monthly_dues'], "Certifications Issued": self.variables['certifications'],
-                    "Membership Fee": self.variables['membership_fee'], "Vehicle Stickers": self.variables['vehicle_stickers'],
-                    "Rentals": self.variables['rentals'], "Solicitations/Donations": self.variables['solicitations'],
-                    "Interest Income on Bank Deposits": self.variables['interest_income'], "Livelihood Management Fee": self.variables['livelihood_fee'],
-                    "Withdrawal from Bank": self.variables['withdrawal_from_bank'], "Others (Inflow)": self.variables['inflows_others'],
-                    "Snacks/Meals for Visitors": self.variables['snacks_meals'], "Transportation Expenses": self.variables['transportation'],
-                    "Office Supplies Expense": self.variables['office_supplies'], "Printing and Photocopy": self.variables['printing'],
-                    "Labor": self.variables['labor'], "Billboard Expense": self.variables['billboard'],
-                    "Clearing/Cleaning Charges": self.variables['cleaning'], "Miscellaneous Expenses": self.variables['misc_expenses'],
-                    "Federation Fee": self.variables['federation_fee'], "HOA-BOD Uniforms": self.variables['uniforms'], 
-                    "BOD Meeting": self.variables['bod_mtg'], "General Assembly": self.variables['general_assembly'],
-                    "Cash Deposit to Bank": self.variables['cash_deposit'], "Withholding Tax on Bank Deposit": self.variables['withholding_tax'],
-                    "Refund": self.variables['refund'], "Others (Outflow)": self.variables['outflows_others'],
-                }.items()
+                   "Cash in Bank-beg": self.variables['cash_bank_beg'], "Cash on Hand-beg": self.variables['cash_hand_beg'],
+                "Monthly Dues Collected": self.variables['monthly_dues'], "Certifications Issued": self.variables['certifications'],
+                "Membership Fee": self.variables['membership_fee'], "Vehicle Stickers": self.variables['vehicle_stickers'],
+                "Rentals": self.variables['rentals'], "Solicitations/Donations": self.variables['solicitations'],
+                "Interest Income on Bank Deposits": self.variables['interest_income'], "Livelihood Management Fee": self.variables['livelihood_fee'],
+                "Withdrawal from Bank": self.variables['withdrawal_from_bank'], "Others (Inflow)": self.variables['inflows_others'],
+                "Snacks/Meals for Visitors": self.variables['snacks_meals'], "Transportation Expenses": self.variables['transportation'],
+                "Office Supplies Expense": self.variables['office_supplies'], "Printing and Photocopy": self.variables['printing'],
+                "Labor": self.variables['labor'], "Billboard Expense": self.variables['billboard'],
+                "Clearing/Cleaning Charges": self.variables['cleaning'], "Miscellaneous Expenses": self.variables['misc_expenses'],
+                "Federation Fee": self.variables['federation_fee'], "HOA-BOD Uniforms": self.variables['uniforms'],
+                "BOD Meeting": self.variables['bod_mtg'], "General Assembly": self.variables['general_assembly'],
+                "Cash Deposit to Bank": self.variables['cash_deposit'], "Withholding Tax on Bank Deposit": self.variables['withholding_tax'],
+                "Refund": self.variables['refund'], "Others (Outflow)": self.variables['outflows_others'],
             }
-            
+
             with pdfplumber.open(filename) as pdf:
                 first_page = pdf.pages[0]
                 page_text_content = first_page.extract_text(x_tolerance=2, y_tolerance=2) 
@@ -778,46 +796,46 @@ class FileHandler:
                             except ValueError: logging.warning(f"Could not parse date from PDF text: {date_match_pdf.group(1)}")
                 if not address_found: self.address_var.set("Default Address - Change Me")
 
-                for page_num, page in enumerate(pdf.pages):
-                    tables_extracted = page.extract_tables(table_settings={"vertical_strategy": "lines", "horizontal_strategy": "text", "snap_tolerance": 5, "intersection_x_tolerance": 3, "text_x_tolerance":3}) 
-                    if tables_extracted: # Ensure tables_extracted is not None
-                        for table_idx, table_data in enumerate(tables_extracted):
-                            if not table_data: continue
-                            for row_idx, row in enumerate(table_data):
-                                if not row or len(row) < 2 or not row[0]: continue
-                                label_raw = str(row[0]).replace('\n', ' ').strip()
-                                label_normalized = re.sub(r'[^\w\s-]', '', label_raw.lower())
-                                value_raw = str(row[1]).replace('\n', ' ').strip() if len(row) > 1 and row[1] else ""
-                                if label_normalized in label_to_var_map_pdf:
-                                    label_to_var_map_pdf[label_normalized].set(self.parse_amount(value_raw))
+                for page in pdf.pages:
+                    tables = page.extract_tables()
+                    for table_data in tables:
+                        if not table_data: continue
+                        for row in table_data:
+                            if not row or len(row) < 2 or not row[0]: continue
+                            label = str(row[0]).replace('\n', ' ').strip()
+                            value = str(row[1]).replace('\n', ' ').strip() if len(row) > 1 and row[1] else ""
+                            if label in label_to_var_map_pdf:
+                                label_to_var_map_pdf[label].set(self.parse_amount(value))
                 
                 full_text_for_names = "".join([p.extract_text(x_tolerance=1, y_tolerance=1, layout=True) or "" for p in pdf.pages]) 
-                
-                if not self.prepared_by_var.get():
-                    prepared_match = re.search(r"Prepared by:\s*([\s\S]*?)\s*HOA Treasurer", full_text_for_names, re.IGNORECASE)
-                    if prepared_match: 
-                        name_lines = prepared_match.group(1).strip().splitlines()
-                        if name_lines: self.prepared_by_var.set(name_lines[-1].strip()) 
-                if not self.checked_by_var.get():
-                    checked_match = re.search(r"Checked by:\s*([\s\S]*?)\s*HOA Auditor", full_text_for_names, re.IGNORECASE)
-                    if checked_match: 
-                        name_lines = checked_match.group(1).strip().splitlines()
-                        if name_lines: self.checked_by_var.set(name_lines[-1].strip())
-                
-                if not self.noted_by_var_1.get() or not self.noted_by_var_2.get():
-                    noted_by_block_match = re.search(r"Noted by:\s*([\s\S]*?)(?=Prepared by:|Checked by:|$)", full_text_for_names, re.IGNORECASE) 
-                    if noted_by_block_match:
-                        noted_block_text = noted_by_block_match.group(1)
-                        if not self.noted_by_var_1.get():
-                            noted1_m = re.search(r"([\w\s.]+?)\s*HOA President", noted_block_text, re.IGNORECASE | re.DOTALL)
-                            if noted1_m: 
-                                name_lines = noted1_m.group(1).strip().splitlines()
-                                if name_lines: self.noted_by_var_1.set(name_lines[-1].strip())
-                        if not self.noted_by_var_2.get():
-                            noted2_m = re.search(r"([\w\s.]+?)\s*CHUDD HCD-CORDS", noted_block_text, re.IGNORECASE | re.DOTALL)
-                            if noted2_m: 
-                                name_lines = noted2_m.group(1).strip().splitlines()
-                                if name_lines: self.noted_by_var_2.set(name_lines[-1].strip())
+                try:
+                    camelot_tables = camelot.read_pdf(filename, flavor="stream", pages="all", table_areas=["0,200,612,0"], row_tol=15, column_tol=15, split_text=True, strip_text='\n') # Bottom part of page
+                    for table in camelot_tables:
+                        df = table.df
+                        for r_idx in range(len(df)):
+                            for c_idx in range(len(df.columns)):
+                                cell_text = str(df.iloc[r_idx, c_idx]).strip()
+                                if "HOA Treasurer" in cell_text:
+                                    self.prepared_by_var.set(cell_text.replace("HOA Treasurer", "").strip())
+                                elif "HOA Auditor" in cell_text:
+                                    self.checked_by_var.set(cell_text.replace("HOA Auditor", "").strip())
+                                elif "HOA President" in cell_text and "Noted by:" not in cell_text : # Avoid title
+                                    self.noted_by_var_1.set(cell_text.replace("HOA President", "").strip())
+                                elif "CHUDD HCD-CORDS" in cell_text and "Noted by:" not in cell_text :
+                                    self.noted_by_var_2.set(cell_text.replace("CHUDD HCD-CORDS", "").strip())
+                except Exception as e_camelot:
+                    logging.warning(f"Camelot extraction for signatories failed or found no tables: {e_camelot}")
+                    # Fallback to simple text search if Camelot fails or specific structure not found
+                    full_text_for_names = "".join([p.extract_text() or "" for p in pdf.pages])
+                    # Simplified regex, might need adjustment
+                    prepared_match = re.search(r"Prepared by:\s*([^\n]+)\s*HOA Treasurer", full_text_for_names, re.IGNORECASE)
+                    if prepared_match: self.prepared_by_var.set(prepared_match.group(1).strip())
+                    checked_match = re.search(r"Checked by:\s*([^\n]+)\s*HOA Auditor", full_text_for_names, re.IGNORECASE)
+                    if checked_match: self.checked_by_var.set(checked_match.group(1).strip())
+                    noted1_match = re.search(r"([^\n]+)\s*HOA President", full_text_for_names, re.IGNORECASE) # Be careful this doesn't match "Noted by:" itself
+                    if noted1_match and "noted by" not in noted1_match.group(1).lower(): self.noted_by_var_1.set(noted1_match.group(1).strip())
+                    noted2_match = re.search(r"([^\n]+)\s*CHUDD HCD-CORDS", full_text_for_names, re.IGNORECASE)
+                    if noted2_match and "noted by" not in noted2_match.group(1).lower(): self.noted_by_var_2.set(noted2_match.group(1).strip())
             
             if not logo_extracted:
                 doc_fitz = fitz.open(filename)
