@@ -47,6 +47,7 @@ class CashFlowApp:
             'solicitations': tk.StringVar(),
             'interest_income': tk.StringVar(),
             'livelihood_fee': tk.StringVar(),
+            'withdrawal_from_bank': tk.StringVar(), # ADDED for new inflow item
             'inflows_others': tk.StringVar(),
             'total_receipts': tk.StringVar(),
             'cash_outflows': tk.StringVar(),
@@ -80,7 +81,7 @@ class CashFlowApp:
         from gui_components import GUIComponents
 
         self.calculator = CashFlowCalculator(self.variables)
-        self.file_handler = FileHandler( # FileHandler still doesn't need settings_manager directly
+        self.file_handler = FileHandler( 
             self.variables,
             self.variables['title_var'],
             self.variables['date_var'],
@@ -90,15 +91,12 @@ class CashFlowApp:
             self.variables['noted_by_var_1'],
             self.variables['noted_by_var_2'],
             self.variables['checked_by_var']
-            # No settings_manager passed here
         )
-        # --- Update EmailSender instantiation ---
         self.email_sender = EmailSender(
-            settings_manager=self.settings_manager, # Pass the manager instance
+            settings_manager=self.settings_manager, 
             recipient_emails_var=self.variables['recipient_emails_var'],
             file_handler=self.file_handler
         )
-        # ---------------------------------------
         self.gui = GUIComponents(
             self.root,
             self.variables,
@@ -108,7 +106,7 @@ class CashFlowApp:
             self.calculator,
             self.file_handler,
             self.email_sender,
-            self.settings_manager # GUIComponents still needs settings_manager for its own Settings button
+            self.settings_manager 
         )
 
 # --- END OF FILE cash_flow_app.py ---

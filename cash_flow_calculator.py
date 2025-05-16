@@ -1,3 +1,5 @@
+# --- START OF FILE cash_flow_calculator.py ---
+
 from decimal import Decimal
 import customtkinter as ctk
 
@@ -8,12 +10,12 @@ class CashFlowCalculator:
             variables['cash_bank_beg'], variables['cash_hand_beg'], variables['monthly_dues'],
             variables['certifications'], variables['membership_fee'], variables['vehicle_stickers'],
             variables['rentals'], variables['solicitations'], variables['interest_income'],
-            variables['livelihood_fee'], variables['inflows_others'], variables['snacks_meals'],
-            variables['transportation'], variables['office_supplies'], variables['printing'],
-            variables['labor'], variables['billboard'], variables['cleaning'], variables['misc_expenses'],
-            variables['federation_fee'], variables['uniforms'], variables['bod_mtg'],
-            variables['general_assembly'], variables['cash_deposit'], variables['withholding_tax'],
-            variables['refund'], variables['outflows_others']
+            variables['livelihood_fee'], variables['withdrawal_from_bank'], variables['inflows_others'], # ADDED withdrawal_from_bank
+            variables['snacks_meals'], variables['transportation'], variables['office_supplies'],
+            variables['printing'], variables['labor'], variables['billboard'], variables['cleaning'],
+            variables['misc_expenses'], variables['federation_fee'], variables['uniforms'],
+            variables['bod_mtg'], variables['general_assembly'], variables['cash_deposit'],
+            variables['withholding_tax'], variables['refund'], variables['outflows_others']
         ]
         for var in self.input_vars:
             var.trace_add('write', lambda *args: self.calculate_totals())
@@ -39,6 +41,7 @@ class CashFlowCalculator:
                 self.safe_decimal(self.variables['solicitations']),
                 self.safe_decimal(self.variables['interest_income']),
                 self.safe_decimal(self.variables['livelihood_fee']),
+                self.safe_decimal(self.variables['withdrawal_from_bank']), # ADDED
                 self.safe_decimal(self.variables['inflows_others'])
             ])
 
@@ -55,7 +58,7 @@ class CashFlowCalculator:
                 self.safe_decimal(self.variables['uniforms']),
                 self.safe_decimal(self.variables['bod_mtg']),
                 self.safe_decimal(self.variables['general_assembly']),
-                self.safe_decimal(self.variables['cash_deposit']),
+                self.safe_decimal(self.variables['cash_deposit']), # cash_deposit is part of total outflows
                 self.safe_decimal(self.variables['withholding_tax']),
                 self.safe_decimal(self.variables['refund']),
                 self.safe_decimal(self.variables['outflows_others'])
@@ -63,13 +66,23 @@ class CashFlowCalculator:
 
             beginning_total = self.safe_decimal(self.variables['cash_bank_beg']) + self.safe_decimal(self.variables['cash_hand_beg'])
             ending_balance = beginning_total + inflow_total - outflow_total
+
             self.variables['total_receipts'].set(f"{inflow_total:,.2f}")
             self.variables['cash_outflows'].set(f"{outflow_total:,.2f}")
             self.variables['ending_cash'].set(f"{ending_balance:,.2f}")
-            ending_cash_bank = self.safe_decimal(self.variables['cash_bank_beg'])
-            ending_cash_hand = ending_balance - ending_cash_bank
-            self.variables['ending_cash_bank'].set(f"{ending_cash_bank:,.2f}")
-            self.variables['ending_cash_hand'].set(f"{ending_cash_hand:,.2f}")
+
+            # --- MODIFIED CALCULATION for ending_cash_bank and ending_cash_hand ---
+            ending_cash_bank_calculated = (
+                self.safe_decimal(self.variables['cash_bank_beg']) +
+                self.safe_decimal(self.variables['cash_deposit']) -      # "Cash deposit must plus Cash in bank"
+                self.safe_decimal(self.variables['withdrawal_from_bank']) # "Withdrawal must minus Cash in bank"
+            )
+            self.variables['ending_cash_bank'].set(f"{ending_cash_bank_calculated:,.2f}")
+
+            ending_cash_hand_calculated = ending_balance - ending_cash_bank_calculated
+            self.variables['ending_cash_hand'].set(f"{ending_cash_hand_calculated:,.2f}")
+            # --- END OF MODIFICATION ---
+
         except Exception:
             self.variables['total_receipts'].set("")
             self.variables['cash_outflows'].set("")
@@ -89,3 +102,5 @@ class CashFlowCalculator:
                     pass
         var.trace_add('write', on_change)
         entry_widget.configure(justify="right")
+
+# --- END OF FILE cash_flow_calculator.py ---
