@@ -193,4 +193,4 @@ class CashFlowCalculator:
         entry_widget.bind("<FocusOut>", on_focus_out)
         entry_widget.configure(justify="right")
 
-# --- END OF FILE cash_flow_calculator.py ---
+# --- END OF FILE cash_flow_calculator.py ----
