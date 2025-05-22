@@ -66,7 +66,7 @@ class SettingsManager:
         logging.info(f"SettingsManager initialized. Settings file path: {self.settings_file}")
         self.settings = {
             "sender_email": "chuddcdo@gmail.com",
-            "sender_password": "jfyb eoog ukxr hhiq",
+            "sender_password": "oaki rktd kgqx cpwt",
             "username": "user",
             "password": "123"
         }
