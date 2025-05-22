@@ -106,7 +106,7 @@ The HOA Cash Flow Statement Generator is a desktop application designed to help 
 ### Email Sender Credentials (for "Manage Attachments & Send")
 
 *   The application is configured to use Gmail for sending emails.
-*   **Default**: `chuddcdo@gmail.com` with an App Password `jfyb eoog ukxr hhiq`.
+*   **Default**: `chuddcdo@gmail.com` 
 *   **To change**:
     1.  Go to "Account Settings".
     2.  Enter your Gmail address in "Sender Email".
